@@ -131,6 +131,8 @@ let rumbleShadePoof = false; // opponent turned to smoke
 let rumbleSmokeParticles = []; // smoke puff particles
 let rumbleShadeComboHit = 0; // which hit in the combo we're on
 let rumbleShadeBrush = false; // Shade brushing shoulder
+let rumbleBojdoPhase = 0; // 0=shrink, 1=scurry, 2=under, 3=grow, 4=launched, 5=done
+let rumbleBojdoLaunchVy = 0; // opponent launch velocity
 let bojdoUnlocked = false;
 let bojdobojdoUnlocked = false;
 let bojdoCodeBuffer = '';
@@ -764,7 +766,9 @@ const characterRumbles = {
   'VENOM': { name: "YOU'VE BEEN PARDONED", code: 'acidic', desc: 'Spit acid that melts the opponent into goo' },
   'SURGE': { name: 'MR. ELECTRIC BOOM', code: 'battery', desc: 'Overcharge the opponent until they explode in light' },
   'TITAN': { name: 'AND WHAT ARE YOU SINKING ABOUT?', code: 'soiled', desc: 'Summon a sinkhole that swallows the opponent' },
-  'SHADE': { name: 'WANTED THE SMOKE, GOT THE SMOKE', code: 'shadow', desc: 'Martial arts combo finishes opponent into a puff of smoke' }
+  'SHADE': { name: 'WANTED THE SMOKE, GOT THE SMOKE', code: 'shadow', desc: 'Martial arts combo finishes opponent into a puff of smoke' },
+  'BOJDO': { name: 'DEATH FROM BELOW', code: 'pellet', desc: 'Shrink tiny, get under them, and grow to launch them skyward' },
+  'BOJDOBOJDO': { name: 'DEATH FROM BELOW', code: 'pellet', desc: 'Shrink tiny, get under them, and grow to launch them skyward' }
 };
 
 const characterCombos = {
@@ -6305,6 +6309,7 @@ function handleKeyPress(key) {
         rumbleLightBurst = null; rumbleLightParticles = []; rumbleZapActive = false;
         rumbleSinkhole = null; rumbleSinkProgress = 0; rumbleDirtParticles = [];
         rumbleShadePoof = false; rumbleSmokeParticles = []; rumbleShadeComboHit = 0; rumbleShadeBrush = false;
+        rumbleBojdoPhase = 0; rumbleBojdoLaunchVy = 0;
         if (player) player._brushArmT = undefined;
         if (cpu) cpu._brushArmT = undefined;
       }
@@ -6338,6 +6343,7 @@ function handleKeyPress(key) {
         rumbleLightBurst = null; rumbleLightParticles = []; rumbleZapActive = false;
         rumbleSinkhole = null; rumbleSinkProgress = 0; rumbleDirtParticles = [];
         rumbleShadePoof = false; rumbleSmokeParticles = []; rumbleShadeComboHit = 0; rumbleShadeBrush = false;
+        rumbleBojdoPhase = 0; rumbleBojdoLaunchVy = 0;
         if (player) player._brushArmT = undefined;
         if (cpu) cpu._brushArmT = undefined;
       }
@@ -6369,6 +6375,7 @@ function startFight() {
         rumbleLightBurst = null; rumbleLightParticles = []; rumbleZapActive = false;
         rumbleSinkhole = null; rumbleSinkProgress = 0; rumbleDirtParticles = [];
         rumbleShadePoof = false; rumbleSmokeParticles = []; rumbleShadeComboHit = 0; rumbleShadeBrush = false;
+        rumbleBojdoPhase = 0; rumbleBojdoLaunchVy = 0;
         if (player) player._brushArmT = undefined;
         if (cpu) cpu._brushArmT = undefined;
 }
@@ -11485,6 +11492,91 @@ function update() {
         }
       }
 
+      if (rumbleType === 'BOJDO' || rumbleType === 'BOJDOBOJDO') {
+        // Bojdo "Death from below": 300 frames total
+        // 0-40: Bojdo shrinks to tiny size
+        // 40-90: Tiny Bojdo scurries under the opponent
+        // 90-110: Pause underneath
+        // 110-180: Grows back to normal, launching opponent upward
+        // 180-240: Opponent flies offscreen
+        // 240-300: Bojdo stands triumphant
+        const shrinkEnd = 40;
+        const scurryEnd = 90;
+        const pauseEnd = 110;
+        const growEnd = 180;
+        const endFrame = 300;
+
+        const dir = loseFighter.x > winFighter.x ? 1 : -1;
+        winFighter.facing = dir;
+
+        if (rumbleTimer <= shrinkEnd) {
+          // Shrink phase: Bojdo gets tiny
+          winFighter.vx = 0;
+          winFighter.state = 'idle';
+          const t = rumbleTimer / shrinkEnd;
+          winFighter.bojdoScale = Math.max(0.15, 1 - t * 0.85);
+        } else if (rumbleTimer <= scurryEnd) {
+          // Scurry phase: tiny Bojdo runs toward opponent
+          winFighter.state = 'walk';
+          winFighter.bojdoScale = 0.15;
+          const targetX = loseFighter.x;
+          const dist = targetX - winFighter.x;
+          if (Math.abs(dist) > 5) {
+            const speed = 4;
+            winFighter.x += dist > 0 ? speed : -speed;
+            winFighter.facing = dist > 0 ? 1 : -1;
+          } else {
+            winFighter.x = targetX;
+          }
+          winFighter.vx = 0;
+        } else if (rumbleTimer <= pauseEnd) {
+          // Pause underneath: centered under opponent
+          winFighter.vx = 0;
+          winFighter.x = loseFighter.x;
+          winFighter.state = 'idle';
+          winFighter.bojdoScale = 0.15;
+        } else if (rumbleTimer <= growEnd) {
+          // Grow phase: expand back to full size, pushing opponent up
+          winFighter.vx = 0;
+          winFighter.x = loseFighter.x;
+          winFighter.state = 'idle';
+          const growT = (rumbleTimer - pauseEnd) / (growEnd - pauseEnd);
+          const easeGrow = growT * growT; // accelerating growth
+          winFighter.bojdoScale = 0.15 + easeGrow * 0.85;
+
+          // Push the loser upward as Bojdo grows
+          if (growT < 0.8) {
+            loseFighter.y = loseFighter.groundY - growT * 80;
+            loseFighter.grounded = false;
+          }
+          // At full size, launch!
+          if (rumbleTimer === growEnd) {
+            rumbleBojdoLaunchVy = -18;
+            shakeTimer = 15;
+            shakeIntensity = 10;
+          }
+        } else {
+          // Post-launch: opponent flies offscreen, Bojdo stands proud
+          winFighter.vx = 0;
+          winFighter.state = 'idle';
+          winFighter.bojdoScale = 1.0;
+
+          // Launch the loser upward — no gravity, they fly offscreen
+          if (!rumbleLoserHidden) {
+            loseFighter.y += rumbleBojdoLaunchVy;
+            loseFighter.vy = rumbleBojdoLaunchVy; // override so gravity code doesn't pull them back
+            loseFighter.grounded = false;
+            if (loseFighter.y < -150) {
+              rumbleLoserHidden = true;
+            }
+          }
+        }
+
+        if (rumbleTimer >= endFrame) {
+          gameState = 'victory';
+        }
+      }
+
       // Animate winner
       winFighter.animTimer++;
       if (winFighter.animTimer > 8) { winFighter.animTimer = 0; winFighter.animFrame = (winFighter.animFrame + 1) % 4; }
@@ -11515,8 +11607,9 @@ function update() {
     }
     loseFighter.animTimer++;
     if (loseFighter.animTimer > 8) { loseFighter.animTimer = 0; loseFighter.animFrame = (loseFighter.animFrame + 1) % 4; }
-    // Apply gravity so loser lands if airborne
-    if (!loseFighter.grounded) {
+    // Apply gravity so loser lands if airborne (skip during Bojdo launch)
+    const bojdoLaunching = (rumbleType === 'BOJDO' || rumbleType === 'BOJDOBOJDO') && rumbleActive && rumbleTimer > 110;
+    if (!loseFighter.grounded && !bojdoLaunching) {
       loseFighter.vy += 0.6;
       loseFighter.y += loseFighter.vy;
       if (loseFighter.y >= loseFighter.groundY) {
@@ -11608,6 +11701,53 @@ function drawRumbleAnimation() {
   if (rumbleType === 'SHADE') {
     drawShadeRumble(loseFighter, winFighter);
   }
+  if (rumbleType === 'BOJDO' || rumbleType === 'BOJDOBOJDO') {
+    drawBojdoRumble(loseFighter, winFighter);
+  }
+}
+
+function drawBojdoRumble(loseFighter, winFighter) {
+  ctx.save();
+  const growStart = 110;
+  const growEnd = 180;
+
+  // Dust cloud when growing back
+  if (rumbleTimer > growStart && rumbleTimer <= growEnd + 20) {
+    const growT = Math.min(1, (rumbleTimer - growStart) / (growEnd - growStart));
+    // Ground dust billowing outward
+    ctx.globalAlpha = 0.4 * (1 - Math.max(0, (rumbleTimer - growEnd) / 20));
+    for (let i = 0; i < 6; i++) {
+      const angle = (i / 6) * Math.PI + Math.sin(rumbleTimer * 0.1 + i) * 0.3;
+      const dist = growT * 40 + Math.sin(rumbleTimer * 0.15 + i * 1.5) * 10;
+      const dx = winFighter.x + Math.cos(angle) * dist;
+      const dy = winFighter.y + 5 - Math.abs(Math.sin(angle)) * 10;
+      const dSize = 5 + growT * 8;
+      ctx.fillStyle = '#8B7355';
+      ctx.beginPath();
+      ctx.arc(dx, dy, dSize, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // Screen shake lines during growth (impact feel)
+  if (rumbleTimer === growEnd) {
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 3;
+    ctx.globalAlpha = 0.6;
+    for (let i = 0; i < 8; i++) {
+      const angle = (i / 8) * Math.PI * 2;
+      const r1 = 30;
+      const r2 = 60 + Math.random() * 30;
+      ctx.beginPath();
+      ctx.moveTo(winFighter.x + Math.cos(angle) * r1, winFighter.y - 30 + Math.sin(angle) * r1);
+      ctx.lineTo(winFighter.x + Math.cos(angle) * r2, winFighter.y - 30 + Math.sin(angle) * r2);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  ctx.restore();
 }
 
 function drawBlazeRumble(loseFighter) {
