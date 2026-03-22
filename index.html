@@ -4589,8 +4589,41 @@ class Fighter {
       drawArm(f, 8);   // front arm hits first
     } else {
       // Back arm
-      const backArmEndX = -f * (28 * ptArmLen);
-      const backArmEndY = armY + backArmLen + Math.sin(bob * 0.5) * 3;
+      let backArmEndX = -f * (28 * ptArmLen);
+      let backArmEndY = armY + backArmLen + Math.sin(bob * 0.5) * 3;
+
+      // Brush override: back arm crosses over to far shoulder
+      if (this._brushArmT !== undefined && this._brushArmT >= 0) {
+        const bt = this._brushArmT;
+        // Far shoulder position (front shoulder, on the f side)
+        const farShX = f * 8;
+        const farShY = armY + 2;
+        // Rest position
+        const defX = backArmEndX;
+        const defY = backArmEndY;
+        // Sweep end (past the far shoulder outward)
+        const sweepEndX = f * 28;
+        const sweepEndY = armY + 2;
+
+        if (bt < 0.25) {
+          // Raise to far shoulder
+          const t = bt / 0.25;
+          const ease = t * t;
+          backArmEndX = defX + (farShX - defX) * ease;
+          backArmEndY = defY + (farShY - defY) * ease;
+        } else if (bt < 0.55) {
+          // Sweep across shoulder
+          const t = (bt - 0.25) / 0.3;
+          backArmEndX = farShX + (sweepEndX - farShX) * t;
+          backArmEndY = farShY - Math.sin(t * Math.PI) * 3;
+        } else {
+          // Lower back to rest
+          const t = Math.min(1, (bt - 0.55) / 0.45);
+          backArmEndX = sweepEndX + (defX - sweepEndX) * t;
+          backArmEndY = sweepEndY + (defY - sweepEndY) * t;
+        }
+      }
+
       ctx.strokeStyle = outline;
       ctx.lineWidth = isPaletap ? 7 : isBuck ? 9 : 6;
       ctx.beginPath();
@@ -6272,6 +6305,8 @@ function handleKeyPress(key) {
         rumbleLightBurst = null; rumbleLightParticles = []; rumbleZapActive = false;
         rumbleSinkhole = null; rumbleSinkProgress = 0; rumbleDirtParticles = [];
         rumbleShadePoof = false; rumbleSmokeParticles = []; rumbleShadeComboHit = 0; rumbleShadeBrush = false;
+        if (player) player._brushArmT = undefined;
+        if (cpu) cpu._brushArmT = undefined;
       }
       // Rumble code input (only when not paused and no rumble active)
       if (!paused && !rumbleActive && winner === 'player') {
@@ -6303,6 +6338,8 @@ function handleKeyPress(key) {
         rumbleLightBurst = null; rumbleLightParticles = []; rumbleZapActive = false;
         rumbleSinkhole = null; rumbleSinkProgress = 0; rumbleDirtParticles = [];
         rumbleShadePoof = false; rumbleSmokeParticles = []; rumbleShadeComboHit = 0; rumbleShadeBrush = false;
+        if (player) player._brushArmT = undefined;
+        if (cpu) cpu._brushArmT = undefined;
       }
       break;
   }
@@ -6332,6 +6369,8 @@ function startFight() {
         rumbleLightBurst = null; rumbleLightParticles = []; rumbleZapActive = false;
         rumbleSinkhole = null; rumbleSinkProgress = 0; rumbleDirtParticles = [];
         rumbleShadePoof = false; rumbleSmokeParticles = []; rumbleShadeComboHit = 0; rumbleShadeBrush = false;
+        if (player) player._brushArmT = undefined;
+        if (cpu) cpu._brushArmT = undefined;
 }
 
 // --- DRAWING FUNCTIONS ---
@@ -11324,8 +11363,8 @@ function update() {
         const comboEnd = 160;
         const windupEnd = 170;
         const poofFrame = 175;
-        const brushStart = 200;
-        const endFrame = 360;
+        const brushStart = 290;
+        const endFrame = 420;
 
         const dir = loseFighter.x > winFighter.x ? 1 : -1;
         winFighter.facing = dir;
@@ -11335,9 +11374,9 @@ function update() {
         const comboHits = [0, 15, 28, 39, 48, 56, 63, 69, 74, 79, 84, 89, 94, 99, 104, 109, 114, 118, 122, 126];
 
         if (rumbleTimer < walkEnd) {
-          // Walk toward opponent
+          // Walk toward opponent — stop at 85px so punches/kicks are visible
           const dist = Math.abs(winFighter.x - loseFighter.x);
-          if (dist > 50) {
+          if (dist > 85) {
             winFighter.vx = dir * 3;
             winFighter.x += winFighter.vx;
             winFighter.state = 'walk';
@@ -11355,16 +11394,25 @@ function update() {
           if (hitIndex !== -1) {
             rumbleShadeComboHit = hitIndex + 1;
             winFighter.state = 'attack';
+            // Cycle through attack types so the animation shows different moves
+            const moveOrder = [attacks.jab, attacks.lowKick, attacks.uppercut, attacks.highKick];
+            winFighter.currentAttack = moveOrder[hitIndex % moveOrder.length];
+            winFighter.attackFrame = 0;
             // Small screen shake on each hit
             shakeTimer = 3;
             shakeIntensity = 2 + Math.floor(hitIndex / 5);
             // Flash the loser
             loseFighter.flashTimer = 4;
           } else {
-            // Between hits — brief idle frames for visual rhythm
-            const lastHit = comboHits.filter(h => h <= comboFrame).pop() || 0;
-            if (comboFrame - lastHit > 4) {
-              winFighter.state = 'idle';
+            // Between hits — advance the attack animation frame
+            if (winFighter.state === 'attack' && winFighter.currentAttack) {
+              winFighter.attackFrame++;
+              const total = winFighter.currentAttack.startup + winFighter.currentAttack.active + winFighter.currentAttack.recovery;
+              if (winFighter.attackFrame >= total) {
+                winFighter.state = 'idle';
+                winFighter.currentAttack = null;
+                winFighter.attackFrame = 0;
+              }
             }
           }
         } else if (rumbleTimer >= comboEnd && rumbleTimer < windupEnd) {
@@ -11374,6 +11422,8 @@ function update() {
         } else if (rumbleTimer === poofFrame) {
           // Final hard jab — opponent turns to smoke!
           winFighter.state = 'attack';
+          winFighter.currentAttack = attacks.jab;
+          winFighter.attackFrame = 0;
           shakeTimer = 15;
           shakeIntensity = 10;
           rumbleShadePoof = true;
@@ -11395,14 +11445,26 @@ function update() {
             });
           }
         } else if (rumbleTimer > poofFrame && rumbleTimer < brushStart) {
-          // Post-poof pause
+          // Post-poof: let final jab animation finish, then idle
           winFighter.vx = 0;
-          winFighter.state = 'idle';
+          if (winFighter.state === 'attack' && winFighter.currentAttack) {
+            winFighter.attackFrame++;
+            const total = winFighter.currentAttack.startup + winFighter.currentAttack.active + winFighter.currentAttack.recovery;
+            if (winFighter.attackFrame >= total) {
+              winFighter.state = 'idle';
+              winFighter.currentAttack = null;
+              winFighter.attackFrame = 0;
+            }
+          }
         } else if (rumbleTimer >= brushStart) {
-          // Brush dust off shoulder — idle pose
+          // Brush dust off shoulder — idle pose with arm override
           winFighter.vx = 0;
           winFighter.state = 'idle';
+          winFighter.currentAttack = null;
           rumbleShadeBrush = true;
+          // Set brush arm progress (0 to 1 over 80 frames)
+          const brushProgress = Math.min(1, (rumbleTimer - brushStart) / 80);
+          winFighter._brushArmT = brushProgress;
         }
 
         // Update smoke particles
@@ -11414,7 +11476,7 @@ function update() {
           p.vx *= 0.98;
           p.size += p.growRate; // smoke expands
           p.growRate *= 0.97; // expansion slows
-          p.alpha = Math.max(0, p.alpha - 0.005);
+          p.alpha = Math.max(0, p.alpha - 0.01);
           if (p.alpha <= 0) rumbleSmokeParticles.splice(i, 1);
         }
 
@@ -11662,25 +11724,22 @@ function drawShadeRumble(loseFighter, winFighter) {
     ctx.restore();
   }
 
-  // Shoulder brush animation
+  // Dust particles during shoulder brush
   if (rumbleShadeBrush) {
-    const brushTimer = rumbleTimer - 200;
-    if (brushTimer > 0 && brushTimer < 60) {
-      // Draw a small hand/motion near Shade's shoulder
-      const bx = winFighter.x - winFighter.facing * 10;
-      const by = winFighter.y - 45;
-      const brushPhase = Math.min(1, brushTimer / 20);
-      const brushBack = brushTimer > 30 ? Math.min(1, (brushTimer - 30) / 20) : 0;
-      const handOffset = brushPhase * 12 - brushBack * 8;
-
-      // Dust particles flicked off shoulder
-      ctx.globalAlpha = Math.max(0, 1 - brushTimer / 50);
-      for (let i = 0; i < 3; i++) {
-        const dx = bx - winFighter.facing * (handOffset + i * 5 + brushTimer * 0.3);
-        const dy = by - i * 2 + Math.sin(brushTimer * 0.2 + i) * 3;
-        ctx.fillStyle = '#888';
+    const brushTimer = rumbleTimer - 290;
+    if (brushTimer > 20 && brushTimer < 50) {
+      const f = winFighter.facing;
+      const shoulderX = winFighter.x + f * 8;
+      const shoulderY = winFighter.y - 46;
+      ctx.globalAlpha = Math.max(0, 1 - (brushTimer - 20) / 35);
+      for (let i = 0; i < 4; i++) {
+        const dustAge = (brushTimer - 20 + i * 3);
+        const dx = shoulderX + f * dustAge * 0.6;
+        const dy = shoulderY - dustAge * 0.2 - i * 2;
+        const dSize = Math.max(0.5, 2 - dustAge * 0.02);
+        ctx.fillStyle = '#aaa';
         ctx.beginPath();
-        ctx.arc(dx, dy, 1.5 - i * 0.3, 0, Math.PI * 2);
+        ctx.arc(dx, dy, dSize, 0, Math.PI * 2);
         ctx.fill();
       }
       ctx.globalAlpha = 1;
