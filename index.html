@@ -132,8 +132,12 @@ let rumbleShadePoof = false; // opponent turned to smoke
 let rumbleSmokeParticles = []; // smoke puff particles
 let rumbleShadeComboHit = 0; // which hit in the combo we're on
 let rumbleShadeBrush = false; // Shade brushing shoulder
-let rumbleBojdoPhase = 0; // 0=shrink, 1=scurry, 2=under, 3=grow, 4=launched, 5=done
-let rumbleBojdoLaunchVy = 0; // opponent launch velocity
+let rumbleBojdoPhase = 0;
+let rumbleBojdoLaunchVy = 0;
+let rumbleTetherAngle = 0; // current swing angle for Tetherball
+let rumbleTetherSlams = 0; // number of slams done
+let rumbleTetherCracked = false; // final smash done
+let rumbleTetherGrabX = 0; // where Rubberman's arm reaches to
 let bojdoUnlocked = false;
 let bojdobojdoUnlocked = false;
 let bojdoCodeBuffer = '';
@@ -768,6 +772,7 @@ const characterRumbles = {
   'SURGE': { name: 'MR. ELECTRIC BOOM', code: 'battery', desc: 'Overcharge the opponent until they explode in light' },
   'TITAN': { name: 'AND WHAT ARE YOU SINKING ABOUT?', code: 'soiled', desc: 'Summon a sinkhole that swallows the opponent' },
   'SHADE': { name: 'WANTED THE SMOKE, GOT THE SMOKE', code: 'shadow', desc: 'Martial arts combo finishes opponent into a puff of smoke' },
+  'RUBBERMAN': { name: 'TETHERBALL', code: 'slinky', desc: 'Grab and slam the opponent back and forth into the ground' },
   'BOJDO': { name: 'DEATH FROM BELOW', code: 'pellet', desc: 'Shrink tiny, get under them, and grow to launch them skyward' },
   'BOJDOBOJDO': [
     { name: 'DEATH FROM BELOW', code: 'pellet', desc: 'Shrink tiny, get under them, and grow to launch them skyward' },
@@ -4015,6 +4020,7 @@ class Fighter {
     const kwVibX = this.kwStunTimer > 0 ? (Math.random() - 0.5) * 6 : 0;
     const kwVibY = this.kwStunTimer > 0 ? (Math.random() - 0.5) * 4 : 0;
     ctx.translate(this.x + kwVibX, this.y + kwVibY);
+    if (this._rumbleRotation) ctx.rotate(this._rumbleRotation);
     if (this.char.isBojdo) ctx.scale(this.bojdoScale, this.bojdoScale);
     if (this.isJay) ctx.scale(this.jayScale, this.jayScale);
     if (this.bojShrinkTimer > 0 && !this.char.isBojdo) ctx.scale(0.3, 0.3);
@@ -4666,28 +4672,32 @@ class Fighter {
       ctx.lineTo(backArmEndX, backArmEndY);
       ctx.stroke();
 
-      // Front arm (attacking arm)
-      const punchExtend = armAngle * 30;
-      armEndX = this.rubberArmReach > 0 ? f * this.rubberArmReach : f * (frontArmBase + punchExtend);
-      armEndY = this.rubberArmReach > 0 ? armY - armAngle * 5 : armY - armAngle * (isPaletap ? 25 : 10);
-      ctx.strokeStyle = outline;
-      ctx.lineWidth = isPaletap ? 7 : isBuck ? 9 : 6;
-      ctx.beginPath();
-      ctx.moveTo(f * 14, armY);
-      ctx.lineTo(armEndX, armEndY);
-      ctx.stroke();
-      ctx.strokeStyle = color;
-      ctx.lineWidth = isPaletap ? 5 : isBuck ? 7 : 4;
-      ctx.beginPath();
-      ctx.moveTo(f * 14, armY);
-      ctx.lineTo(armEndX, armEndY);
-      ctx.stroke();
+      // Front arm (attacking arm) — hidden during Tetherball rumble (custom arm draws instead)
+      if (!this._hideFrontArm) {
+        const punchExtend = armAngle * 30;
+        armEndX = this.rubberArmReach > 0 ? f * this.rubberArmReach : f * (frontArmBase + punchExtend);
+        armEndY = this.rubberArmReach > 0 ? armY - armAngle * 5 : armY - armAngle * (isPaletap ? 25 : 10);
+        ctx.strokeStyle = outline;
+        ctx.lineWidth = isPaletap ? 7 : isBuck ? 9 : 6;
+        ctx.beginPath();
+        ctx.moveTo(f * 14, armY);
+        ctx.lineTo(armEndX, armEndY);
+        ctx.stroke();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = isPaletap ? 5 : isBuck ? 7 : 4;
+        ctx.beginPath();
+        ctx.moveTo(f * 14, armY);
+        ctx.lineTo(armEndX, armEndY);
+        ctx.stroke();
+      }
 
       // Fists
       ctx.fillStyle = accent;
-      ctx.beginPath();
-      ctx.arc(armEndX, armEndY, isPaletap ? 6 : isBuck ? 7 : 5, 0, Math.PI * 2);
-      ctx.fill();
+      if (!this._hideFrontArm) {
+        ctx.beginPath();
+        ctx.arc(armEndX, armEndY, isPaletap ? 6 : isBuck ? 7 : 5, 0, Math.PI * 2);
+        ctx.fill();
+      }
       ctx.fillStyle = accent;
       ctx.beginPath();
       ctx.arc(backArmEndX, backArmEndY, isPaletap ? 5 : isBuck ? 6 : 4, 0, Math.PI * 2);
@@ -6335,6 +6345,9 @@ function handleKeyPress(key) {
         rumbleSinkhole = null; rumbleSinkProgress = 0; rumbleDirtParticles = [];
         rumbleShadePoof = false; rumbleSmokeParticles = []; rumbleShadeComboHit = 0; rumbleShadeBrush = false;
         rumbleBojdoPhase = 0; rumbleBojdoLaunchVy = 0;
+        rumbleTetherAngle = 0; rumbleTetherSlams = 0; rumbleTetherCracked = false; rumbleTetherGrabX = 0;
+        if (player) { player.rubberArmReach = 0; player._hideFrontArm = false; player._rumbleRotation = 0; }
+        if (cpu) { cpu.rubberArmReach = 0; cpu._hideFrontArm = false; cpu._rumbleRotation = 0; }
         if (player) player._brushArmT = undefined;
         if (cpu) cpu._brushArmT = undefined;
       }
@@ -6375,6 +6388,9 @@ function handleKeyPress(key) {
         rumbleSinkhole = null; rumbleSinkProgress = 0; rumbleDirtParticles = [];
         rumbleShadePoof = false; rumbleSmokeParticles = []; rumbleShadeComboHit = 0; rumbleShadeBrush = false;
         rumbleBojdoPhase = 0; rumbleBojdoLaunchVy = 0;
+        rumbleTetherAngle = 0; rumbleTetherSlams = 0; rumbleTetherCracked = false; rumbleTetherGrabX = 0;
+        if (player) { player.rubberArmReach = 0; player._hideFrontArm = false; player._rumbleRotation = 0; }
+        if (cpu) { cpu.rubberArmReach = 0; cpu._hideFrontArm = false; cpu._rumbleRotation = 0; }
         if (player) player._brushArmT = undefined;
         if (cpu) cpu._brushArmT = undefined;
       }
@@ -6407,6 +6423,9 @@ function startFight() {
         rumbleSinkhole = null; rumbleSinkProgress = 0; rumbleDirtParticles = [];
         rumbleShadePoof = false; rumbleSmokeParticles = []; rumbleShadeComboHit = 0; rumbleShadeBrush = false;
         rumbleBojdoPhase = 0; rumbleBojdoLaunchVy = 0;
+        rumbleTetherAngle = 0; rumbleTetherSlams = 0; rumbleTetherCracked = false; rumbleTetherGrabX = 0;
+        if (player) { player.rubberArmReach = 0; player._hideFrontArm = false; player._rumbleRotation = 0; }
+        if (cpu) { cpu.rubberArmReach = 0; cpu._hideFrontArm = false; cpu._rumbleRotation = 0; }
         if (player) player._brushArmT = undefined;
         if (cpu) cpu._brushArmT = undefined;
 }
@@ -11701,6 +11720,149 @@ function update() {
         }
       }
 
+      if (rumbleType === 'RUBBERMAN') {
+        // Rubberman "Tetherball": 360 frames total
+        // 0-30: Rubberman reaches out and grabs opponent
+        // 30-240: Swings opponent back and forth, slamming into ground
+        // 240-260: Winds up for final overhead smash
+        // 260-270: Final smash into ground
+        // 270-360: Opponent stuck in cracked ground, Rubberman retracts arm
+        const grabEnd = 30;
+        const swingEnd = 150;
+        const windupEnd = 170;
+        const smashFrame = 180;
+        const endFrame = 280;
+        const numSwings = 6;
+
+        winFighter.vx = 0;
+
+        // On first frame, store the fixed grab distance and direction
+        if (rumbleTimer === 1) {
+          rumbleTetherGrabX = Math.abs(loseFighter.x - winFighter.x);
+          winFighter.facing = loseFighter.x > winFighter.x ? 1 : -1;
+        }
+        const dir = winFighter.facing;
+        const pivotX = winFighter.x;
+        const groundY = loseFighter.groundY;
+        const armLen = Math.max(80, rumbleTetherGrabX);
+
+        // Hide the fighter's normal front arm — the custom stretchy arm replaces it
+        winFighter._hideFrontArm = true;
+
+        if (rumbleTimer <= grabEnd) {
+          // Reach out and grab
+          winFighter.state = 'attack';
+        } else if (rumbleTimer <= swingEnd) {
+          // Swinging phase
+          winFighter.state = 'walk'; // walk anim makes him look active/braced
+          const swingTime = rumbleTimer - grabEnd;
+          const swingDuration = swingEnd - grabEnd;
+
+          const progress = swingTime / swingDuration;
+          const swingAngle = progress * numSwings * Math.PI;
+          rumbleTetherAngle = swingAngle;
+
+          // Opponent on semicircular arc, grounded at extremes
+          loseFighter.x = pivotX + Math.cos(swingAngle) * armLen;
+          loseFighter.y = groundY - Math.abs(Math.sin(swingAngle)) * armLen;
+          loseFighter.grounded = false;
+
+          // Rotate opponent to follow the arc — body trails behind the swing direction
+          // The tangent angle of the arc gives the direction of travel
+          const sinA = Math.sin(swingAngle);
+          const cosA = Math.cos(swingAngle);
+          // Rotation: head points outward along the arc
+          loseFighter._rumbleRotation = -swingAngle + Math.PI / 2;
+
+          // Detect ground slams
+          const prevSwingAngle = ((swingTime - 1) / swingDuration) * numSwings * Math.PI;
+          if (Math.floor(swingAngle / Math.PI) !== Math.floor(prevSwingAngle / Math.PI) && swingTime > 3) {
+            rumbleTetherSlams++;
+            shakeTimer = 8;
+            shakeIntensity = 5 + rumbleTetherSlams * 2;
+            loseFighter.y = groundY;
+          }
+
+          // Rubberman leans into the swing
+          winFighter.facing = cosA > 0 ? 1 : -1;
+        } else if (rumbleTimer <= windupEnd) {
+          // Wind up — smoothly arc opponent from last swing position to overhead
+          winFighter.state = 'idle';
+          winFighter.facing = dir;
+          const windupDur = windupEnd - swingEnd;
+          const t = (rumbleTimer - swingEnd) / windupDur;
+          const ease = t * t; // ease in
+
+          // Starting position: where swing ended (last swing angle)
+          const finalSwingAngle = numSwings * Math.PI;
+          const startX = pivotX + Math.cos(finalSwingAngle) * armLen;
+          const startY = groundY - Math.abs(Math.sin(finalSwingAngle)) * armLen;
+          // End position: directly overhead
+          const endX = pivotX;
+          const endY = groundY - armLen;
+
+          // Arc upward via an intermediate high point
+          loseFighter.x = startX + (endX - startX) * ease;
+          // Use a smooth arc — go up first then settle overhead
+          loseFighter.y = startY + (endY - startY) * ease - Math.sin(t * Math.PI) * 30;
+          loseFighter.grounded = false;
+
+          // Smoothly rotate from last swing rotation to upside down (PI)
+          const lastSwingRot = -finalSwingAngle + Math.PI / 2;
+          // Normalize to closest equivalent of PI
+          const targetRot = Math.PI;
+          loseFighter._rumbleRotation = lastSwingRot + (targetRot - lastSwingRot) * ease;
+        } else if (rumbleTimer <= smashFrame) {
+          // Final smash — arc from overhead down to the ground at a distance
+          winFighter.state = 'attack';
+          winFighter.facing = dir;
+          const smashDist = Math.min(armLen * 0.8, 200); // land further out
+          const smashDur = smashFrame - windupEnd;
+          const t = (rumbleTimer - windupEnd) / smashDur;
+
+          // Start: overhead (pivotX, groundY - armLen)
+          const startX = pivotX;
+          const startY = groundY - armLen;
+          // End: on the ground further out
+          const endX = pivotX + dir * smashDist;
+          const endY = groundY;
+
+          // Smooth arc down: x moves linearly, y uses cubic ease for impact feel
+          loseFighter.x = startX + (endX - startX) * t;
+          loseFighter.y = startY + (endY - startY) * t * t * t;
+          loseFighter.grounded = false;
+
+          // Rotate from upside down (PI) to face-down (PI/2)
+          loseFighter._rumbleRotation = Math.PI * (1 - t * 0.5);
+
+          if (rumbleTimer === smashFrame) {
+            shakeTimer = 25;
+            shakeIntensity = 15;
+            rumbleTetherCracked = true;
+            rumbleTetherGrabX = loseFighter.x; // store final smash X for draw
+            loseFighter.y = groundY;
+          }
+        } else {
+          // Retract, opponent face-down in cracked ground
+          winFighter.state = 'idle';
+          winFighter.facing = dir;
+          winFighter._hideFrontArm = false;
+          const smashX = rumbleTetherGrabX; // stored from smash impact
+          loseFighter.x = smashX;
+          loseFighter.y = groundY;
+          loseFighter.grounded = true;
+          loseFighter._rumbleRotation = 0;
+          if (!rumbleLoserHidden) {
+            rumbleLoserHidden = true;
+          }
+        }
+
+        if (rumbleTimer >= endFrame) {
+          winFighter._hideFrontArm = false;
+          gameState = 'victory';
+        }
+      }
+
       // Animate winner
       winFighter.animTimer++;
       if (winFighter.animTimer > 8) { winFighter.animTimer = 0; winFighter.animFrame = (winFighter.animFrame + 1) % 4; }
@@ -11733,7 +11895,8 @@ function update() {
     if (loseFighter.animTimer > 8) { loseFighter.animTimer = 0; loseFighter.animFrame = (loseFighter.animFrame + 1) % 4; }
     // Apply gravity so loser lands if airborne (skip during Bojdo launch)
     const bojdoLaunching = (rumbleType === 'BOJDO' || rumbleType === 'BOJDOBOJDO') && rumbleActive && (rumbleSubType === 'pellet' ? rumbleTimer > 110 : rumbleSubType === 'massiv');
-    if (!loseFighter.grounded && !bojdoLaunching) {
+    const rubberSwinging = rumbleType === 'RUBBERMAN' && rumbleActive;
+    if (!loseFighter.grounded && !bojdoLaunching && !rubberSwinging) {
       loseFighter.vy += 0.6;
       loseFighter.y += loseFighter.vy;
       if (loseFighter.y >= loseFighter.groundY) {
@@ -11832,6 +11995,9 @@ function drawRumbleAnimation() {
   if (rumbleType === 'BOJDOBOJDO' && rumbleSubType === 'massiv') {
     drawBojdoStompRumble(loseFighter, winFighter);
   }
+  if (rumbleType === 'RUBBERMAN') {
+    drawRubbermanRumble(loseFighter, winFighter);
+  }
 }
 
 function drawBojdoRumble(loseFighter, winFighter) {
@@ -11873,6 +12039,182 @@ function drawBojdoRumble(loseFighter, winFighter) {
       ctx.stroke();
     }
     ctx.globalAlpha = 1;
+  }
+
+  ctx.restore();
+}
+
+function drawRubbermanRumble(loseFighter, winFighter) {
+  ctx.save();
+
+  // Draw Rubberman's stretched arm connecting to the opponent (matches normal arm style)
+  if (rumbleActive && rumbleType === 'RUBBERMAN' && !rumbleLoserHidden && rumbleTimer > 5) {
+    // Use opponent-relative direction for arm start so it doesn't jump when facing flips
+    const armDir = loseFighter.x >= winFighter.x ? 1 : -1;
+    const armStartX = winFighter.x + armDir * 14;
+    const armStartY = winFighter.y - 35;
+    // During grab phase, arm extends progressively toward opponent
+    const grabT = rumbleTimer <= 30 ? Math.min(1, rumbleTimer / 30) : 1;
+    const armEndX = armStartX + (loseFighter.x - armStartX) * grabT;
+    const armEndY = armStartY + ((loseFighter.y - 20) - armStartY) * grabT;
+
+    const outline = winFighter.char ? winFighter.char.outline : '#333';
+    const color = winFighter.char ? winFighter.char.color : '#888';
+    const accent = winFighter.char ? winFighter.char.accent : '#ccc';
+
+    // Straight arm — outline then color, matching fighter arm style
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = outline;
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.moveTo(armStartX, armStartY);
+    ctx.lineTo(armEndX, armEndY);
+    ctx.stroke();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(armStartX, armStartY);
+    ctx.lineTo(armEndX, armEndY);
+    ctx.stroke();
+
+    // Fist at the end
+    ctx.fillStyle = accent;
+    ctx.beginPath();
+    ctx.arc(armEndX, armEndY, 5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Ground impact dust at slam points
+  if (rumbleTetherSlams > 0) {
+    // Small dust puffs at each slam
+    const slamAge = (rumbleTimer - 30) % 35; // rough per-slam timing
+    if (slamAge < 15) {
+      ctx.globalAlpha = Math.max(0, 1 - slamAge / 15);
+      for (let i = 0; i < 4; i++) {
+        const dustX = loseFighter.x + (Math.random() - 0.5) * 40;
+        const dustY = loseFighter.groundY - Math.random() * slamAge * 1.5;
+        ctx.fillStyle = '#a08060';
+        ctx.beginPath();
+        ctx.arc(dustX, dustY, 3 + Math.random() * 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // Cracked ground at final smash point
+  if (rumbleTetherCracked) {
+    const crackX = rumbleTetherGrabX; // stored from final smash position
+    const crackY = loseFighter.groundY;
+
+    // Crater depression — wider for face-down body
+    ctx.fillStyle = '#5a4830';
+    ctx.beginPath();
+    ctx.ellipse(crackX, crackY, 45, 12, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Crack lines radiating outward
+    ctx.strokeStyle = '#4a3820';
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 10; i++) {
+      const angle = (i / 10) * Math.PI * 2 + 0.2;
+      const len = 25 + Math.sin(i * 2.7) * 18;
+      ctx.beginPath();
+      ctx.moveTo(crackX + Math.cos(angle) * 10, crackY + Math.sin(angle) * 4);
+      ctx.lineTo(crackX + Math.cos(angle) * len, crackY + Math.sin(angle) * len * 0.25);
+      ctx.stroke();
+    }
+
+    // Rubble chunks around crater
+    ctx.fillStyle = '#7a6850';
+    for (let i = 0; i < 6; i++) {
+      const rx = crackX - 30 + i * 12 + Math.sin(i * 3) * 5;
+      const ry = crackY - 3 - Math.sin(i * 2.1) * 3;
+      ctx.beginPath();
+      ctx.arc(rx, ry, 2 + Math.sin(i) * 1.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Opponent face-down flat in the crater
+    if (rumbleLoserHidden) {
+      const loserChar = winner === 'player' ? selectedCPU : selectedPlayer;
+      const bodyColor = loserChar.color;
+      const bodyOutline = loserChar.outline || '#333';
+      const bodyAccent = loserChar.accent || '#aaa';
+      const f = winFighter.facing; // they face away from Rubberman
+
+      // Flattened body — horizontal oval (torso)
+      ctx.fillStyle = bodyColor;
+      ctx.strokeStyle = bodyOutline;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(crackX, crackY - 4, 22, 7, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Head — face-down circle at the far end
+      ctx.fillStyle = bodyAccent;
+      ctx.strokeStyle = bodyOutline;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(crackX + f * 22, crackY - 5, 9, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Arms splayed out
+      ctx.strokeStyle = bodyOutline;
+      ctx.lineWidth = 5;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(crackX + f * 8, crackY - 5);
+      ctx.lineTo(crackX + f * 8 + 18, crackY - 14);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(crackX - f * 5, crackY - 5);
+      ctx.lineTo(crackX - f * 5 - 16, crackY - 12);
+      ctx.stroke();
+      ctx.strokeStyle = bodyColor;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(crackX + f * 8, crackY - 5);
+      ctx.lineTo(crackX + f * 8 + 18, crackY - 14);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(crackX - f * 5, crackY - 5);
+      ctx.lineTo(crackX - f * 5 - 16, crackY - 12);
+      ctx.stroke();
+
+      // Legs trailing behind
+      ctx.strokeStyle = bodyOutline;
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(crackX - f * 15, crackY - 3);
+      ctx.lineTo(crackX - f * 35, crackY - 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(crackX - f * 15, crackY - 1);
+      ctx.lineTo(crackX - f * 33, crackY + 2);
+      ctx.stroke();
+      ctx.strokeStyle = bodyColor;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(crackX - f * 15, crackY - 3);
+      ctx.lineTo(crackX - f * 35, crackY - 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(crackX - f * 15, crackY - 1);
+      ctx.lineTo(crackX - f * 33, crackY + 2);
+      ctx.stroke();
+
+      // Feet
+      ctx.fillStyle = bodyOutline;
+      ctx.beginPath();
+      ctx.arc(crackX - f * 35, crackY - 2, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(crackX - f * 33, crackY + 2, 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
   ctx.restore();
@@ -13209,6 +13551,7 @@ function draw() {
       if (rumbleSinkhole && rumbleLoserHidden) drawTitanRumble(winner === 'player' ? cpu : player);
       if (rumbleShadePoof) drawShadeRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
       if (rumbleType === 'BOJDOBOJDO' && rumbleSubType === 'massiv' && rumbleLoserHidden) drawBojdoStompRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
+      if (rumbleType === 'RUBBERMAN' && rumbleTetherCracked) drawRubbermanRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
       drawHUD();
       ctx.restore();
       drawVictoryScreen();
