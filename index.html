@@ -112,6 +112,7 @@ const femaleCharacters = new Set(['TORRENA', 'CORVIDA', 'TELATRINE', 'KILLA WATT
 let rumbleActive = false;
 let rumbleTimer = 0;
 let rumbleType = null;
+let rumbleSubType = null; // specific rumble code when character has multiple rumbles
 let rumbleCodeBuffer = '';
 let rumbleAshes = null;
 let rumbleLoserHidden = false;
@@ -768,7 +769,10 @@ const characterRumbles = {
   'TITAN': { name: 'AND WHAT ARE YOU SINKING ABOUT?', code: 'soiled', desc: 'Summon a sinkhole that swallows the opponent' },
   'SHADE': { name: 'WANTED THE SMOKE, GOT THE SMOKE', code: 'shadow', desc: 'Martial arts combo finishes opponent into a puff of smoke' },
   'BOJDO': { name: 'DEATH FROM BELOW', code: 'pellet', desc: 'Shrink tiny, get under them, and grow to launch them skyward' },
-  'BOJDOBOJDO': { name: 'DEATH FROM BELOW', code: 'pellet', desc: 'Shrink tiny, get under them, and grow to launch them skyward' }
+  'BOJDOBOJDO': [
+    { name: 'DEATH FROM BELOW', code: 'pellet', desc: 'Shrink tiny, get under them, and grow to launch them skyward' },
+    { name: 'DEATH FROM ABOVE', code: 'massiv', desc: 'Grow gargantuan and stomp the opponent flat' }
+  ]
 };
 
 const characterCombos = {
@@ -4433,9 +4437,14 @@ class Fighter {
     const frontLegX = this.rubberLegReach > 0 ? f * this.rubberLegReach : frontLegBaseX;
     // Paletap: legs extend down to the ground from the elevated body
     const legTopY = -legLen;
-    const legBotY = isPaletap ? 55 : 0;
+    let legBotY = isPaletap ? 55 : 0;
     // Paletap limping: one leg shorter
     const limpOffset = isPaletap && this.state === 'walk' ? Math.sin(this.animTimer * 0.3) * 4 : 0;
+    // Bojdo stomp: raise front leg during Death from Above
+    let stompFrontLegRaise = 0;
+    if (this.char.isBojdo && rumbleBojdoPhase === 1) {
+      stompFrontLegRaise = -legLen * 1.2; // raise foot high
+    }
     ctx.strokeStyle = outline;
     ctx.lineWidth = isPaletap ? 7 : isBuck ? 9 : 6;
     ctx.lineCap = 'round';
@@ -4452,15 +4461,24 @@ class Fighter {
     }
     ctx.stroke();
     // Front leg
+    const frontFootY = legBotY + stompFrontLegRaise;
     ctx.beginPath();
     ctx.moveTo(f * 6, legTopY);
     if (isPaletap) {
       const kneeX = f * 8 + (frontLegX - f * 6) * 0.5;
-      const kneeY = (legTopY + legBotY) * 0.5 + 3;
+      const kneeY = (legTopY + frontFootY) * 0.5 + 3;
       ctx.lineTo(kneeX, kneeY);
-      ctx.lineTo(frontLegX, legBotY - limpOffset);
+      ctx.lineTo(frontLegX, frontFootY - limpOffset);
     } else {
-      ctx.lineTo(frontLegX, legBotY);
+      if (stompFrontLegRaise !== 0) {
+        // Bent knee for raised leg
+        const kneeX = f * 12;
+        const kneeY = (legTopY + frontFootY) * 0.5;
+        ctx.lineTo(kneeX, kneeY);
+        ctx.lineTo(frontLegX + f * 4, frontFootY);
+      } else {
+        ctx.lineTo(frontLegX, frontFootY);
+      }
     }
     ctx.stroke();
 
@@ -4482,11 +4500,18 @@ class Fighter {
     ctx.moveTo(f * 6, legTopY);
     if (isPaletap) {
       const kneeX = f * 8 + (frontLegX - f * 6) * 0.5;
-      const kneeY = (legTopY + legBotY) * 0.5 + 3;
+      const kneeY = (legTopY + frontFootY) * 0.5 + 3;
       ctx.lineTo(kneeX, kneeY);
-      ctx.lineTo(frontLegX, legBotY - limpOffset);
+      ctx.lineTo(frontLegX, frontFootY - limpOffset);
     } else {
-      ctx.lineTo(frontLegX, legBotY);
+      if (stompFrontLegRaise !== 0) {
+        const kneeX = f * 12;
+        const kneeY = (legTopY + frontFootY) * 0.5;
+        ctx.lineTo(kneeX, kneeY);
+        ctx.lineTo(frontLegX + f * 4, frontFootY);
+      } else {
+        ctx.lineTo(frontLegX, frontFootY);
+      }
     }
     ctx.stroke();
 
@@ -4496,7 +4521,7 @@ class Fighter {
     ctx.arc(backLegX, legBotY + (isPaletap ? limpOffset : 0), isPaletap ? 6 : 5, 0, Math.PI * 2);
     ctx.fill();
     ctx.beginPath();
-    ctx.arc(frontLegX, legBotY - (isPaletap ? limpOffset : 0), isPaletap ? 6 : 5, 0, Math.PI * 2);
+    ctx.arc(stompFrontLegRaise !== 0 ? frontLegX + f * 4 : frontLegX, frontFootY - (isPaletap ? limpOffset : 0), isPaletap ? 6 : 5, 0, Math.PI * 2);
     ctx.fill();
 
     // Paletap: lean upper body forward
@@ -6303,7 +6328,7 @@ function handleKeyPress(key) {
       if (key === 'Escape') {
         gameState = 'title';
         paused = false;
-        rumbleActive = false; rumbleTimer = 0; rumbleType = null;
+        rumbleActive = false; rumbleTimer = 0; rumbleType = null; rumbleSubType = null;
         rumbleCodeBuffer = ''; rumbleAshes = null; rumbleLoserHidden = false; rumbleIceShards = [];
         rumbleAcidBlob = null; rumbleGoo = null; rumbleAcidSplashes = []; rumbleVenomMeltPct = 0; rumbleVenomDrips = [];
         rumbleLightBurst = null; rumbleLightParticles = []; rumbleZapActive = false;
@@ -6319,15 +6344,21 @@ function handleKeyPress(key) {
           rumbleCodeBuffer += key.toLowerCase();
           if (rumbleCodeBuffer.length > 10) rumbleCodeBuffer = rumbleCodeBuffer.slice(-10);
           const winChar = winner === 'player' ? selectedPlayer : selectedCPU;
-          const rumble = characterRumbles[winChar.name];
-          if (rumble && rumbleCodeBuffer.includes(rumble.code)) {
-            rumbleActive = true;
-            rumbleTimer = 0;
-            rumbleType = winChar.name;
-            rumbleCodeBuffer = '';
-            // Clear any active assists so they don't freeze on screen
-            player.assistActive = null;
-            cpu.assistActive = null;
+          const rumbleEntry = characterRumbles[winChar.name];
+          if (rumbleEntry) {
+            const rumbleList = Array.isArray(rumbleEntry) ? rumbleEntry : [rumbleEntry];
+            for (const rumble of rumbleList) {
+              if (rumbleCodeBuffer.includes(rumble.code)) {
+                rumbleActive = true;
+                rumbleTimer = 0;
+                rumbleType = winChar.name;
+                rumbleSubType = rumble.code;
+                rumbleCodeBuffer = '';
+                player.assistActive = null;
+                cpu.assistActive = null;
+                break;
+              }
+            }
           }
         }
       }
@@ -6337,7 +6368,7 @@ function handleKeyPress(key) {
       if (key === 'Enter' || key === ' ') {
         gameState = 'title';
         paused = false;
-        rumbleActive = false; rumbleTimer = 0; rumbleType = null;
+        rumbleActive = false; rumbleTimer = 0; rumbleType = null; rumbleSubType = null;
         rumbleCodeBuffer = ''; rumbleAshes = null; rumbleLoserHidden = false; rumbleIceShards = [];
         rumbleAcidBlob = null; rumbleGoo = null; rumbleAcidSplashes = []; rumbleVenomMeltPct = 0; rumbleVenomDrips = [];
         rumbleLightBurst = null; rumbleLightParticles = []; rumbleZapActive = false;
@@ -9972,52 +10003,59 @@ function drawPauseOverlay() {
   // Right column: Rumble move (during finishHim) or Combo Moves (during fight)
   if (gameState === 'finishHim') {
     const winChar = winner === 'player' ? selectedPlayer : selectedCPU;
-    const rumble = characterRumbles[winChar.name];
+    const rumbleEntry = characterRumbles[winChar.name];
+    const rumbleList = rumbleEntry ? (Array.isArray(rumbleEntry) ? rumbleEntry : [rumbleEntry]) : [];
 
     ctx.font = 'bold 18px Arial';
     ctx.textAlign = 'center';
     ctx.fillStyle = '#ff2222';
-    ctx.fillText('RUMBLE', 700, 100);
+    ctx.fillText(rumbleList.length > 1 ? 'RUMBLES' : 'RUMBLE', 700, 100);
 
-    if (rumble && winner === 'player') {
-      // Rumble move name
-      ctx.font = 'bold 16px Arial';
-      ctx.textAlign = 'left';
-      ctx.fillStyle = winChar.accent;
-      ctx.fillText(rumble.name, 540, 145);
-
-      // Code key caps
-      const codeLetters = rumble.code.toUpperCase().split('');
-      for (let k = 0; k < codeLetters.length; k++) {
-        const kx = 555 + k * 42;
-        const ky = 175;
-        ctx.fillStyle = '#333';
-        ctx.strokeStyle = '#777';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.roundRect(kx - 14, ky - 14, 28, 28, 5);
-        ctx.fill();
-        ctx.stroke();
+    if (rumbleList.length > 0 && winner === 'player') {
+      let yOffset = 130;
+      for (let ri = 0; ri < rumbleList.length; ri++) {
+        const rumble = rumbleList[ri];
+        // Rumble move name
         ctx.font = 'bold 15px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillStyle = '#fff';
-        ctx.fillText(codeLetters[k], kx, ky + 5);
+        ctx.textAlign = 'left';
+        ctx.fillStyle = winChar.accent;
+        ctx.fillText(rumble.name, 540, yOffset);
+
+        // Code key caps
+        const codeLetters = rumble.code.toUpperCase().split('');
+        for (let k = 0; k < codeLetters.length; k++) {
+          const kx = 555 + k * 38;
+          const ky = yOffset + 28;
+          ctx.fillStyle = '#333';
+          ctx.strokeStyle = '#777';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.roundRect(kx - 13, ky - 13, 26, 26, 5);
+          ctx.fill();
+          ctx.stroke();
+          ctx.font = 'bold 14px Arial';
+          ctx.textAlign = 'center';
+          ctx.fillStyle = '#fff';
+          ctx.fillText(codeLetters[k], kx, ky + 5);
+        }
+
+        // Description
+        ctx.font = '12px Arial';
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#aaa';
+        ctx.fillText(rumble.desc, 543, yOffset + 60);
+
+        // Effect color dot
+        ctx.fillStyle = winChar.accent;
+        ctx.shadowColor = winChar.accent;
+        ctx.shadowBlur = 6;
+        ctx.beginPath();
+        ctx.arc(535, yOffset + 56, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        yOffset += 90;
       }
-
-      // Description
-      ctx.font = '13px Arial';
-      ctx.textAlign = 'left';
-      ctx.fillStyle = '#aaa';
-      ctx.fillText(rumble.desc, 543, 215);
-
-      // Effect color dot
-      ctx.fillStyle = winChar.accent;
-      ctx.shadowColor = winChar.accent;
-      ctx.shadowBlur = 6;
-      ctx.beginPath();
-      ctx.arc(535, 211, 4, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.shadowBlur = 0;
     } else {
       ctx.font = '13px Arial';
       ctx.textAlign = 'center';
@@ -11492,7 +11530,7 @@ function update() {
         }
       }
 
-      if (rumbleType === 'BOJDO' || rumbleType === 'BOJDOBOJDO') {
+      if ((rumbleType === 'BOJDO' || rumbleType === 'BOJDOBOJDO') && rumbleSubType === 'pellet') {
         // Bojdo "Death from below": 300 frames total
         // 0-40: Bojdo shrinks to tiny size
         // 40-90: Tiny Bojdo scurries under the opponent
@@ -11577,6 +11615,92 @@ function update() {
         }
       }
 
+      if (rumbleType === 'BOJDOBOJDO' && rumbleSubType === 'massiv') {
+        // Bojdobojdo "Death from above": 340 frames total
+        // 0-var: Walk to opponent
+        // var-var+60: Grows to gargantuan size (only bottom half visible)
+        // +60-+90: Raises one leg (stomp windup)
+        // +90-+100: Stomps down on opponent
+        // +100-+200: Foot on ground, opponent flattened
+        // +200-+260: Lifts foot, shrinks back to normal
+        // +260-+300: Stands triumphant
+        const walkSpeed = 3;
+        const distToOpponent = Math.abs(loseFighter.x - winFighter.x);
+        const walkFrames = Math.max(10, Math.ceil(distToOpponent / walkSpeed));
+        const walkEnd = walkFrames;
+        const growEnd2 = walkEnd + 60;
+        const raiseEnd = growEnd2 + 30;
+        const stompFrame = raiseEnd + 10;
+        const holdEnd = stompFrame + 100;
+        const shrinkEnd2 = holdEnd + 60;
+        const endFrame2 = shrinkEnd2 + 40;
+
+        const dir = loseFighter.x > winFighter.x ? 1 : -1;
+        winFighter.facing = dir;
+        winFighter.vx = 0;
+
+        if (rumbleTimer <= walkEnd) {
+          // Walk toward opponent
+          winFighter.state = 'walk';
+          const dist = loseFighter.x - winFighter.x;
+          if (Math.abs(dist) > 5) {
+            winFighter.x += dist > 0 ? walkSpeed : -walkSpeed;
+            winFighter.facing = dist > 0 ? 1 : -1;
+          } else {
+            winFighter.x = loseFighter.x;
+          }
+        } else if (rumbleTimer <= growEnd2) {
+          // Grow to gargantuan
+          winFighter.state = 'idle';
+          winFighter.x = loseFighter.x;
+          const t = (rumbleTimer - walkEnd) / (growEnd2 - walkEnd);
+          const easeT = t * t;
+          winFighter.bojdoScale = 1 + easeT * 7; // grow to 8x
+          if (rumbleTimer > 10) {
+            shakeTimer = 2;
+            shakeIntensity = 2 + t * 4;
+          }
+        } else if (rumbleTimer <= raiseEnd) {
+          // Foot raised — we track via rumbleBojdoPhase
+          winFighter.state = 'idle';
+          winFighter.x = loseFighter.x;
+          winFighter.bojdoScale = 8;
+          rumbleBojdoPhase = 1; // signal to draw: leg raised
+        } else if (rumbleTimer <= stompFrame) {
+          // Stomp down!
+          winFighter.state = 'idle';
+          winFighter.x = loseFighter.x;
+          winFighter.bojdoScale = 8;
+          rumbleBojdoPhase = 2; // signal to draw: stomp
+          if (rumbleTimer === stompFrame) {
+            shakeTimer = 25;
+            shakeIntensity = 15;
+            rumbleLoserHidden = true;
+          }
+        } else if (rumbleTimer <= holdEnd) {
+          // Hold foot down
+          winFighter.state = 'idle';
+          winFighter.x = loseFighter.x;
+          winFighter.bojdoScale = 8;
+          rumbleBojdoPhase = 2;
+        } else if (rumbleTimer <= shrinkEnd2) {
+          // Shrink back to normal
+          winFighter.state = 'idle';
+          rumbleBojdoPhase = 0;
+          const t = (rumbleTimer - holdEnd) / (shrinkEnd2 - holdEnd);
+          winFighter.bojdoScale = 8 - t * 7; // back to 1
+        } else {
+          // Stand triumphant
+          winFighter.state = 'idle';
+          winFighter.bojdoScale = 1;
+          rumbleBojdoPhase = 0;
+        }
+
+        if (rumbleTimer >= endFrame2) {
+          gameState = 'victory';
+        }
+      }
+
       // Animate winner
       winFighter.animTimer++;
       if (winFighter.animTimer > 8) { winFighter.animTimer = 0; winFighter.animFrame = (winFighter.animFrame + 1) % 4; }
@@ -11608,7 +11732,7 @@ function update() {
     loseFighter.animTimer++;
     if (loseFighter.animTimer > 8) { loseFighter.animTimer = 0; loseFighter.animFrame = (loseFighter.animFrame + 1) % 4; }
     // Apply gravity so loser lands if airborne (skip during Bojdo launch)
-    const bojdoLaunching = (rumbleType === 'BOJDO' || rumbleType === 'BOJDOBOJDO') && rumbleActive && rumbleTimer > 110;
+    const bojdoLaunching = (rumbleType === 'BOJDO' || rumbleType === 'BOJDOBOJDO') && rumbleActive && (rumbleSubType === 'pellet' ? rumbleTimer > 110 : rumbleSubType === 'massiv');
     if (!loseFighter.grounded && !bojdoLaunching) {
       loseFighter.vy += 0.6;
       loseFighter.y += loseFighter.vy;
@@ -11665,7 +11789,8 @@ function drawRumbleAnimation() {
   const loseFighter = winner === 'player' ? cpu : player;
   const winFighter = winner === 'player' ? player : cpu;
   const winChar = winner === 'player' ? selectedPlayer : selectedCPU;
-  const rumble = characterRumbles[winChar.name];
+  const rumbleEntry = characterRumbles[winChar.name];
+  const rumble = rumbleEntry ? (Array.isArray(rumbleEntry) ? rumbleEntry.find(r => r.code === rumbleSubType) : rumbleEntry) : null;
 
   // Show rumble name at top
   if (rumble) {
@@ -11701,8 +11826,11 @@ function drawRumbleAnimation() {
   if (rumbleType === 'SHADE') {
     drawShadeRumble(loseFighter, winFighter);
   }
-  if (rumbleType === 'BOJDO' || rumbleType === 'BOJDOBOJDO') {
+  if ((rumbleType === 'BOJDO' || rumbleType === 'BOJDOBOJDO') && rumbleSubType === 'pellet') {
     drawBojdoRumble(loseFighter, winFighter);
+  }
+  if (rumbleType === 'BOJDOBOJDO' && rumbleSubType === 'massiv') {
+    drawBojdoStompRumble(loseFighter, winFighter);
   }
 }
 
@@ -11744,6 +11872,80 @@ function drawBojdoRumble(loseFighter, winFighter) {
       ctx.lineTo(winFighter.x + Math.cos(angle) * r2, winFighter.y - 30 + Math.sin(angle) * r2);
       ctx.stroke();
     }
+    ctx.globalAlpha = 1;
+  }
+
+  ctx.restore();
+}
+
+function drawBojdoStompRumble(loseFighter, winFighter) {
+  ctx.save();
+  const stompFrame = 100;
+
+  // Ground crack / impact effect on stomp
+  if (rumbleTimer >= stompFrame && rumbleTimer < stompFrame + 30) {
+    const impactAge = rumbleTimer - stompFrame;
+    const impactAlpha = Math.max(0, 1 - impactAge / 30);
+    ctx.globalAlpha = impactAlpha;
+
+    // Radial crack lines from stomp point
+    const cx = loseFighter.x;
+    const cy = loseFighter.groundY;
+    ctx.strokeStyle = '#8B7355';
+    ctx.lineWidth = 3;
+    for (let i = 0; i < 10; i++) {
+      const angle = (i / 10) * Math.PI - Math.PI / 2 + (Math.random() - 0.5) * 0.3;
+      const len = 20 + impactAge * 3 + Math.random() * 20;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(angle) * 10, cy + Math.sin(angle) * 5);
+      ctx.lineTo(cx + Math.cos(angle) * len, cy + Math.sin(angle) * len * 0.3);
+      ctx.stroke();
+    }
+
+    // Dust clouds billowing outward
+    ctx.globalAlpha = impactAlpha * 0.6;
+    for (let i = 0; i < 8; i++) {
+      const dustAngle = (i / 8) * Math.PI;
+      const dustDist = impactAge * 4 + i * 5;
+      const dustX = cx + Math.cos(dustAngle - Math.PI / 2) * dustDist;
+      const dustY = cy - Math.abs(Math.sin(dustAngle)) * impactAge * 1.5;
+      const dustSize = 8 + impactAge * 0.5;
+      ctx.fillStyle = '#a08060';
+      ctx.beginPath();
+      ctx.arc(dustX, dustY, dustSize, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Screen darkening flash on impact
+    if (impactAge < 5) {
+      ctx.globalAlpha = (5 - impactAge) / 5 * 0.3;
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, 960, 540);
+    }
+  }
+
+  // Flattened opponent (pancake) on the ground after stomp
+  if (rumbleLoserHidden && rumbleTimer >= stompFrame) {
+    const lx = loseFighter.x;
+    const ly = loseFighter.groundY;
+    const loserChar = winner === 'player' ? selectedCPU : selectedPlayer;
+    ctx.globalAlpha = 0.8;
+    // Flat oval (squished body)
+    ctx.fillStyle = loserChar.color;
+    ctx.strokeStyle = loserChar.outline || '#333';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(lx, ly - 2, 25, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    // Tiny eyes on the flat shape
+    ctx.fillStyle = loserChar.outline || '#333';
+    ctx.beginPath();
+    ctx.arc(lx - 6, ly - 3, 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(lx + 6, ly - 3, 2, 0, Math.PI * 2);
+    ctx.fill();
     ctx.globalAlpha = 1;
   }
 
@@ -12953,8 +13155,18 @@ function draw() {
       {
         const loserF = winner === 'player' ? cpu : player;
         const winnerF = winner === 'player' ? player : cpu;
-        // Draw winner normally
-        winnerF.draw(ctx);
+        // Draw winner — clip if gargantuan (Death from Above)
+        if (rumbleType === 'BOJDOBOJDO' && rumbleSubType === 'massiv' && winnerF.bojdoScale > 2) {
+          ctx.save();
+          // Only show the bottom portion of the giant — clip top of screen
+          ctx.beginPath();
+          ctx.rect(0, 0, 960, 540);
+          ctx.clip();
+          winnerF.draw(ctx);
+          ctx.restore();
+        } else {
+          winnerF.draw(ctx);
+        }
         // Draw loser with special rumble effects if applicable
         if (!rumbleLoserHidden) {
           if (rumbleType === 'VENOM' && rumbleVenomMeltPct > 0) {
@@ -12996,6 +13208,7 @@ function draw() {
       if (rumbleLightBurst && rumbleLoserHidden) drawSurgeRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
       if (rumbleSinkhole && rumbleLoserHidden) drawTitanRumble(winner === 'player' ? cpu : player);
       if (rumbleShadePoof) drawShadeRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
+      if (rumbleType === 'BOJDOBOJDO' && rumbleSubType === 'massiv' && rumbleLoserHidden) drawBojdoStompRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
       drawHUD();
       ctx.restore();
       drawVictoryScreen();
