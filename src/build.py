@@ -36,6 +36,15 @@ SOURCE_FILES = [
     'screens/screen-victory.js',
     'screens/screen-level-select.js',
     'screens/screen-versus.js',
+    # Backgrounds
+    'backgrounds/background.js',
+    # Rumbles
+    'rumbles/rumble-manager.js',
+    'rumbles/rumble-shared.js',
+    'rumbles/rumble-base-chars.js',
+    'rumbles/rumble-secret-chars-1.js',
+    'rumbles/rumble-secret-chars-2.js',
+    'rumbles/rumble-secret-chars-3.js',
     # Remaining monolith (shrinks as more files are extracted)
     'all.js',
 ]
