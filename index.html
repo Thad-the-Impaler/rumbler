@@ -154,6 +154,10 @@ let rumbleCodemaxLaser = false; // laser is firing
 let rumbleCodemaxPixelLevel = 0; // 0=none, 1-4 = progressively worse pixelation
 let rumbleCodemaxGlitch = 0; // glitch-out timer
 let rumbleCodemaxLaserParticles = []; // pixelated laser trail particles
+let rumbleCorvidaPhase = 0; // animation phase
+let rumbleCorvidaNestX = 0; // nest position
+let rumbleCorvidaEggs = []; // { x, y, hatched }
+let rumbleCorvidaGulpChick = -1; // which chick ate the opponent (-1 = none)
 let rumbleSnazzConfetti = []; // confetti particles
 let rumbleSnazzPunchLanded = false; // final punch connected
 let rumbleHailShards = []; // ice shards from hailstone cracking
@@ -803,7 +807,8 @@ const characterRumbles = {
   'TORRENA': { name: 'CLOUDY, WITH A CHANCE OF DEMISE', code: 'stormy', desc: 'Become a cloud and pummel the opponent with rain and hail' },
   'SNAZZ MCJAZZ': { name: 'ANNIE, ARE YOU OKAY?', code: 'groove', desc: 'Dance your way over and knock them out cold' },
   'HAYSTACK': { name: "DON'T FEAR THE REAPER", code: 'scythe', desc: 'Ravens carry you to strike with a scythe, dissolving the opponent' },
-  'CODEMAX': { name: 'YOUR NEW OVERLORD', code: 'decode', desc: 'Pixelated laser degrades the opponent until they glitch out' }
+  'CODEMAX': { name: 'YOUR NEW OVERLORD', code: 'decode', desc: 'Pixelated laser degrades the opponent until they glitch out' },
+  'CORVIDA': { name: 'EARLY BIRD', code: 'nestle', desc: 'Giant jay drops a nest, hatches chicks, and feeds them the opponent' }
 };
 
 const characterCombos = {
@@ -4026,6 +4031,12 @@ class Fighter {
       ctx.globalAlpha = Math.min(ctx.globalAlpha, this._rumbleAlpha);
       if (this._rumbleAlpha <= 0) { ctx.restore(); return; }
     }
+    // Rumble scale override (used by Corvida drop)
+    if (this._rumbleScale !== undefined && this._rumbleScale !== 1) {
+      ctx.translate(this.x, this.y);
+      ctx.scale(this._rumbleScale, this._rumbleScale);
+      ctx.translate(-this.x, -this.y);
+    }
     // Codemax: holographic flicker
     if (this.char.isCodemax) {
       ctx.globalAlpha = 0.75 + Math.sin(Date.now() * 0.02) * 0.1;
@@ -6403,6 +6414,7 @@ function handleKeyPress(key) {
         rumbleSnazzDiscoBall = null; rumbleSnazzConfetti = []; rumbleSnazzPunchLanded = false;
         rumbleHaystackRavens = []; rumbleHaystackScythe = false; rumbleHaystackStrike = false; rumbleHaystackDust = []; rumbleHaystackDiveStart = null;
         rumbleCodemaxLaser = false; rumbleCodemaxPixelLevel = 0; rumbleCodemaxGlitch = 0; rumbleCodemaxLaserParticles = [];
+        rumbleCorvidaPhase = 0; rumbleCorvidaNestX = 0; rumbleCorvidaEggs = []; rumbleCorvidaGulpChick = -1;
         if (player) { player.rubberArmReach = 0; player._hideFrontArm = false; player._rumbleRotation = 0; }
         if (cpu) { cpu.rubberArmReach = 0; cpu._hideFrontArm = false; cpu._rumbleRotation = 0; }
         if (player) { player._brushArmT = undefined; player._rumbleAlpha = undefined; }
@@ -6455,6 +6467,7 @@ function handleKeyPress(key) {
         rumbleSnazzDiscoBall = null; rumbleSnazzConfetti = []; rumbleSnazzPunchLanded = false;
         rumbleHaystackRavens = []; rumbleHaystackScythe = false; rumbleHaystackStrike = false; rumbleHaystackDust = []; rumbleHaystackDiveStart = null;
         rumbleCodemaxLaser = false; rumbleCodemaxPixelLevel = 0; rumbleCodemaxGlitch = 0; rumbleCodemaxLaserParticles = [];
+        rumbleCorvidaPhase = 0; rumbleCorvidaNestX = 0; rumbleCorvidaEggs = []; rumbleCorvidaGulpChick = -1;
         if (player) { player.rubberArmReach = 0; player._hideFrontArm = false; player._rumbleRotation = 0; }
         if (cpu) { cpu.rubberArmReach = 0; cpu._hideFrontArm = false; cpu._rumbleRotation = 0; }
         if (player) { player._brushArmT = undefined; player._rumbleAlpha = undefined; }
@@ -6475,6 +6488,7 @@ function handleKeyPress(key) {
         rumbleSnazzDiscoBall = null; rumbleSnazzConfetti = []; rumbleSnazzPunchLanded = false;
         rumbleHaystackRavens = []; rumbleHaystackScythe = false; rumbleHaystackStrike = false; rumbleHaystackDust = []; rumbleHaystackDiveStart = null;
         rumbleCodemaxLaser = false; rumbleCodemaxPixelLevel = 0; rumbleCodemaxGlitch = 0; rumbleCodemaxLaserParticles = [];
+        rumbleCorvidaPhase = 0; rumbleCorvidaNestX = 0; rumbleCorvidaEggs = []; rumbleCorvidaGulpChick = -1;
         if (player) { player.rubberArmReach = 0; player._hideFrontArm = false; player._rumbleRotation = 0; }
         if (cpu) { cpu.rubberArmReach = 0; cpu._hideFrontArm = false; cpu._rumbleRotation = 0; }
         if (player) { player._brushArmT = undefined; player._rumbleAlpha = undefined; }
@@ -6550,6 +6564,7 @@ function startFight() {
         rumbleSnazzDiscoBall = null; rumbleSnazzConfetti = []; rumbleSnazzPunchLanded = false;
         rumbleHaystackRavens = []; rumbleHaystackScythe = false; rumbleHaystackStrike = false; rumbleHaystackDust = []; rumbleHaystackDiveStart = null;
         rumbleCodemaxLaser = false; rumbleCodemaxPixelLevel = 0; rumbleCodemaxGlitch = 0; rumbleCodemaxLaserParticles = [];
+        rumbleCorvidaPhase = 0; rumbleCorvidaNestX = 0; rumbleCorvidaEggs = []; rumbleCorvidaGulpChick = -1;
         if (player) { player.rubberArmReach = 0; player._hideFrontArm = false; player._rumbleRotation = 0; }
         if (cpu) { cpu.rubberArmReach = 0; cpu._hideFrontArm = false; cpu._rumbleRotation = 0; }
         if (player) { player._brushArmT = undefined; player._rumbleAlpha = undefined; }
@@ -12001,6 +12016,169 @@ function update() {
         }
       }
 
+      if (rumbleType === 'CORVIDA') {
+        // Corvida "Early Bird": ~480 frames
+        // 0-40: Corvida transforms to giant blue jay
+        // 40-80: Flies to center, drops nest on ground
+        // 80-140: Lays 3 eggs into the nest
+        // 140-190: Swoops to grab opponent
+        // 190-240: Lifts opponent, hovers above nest
+        // 240-290: Eggs hatch, chicks open mouths
+        // 290-320: Drops opponent into a chick's mouth
+        // 320-380: Gulp, chick satisfied
+        // 380-480: Corvida lands, transforms back
+        const transformEnd = 40;
+        const nestDropEnd = 80;
+        const layEnd = 140;
+        const swoopEnd = 190;
+        const hoverEnd = 240;
+        const hatchEnd = 290;
+        const dropFrame = 305;
+        const gulpEnd = 380;
+        const endFrame = 480;
+
+        const dir = loseFighter.x > winFighter.x ? 1 : -1;
+        const centerX = 480;
+        const groundY = loseFighter.groundY;
+
+        if (rumbleTimer === 1) {
+          rumbleCorvidaNestX = centerX;
+          // Giant eggs — positions relative to nest center, with falling state
+          rumbleCorvidaEggs = [
+            { x: centerX - 40, y: groundY - 15, fallY: -100, falling: false, landed: false, hatched: false },
+            { x: centerX, y: groundY - 18, fallY: -100, falling: false, landed: false, hatched: false },
+            { x: centerX + 40, y: groundY - 15, fallY: -100, falling: false, landed: false, hatched: false }
+          ];
+          rumbleCorvidaGulpChick = -1;
+          rumbleCorvidaPhase = 0;
+        }
+
+        // Egg fall frames (staggered during lay phase)
+        const eggDropFrames = [85, 105, 125];
+        // Update falling eggs
+        for (let i = 0; i < rumbleCorvidaEggs.length; i++) {
+          const egg = rumbleCorvidaEggs[i];
+          if (rumbleTimer === eggDropFrames[i]) {
+            egg.falling = true;
+            egg.fallY = winFighter.y + 30; // start from jay's position
+            egg.fallVy = 0;
+          }
+          if (egg.falling && !egg.landed) {
+            egg.fallVy += 0.8;
+            egg.fallY += egg.fallVy;
+            if (egg.fallY >= egg.y) {
+              egg.fallY = egg.y;
+              egg.landed = true;
+              egg.falling = false;
+              shakeTimer = 4;
+              shakeIntensity = 3;
+            }
+          }
+        }
+
+        if (rumbleTimer <= transformEnd) {
+          // Transform — grow into giant jay, hide normal fighter
+          rumbleCorvidaPhase = 0;
+          winFighter._rumbleAlpha = Math.max(0, 1 - rumbleTimer / 20);
+          winFighter.vx = 0;
+          winFighter.state = 'idle';
+        } else if (rumbleTimer <= nestDropEnd) {
+          // Fly as giant jay to center, drop nest
+          rumbleCorvidaPhase = 1;
+          winFighter._rumbleAlpha = 0;
+          const t = (rumbleTimer - transformEnd) / (nestDropEnd - transformEnd);
+          winFighter.x = winFighter.x + (centerX - winFighter.x) * 0.08;
+          winFighter.y = groundY - 80 - t * 60;
+        } else if (rumbleTimer <= layEnd) {
+          // Hover above nest and lay eggs (they fall from jay)
+          rumbleCorvidaPhase = 2;
+          winFighter._rumbleAlpha = 0;
+          winFighter.x += (centerX - winFighter.x) * 0.1;
+          winFighter.y = groundY - 200 + Math.sin(rumbleTimer * 0.08) * 5;
+        } else if (rumbleTimer <= swoopEnd) {
+          // Swoop to grab opponent
+          rumbleCorvidaPhase = 3;
+          winFighter._rumbleAlpha = 0;
+          const t = (rumbleTimer - layEnd) / (swoopEnd - layEnd);
+          const ease = t * t;
+          winFighter.x += (loseFighter.x - winFighter.x) * 0.1;
+          winFighter.y = (groundY - 200) + ((loseFighter.y - 40) - (groundY - 200)) * ease;
+          winFighter.facing = loseFighter.x > winFighter.x ? 1 : -1;
+        } else if (rumbleTimer <= hoverEnd) {
+          // Lift opponent in talons, hover above nest
+          rumbleCorvidaPhase = 4;
+          winFighter._rumbleAlpha = 0;
+          // Opponent is visible, dangling below the jay
+          loseFighter._rumbleScale = 0.7; // slightly smaller in talons
+          loseFighter.grounded = false;
+          // Fly back above nest
+          winFighter.x += (centerX - winFighter.x) * 0.08;
+          winFighter.y += ((groundY - 200) - winFighter.y) * 0.08;
+          // Opponent follows below the jay (in talons)
+          loseFighter.x = winFighter.x;
+          loseFighter.y = winFighter.y + 70;
+        } else if (rumbleTimer <= hatchEnd) {
+          // Eggs hatch, opponent still held
+          rumbleCorvidaPhase = 5;
+          winFighter._rumbleAlpha = 0;
+          loseFighter._rumbleScale = 0.7;
+          winFighter.x += (centerX - winFighter.x) * 0.05;
+          winFighter.y = groundY - 200 + Math.sin(rumbleTimer * 0.08) * 3;
+          loseFighter.x = winFighter.x;
+          loseFighter.y = winFighter.y + 70;
+          // Hatch eggs progressively
+          const hatchProgress = (rumbleTimer - hoverEnd) / (hatchEnd - hoverEnd);
+          if (hatchProgress > 0.2 && !rumbleCorvidaEggs[0].hatched) { rumbleCorvidaEggs[0].hatched = true; shakeTimer = 3; shakeIntensity = 2; }
+          if (hatchProgress > 0.5 && !rumbleCorvidaEggs[1].hatched) { rumbleCorvidaEggs[1].hatched = true; shakeTimer = 3; shakeIntensity = 2; }
+          if (hatchProgress > 0.8 && !rumbleCorvidaEggs[2].hatched) { rumbleCorvidaEggs[2].hatched = true; shakeTimer = 3; shakeIntensity = 2; }
+          if (rumbleCorvidaGulpChick < 0) {
+            rumbleCorvidaGulpChick = 1; // center chick
+          }
+        } else if (rumbleTimer <= dropFrame) {
+          // Drop the opponent into the chick's mouth
+          rumbleCorvidaPhase = 6;
+          winFighter._rumbleAlpha = 0;
+          const t = (rumbleTimer - hatchEnd) / (dropFrame - hatchEnd);
+          const targetChick = rumbleCorvidaEggs[rumbleCorvidaGulpChick];
+          // Opponent falls from jay toward the chick's open mouth
+          const chickMouthY = targetChick.y - 50; // above the chick head
+          loseFighter.x += (targetChick.x - loseFighter.x) * 0.15;
+          loseFighter.y += (chickMouthY - loseFighter.y) * 0.12;
+          loseFighter._rumbleScale = Math.max(0.3, 0.7 - t * 0.4);
+        } else if (rumbleTimer <= gulpEnd) {
+          // Gulp — opponent disappears
+          rumbleCorvidaPhase = 7;
+          winFighter._rumbleAlpha = 0;
+          rumbleLoserHidden = true;
+          loseFighter._rumbleAlpha = undefined;
+          loseFighter._rumbleScale = undefined;
+          winFighter.y = groundY - 200 + Math.sin(rumbleTimer * 0.06) * 5;
+        } else {
+          // Land and transform back — land beside the nest, not on it
+          rumbleCorvidaPhase = 8;
+          const t = (rumbleTimer - gulpEnd) / (endFrame - gulpEnd);
+          winFighter._rumbleAlpha = Math.min(1, t * 2);
+          // Move to side of nest
+          const landX = centerX + 150;
+          winFighter.x += (landX - winFighter.x) * 0.08;
+          winFighter.y += (groundY - winFighter.y) * 0.06;
+          if (t > 0.5) {
+            winFighter.x = landX;
+            winFighter.y = groundY;
+            winFighter.grounded = true;
+          }
+          winFighter.facing = -1; // face the nest
+          winFighter.state = 'idle';
+        }
+
+        if (rumbleTimer >= endFrame) {
+          winFighter._rumbleAlpha = undefined;
+          loseFighter._rumbleAlpha = undefined;
+          loseFighter._rumbleScale = undefined;
+          gameState = 'victory';
+        }
+      }
+
       if (rumbleType === 'CODEMAX') {
         // Codemax "Your New Overlord": ~360 frames
         // 0-30: Codemax raises hand, charges laser
@@ -12750,6 +12928,9 @@ function drawRumbleAnimation() {
   if (rumbleType === 'CODEMAX') {
     drawCodemaxRumble(loseFighter, winFighter);
   }
+  if (rumbleType === 'CORVIDA') {
+    drawCorvidaRumble(loseFighter, winFighter);
+  }
 }
 
 function drawBojdoRumble(loseFighter, winFighter) {
@@ -12791,6 +12972,270 @@ function drawBojdoRumble(loseFighter, winFighter) {
       ctx.stroke();
     }
     ctx.globalAlpha = 1;
+  }
+
+  ctx.restore();
+}
+
+function drawCorvidaRumble(loseFighter, winFighter) {
+  ctx.save();
+  const groundY = loseFighter.groundY;
+  const nestX = rumbleCorvidaNestX;
+  const S = 2.5; // scale factor for nest/eggs/chicks — giant!
+
+  // Draw nest (giant brown twigs bowl shape)
+  if (rumbleCorvidaPhase >= 1) {
+    const nestAlpha = rumbleCorvidaPhase === 1 ? Math.min(1, (rumbleTimer - 40) / 20) : 1;
+    ctx.globalAlpha = nestAlpha;
+    ctx.fillStyle = '#6b4a2a';
+    ctx.beginPath();
+    ctx.ellipse(nestX, groundY - 2, 110, 28, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Nest rim
+    ctx.strokeStyle = '#553a1a';
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.ellipse(nestX, groundY - 8, 115, 32, 0, 0, Math.PI, true);
+    ctx.stroke();
+    // Twigs
+    ctx.strokeStyle = '#7a5a3a';
+    ctx.lineWidth = 2.5;
+    for (let i = 0; i < 12; i++) {
+      const tx = nestX - 100 + i * 18 + Math.sin(i * 2.3) * 8;
+      const ty = groundY - 6;
+      ctx.beginPath();
+      ctx.moveTo(tx, ty);
+      ctx.lineTo(tx + 14 + Math.sin(i) * 6, ty - 5);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // Draw eggs / hatchlings (giant)
+  for (let i = 0; i < rumbleCorvidaEggs.length; i++) {
+    const egg = rumbleCorvidaEggs[i];
+    if (rumbleCorvidaPhase < 2) continue;
+    if (!egg.landed && !egg.falling) continue; // not dropped yet
+
+    const drawY = egg.landed ? egg.y : egg.fallY;
+
+    ctx.save();
+    ctx.translate(egg.x, drawY);
+
+    if (!egg.hatched) {
+      // Giant egg
+      ctx.fillStyle = '#aaccee';
+      ctx.strokeStyle = '#7799bb';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(0, -14 * S, 10 * S, 16 * S, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      // Speckles
+      ctx.fillStyle = '#88aacc';
+      ctx.beginPath(); ctx.arc(-5 * S, -18 * S, 3, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(4 * S, -10 * S, 2.5, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(-2 * S, -8 * S, 2, 0, Math.PI * 2); ctx.fill();
+    } else {
+      // Giant hatchling
+      // Shell halves
+      ctx.fillStyle = '#aaccee';
+      ctx.strokeStyle = '#7799bb';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(-8 * S, -4, 8 * S, 12 * S, -0.2, 0, Math.PI * 2);
+      ctx.fill(); ctx.stroke();
+      ctx.beginPath();
+      ctx.ellipse(8 * S, -4, 8 * S, 12 * S, 0.2, 0, Math.PI * 2);
+      ctx.fill(); ctx.stroke();
+      // Crack line
+      ctx.strokeStyle = '#7799bb';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-12 * S, -8);
+      ctx.lineTo(-6 * S, -12); ctx.lineTo(-1 * S, -6); ctx.lineTo(3 * S, -12); ctx.lineTo(8 * S, -6); ctx.lineTo(12 * S, -10);
+      ctx.stroke();
+
+      // Chick head — giant
+      const chickBob = Math.sin(Date.now() * 0.005 + i * 2) * 3;
+      const mouthOpen = rumbleCorvidaPhase >= 5 ? 14 + Math.sin(Date.now() * 0.008 + i) * 4 : 0;
+      const headY = -20 * S + chickBob;
+      // Head
+      ctx.fillStyle = '#5aa0e0';
+      ctx.beginPath();
+      ctx.arc(0, headY, 10 * S, 0, Math.PI * 2);
+      ctx.fill();
+      // Eye (skip if satisfied — happy closed eye drawn below)
+      const isFedChick = rumbleCorvidaPhase >= 7 && i === rumbleCorvidaGulpChick;
+      if (!isFedChick) {
+        ctx.fillStyle = '#111';
+        ctx.beginPath();
+        ctx.arc(4 * S, headY - 2, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      // Beak
+      ctx.fillStyle = '#dd9933';
+      const beakY = headY - 8 * S;
+      if (mouthOpen > 0) {
+        // Upper beak (open wide)
+        ctx.beginPath();
+        ctx.moveTo(-5 * S, beakY);
+        ctx.lineTo(0, beakY - mouthOpen);
+        ctx.lineTo(5 * S, beakY);
+        ctx.closePath();
+        ctx.fill();
+        // Lower beak
+        ctx.beginPath();
+        ctx.moveTo(-5 * S, beakY);
+        ctx.lineTo(0, beakY + 5);
+        ctx.lineTo(5 * S, beakY);
+        ctx.closePath();
+        ctx.fill();
+        // Pink mouth
+        ctx.fillStyle = '#ee6666';
+        ctx.beginPath();
+        ctx.moveTo(-4 * S, beakY);
+        ctx.lineTo(0, beakY - mouthOpen * 0.6);
+        ctx.lineTo(4 * S, beakY);
+        ctx.closePath();
+        ctx.fill();
+      } else {
+        ctx.beginPath();
+        ctx.moveTo(-4 * S, beakY);
+        ctx.lineTo(5 * S, beakY - 2);
+        ctx.lineTo(-2 * S, beakY + 4);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // Satisfied chick after gulp
+      if (rumbleCorvidaPhase >= 7 && i === rumbleCorvidaGulpChick) {
+        // Bulging belly
+        ctx.fillStyle = '#5aa0e0';
+        ctx.beginPath();
+        ctx.ellipse(0, -8, 14 * S, 12 * S, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // Happy closed eyes
+        ctx.strokeStyle = '#111';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(4 * S, headY - 2, 4, 0, Math.PI);
+        ctx.stroke();
+      }
+    }
+
+    ctx.restore();
+  }
+
+  // Draw giant blue jay (Corvida) — phases 1-7
+  if (rumbleCorvidaPhase >= 1 && rumbleCorvidaPhase <= 7) {
+    const jx = winFighter.x;
+    const jy = winFighter.y;
+    const f = winFighter.facing;
+    const scale = 3; // 3x size
+    const wingFlap = Math.sin(Date.now() * 0.012) * 0.5;
+
+    ctx.save();
+    ctx.translate(jx, jy);
+    ctx.scale(scale, scale);
+
+    // Body
+    ctx.fillStyle = '#4a90d9';
+    ctx.strokeStyle = '#1a1a2e';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.ellipse(0, -8, 14, 10, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    // White chest
+    ctx.fillStyle = '#ddeeff';
+    ctx.beginPath();
+    ctx.ellipse(0, -5, 8, 6, 0, 0, Math.PI);
+    ctx.fill();
+    // Head
+    ctx.fillStyle = '#4a90d9';
+    ctx.beginPath();
+    ctx.arc(f * 10, -14, 8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#1a1a2e';
+    ctx.stroke();
+    // Crest
+    ctx.fillStyle = '#2a5fa8';
+    ctx.beginPath();
+    ctx.moveTo(f * 10, -22);
+    ctx.lineTo(f * 6, -26);
+    ctx.lineTo(f * 14, -20);
+    ctx.closePath();
+    ctx.fill();
+    // Eye
+    ctx.fillStyle = '#111';
+    ctx.beginPath();
+    ctx.arc(f * 13, -15, 2, 0, Math.PI * 2);
+    ctx.fill();
+    // Beak
+    ctx.fillStyle = '#333';
+    ctx.beginPath();
+    ctx.moveTo(f * 18, -14);
+    ctx.lineTo(f * 25, -13);
+    ctx.lineTo(f * 18, -11);
+    ctx.closePath();
+    ctx.fill();
+    // Necklace
+    ctx.strokeStyle = '#111';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(f * 10, -10, 8, 0.3, Math.PI - 0.3);
+    ctx.stroke();
+    // Wings
+    ctx.save();
+    ctx.rotate(-wingFlap * f);
+    ctx.fillStyle = '#3a7bc8';
+    ctx.beginPath();
+    ctx.moveTo(-f * 8, -11);
+    ctx.lineTo(-f * 24, -23);
+    ctx.lineTo(-f * 16, -6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+    ctx.save();
+    ctx.rotate(wingFlap * f);
+    ctx.fillStyle = '#3a7bc8';
+    ctx.beginPath();
+    ctx.moveTo(f * 8, -11);
+    ctx.lineTo(f * 24, -23);
+    ctx.lineTo(f * 16, -6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+    // Tail
+    ctx.fillStyle = '#2a5fa8';
+    ctx.beginPath();
+    ctx.moveTo(-f * 10, -6);
+    ctx.lineTo(-f * 22, -2);
+    ctx.lineTo(-f * 20, -8);
+    ctx.closePath();
+    ctx.fill();
+    // Feet/talons (carrying opponent in phases 4-6)
+    ctx.strokeStyle = '#444';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(-3, 0);
+    ctx.lineTo(-5, 6);
+    ctx.moveTo(-5, 6);
+    ctx.lineTo(-8, 8);
+    ctx.moveTo(-5, 6);
+    ctx.lineTo(-2, 8);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(3, 0);
+    ctx.lineTo(5, 6);
+    ctx.moveTo(5, 6);
+    ctx.lineTo(2, 8);
+    ctx.moveTo(5, 6);
+    ctx.lineTo(8, 8);
+    ctx.stroke();
+
+    ctx.restore();
   }
 
   ctx.restore();
@@ -14944,6 +15389,7 @@ function draw() {
       if (rumbleSinkhole && rumbleLoserHidden) drawTitanRumble(winner === 'player' ? cpu : player);
       if (rumbleShadePoof) drawShadeRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
       if (rumbleHailCracked) drawTorrenaRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
+      if (rumbleCorvidaGulpChick >= 0 && rumbleLoserHidden) drawCorvidaRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
       ctx.restore();
       drawFinishHimScreen();
       if (paused) drawPauseOverlay();
@@ -14972,6 +15418,7 @@ function draw() {
       if (rumbleType === 'BOJDOBOJDO' && rumbleSubType === 'massiv' && rumbleLoserHidden) drawBojdoStompRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
       if (rumbleType === 'RUBBERMAN' && rumbleTetherCracked) drawRubbermanRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
       if (rumbleHailCracked) drawTorrenaRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
+      if (rumbleCorvidaGulpChick >= 0 && rumbleLoserHidden) drawCorvidaRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
       drawHUD();
       ctx.restore();
       drawVictoryScreen();
