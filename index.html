@@ -150,6 +150,10 @@ let rumbleHaystackScythe = false; // scythe has been drawn
 let rumbleHaystackStrike = false; // scythe strike connected
 let rumbleHaystackDust = []; // dust particles from dissolved opponent
 let rumbleHaystackDiveStart = null; // { x, y } stored at start of dive
+let rumbleCodemaxLaser = false; // laser is firing
+let rumbleCodemaxPixelLevel = 0; // 0=none, 1-4 = progressively worse pixelation
+let rumbleCodemaxGlitch = 0; // glitch-out timer
+let rumbleCodemaxLaserParticles = []; // pixelated laser trail particles
 let rumbleSnazzConfetti = []; // confetti particles
 let rumbleSnazzPunchLanded = false; // final punch connected
 let rumbleHailShards = []; // ice shards from hailstone cracking
@@ -798,7 +802,8 @@ const characterRumbles = {
   ],
   'TORRENA': { name: 'CLOUDY, WITH A CHANCE OF DEMISE', code: 'stormy', desc: 'Become a cloud and pummel the opponent with rain and hail' },
   'SNAZZ MCJAZZ': { name: 'ANNIE, ARE YOU OKAY?', code: 'groove', desc: 'Dance your way over and knock them out cold' },
-  'HAYSTACK': { name: "DON'T FEAR THE REAPER", code: 'scythe', desc: 'Ravens carry you to strike with a scythe, dissolving the opponent' }
+  'HAYSTACK': { name: "DON'T FEAR THE REAPER", code: 'scythe', desc: 'Ravens carry you to strike with a scythe, dissolving the opponent' },
+  'CODEMAX': { name: 'YOUR NEW OVERLORD', code: 'decode', desc: 'Pixelated laser degrades the opponent until they glitch out' }
 };
 
 const characterCombos = {
@@ -6397,6 +6402,7 @@ function handleKeyPress(key) {
         rumbleTorrenaPhase = 0; rumbleTorrenaCloudX = 0; rumbleTorrenaCloudY = 0; rumbleRaindrops = []; rumbleHailstone = null; rumbleHailCracked = false; rumbleHailShards = []; rumbleTorrenaEvapParticles = [];
         rumbleSnazzDiscoBall = null; rumbleSnazzConfetti = []; rumbleSnazzPunchLanded = false;
         rumbleHaystackRavens = []; rumbleHaystackScythe = false; rumbleHaystackStrike = false; rumbleHaystackDust = []; rumbleHaystackDiveStart = null;
+        rumbleCodemaxLaser = false; rumbleCodemaxPixelLevel = 0; rumbleCodemaxGlitch = 0; rumbleCodemaxLaserParticles = [];
         if (player) { player.rubberArmReach = 0; player._hideFrontArm = false; player._rumbleRotation = 0; }
         if (cpu) { cpu.rubberArmReach = 0; cpu._hideFrontArm = false; cpu._rumbleRotation = 0; }
         if (player) { player._brushArmT = undefined; player._rumbleAlpha = undefined; }
@@ -6448,6 +6454,7 @@ function handleKeyPress(key) {
         rumbleTorrenaPhase = 0; rumbleTorrenaCloudX = 0; rumbleTorrenaCloudY = 0; rumbleRaindrops = []; rumbleHailstone = null; rumbleHailCracked = false; rumbleHailShards = []; rumbleTorrenaEvapParticles = [];
         rumbleSnazzDiscoBall = null; rumbleSnazzConfetti = []; rumbleSnazzPunchLanded = false;
         rumbleHaystackRavens = []; rumbleHaystackScythe = false; rumbleHaystackStrike = false; rumbleHaystackDust = []; rumbleHaystackDiveStart = null;
+        rumbleCodemaxLaser = false; rumbleCodemaxPixelLevel = 0; rumbleCodemaxGlitch = 0; rumbleCodemaxLaserParticles = [];
         if (player) { player.rubberArmReach = 0; player._hideFrontArm = false; player._rumbleRotation = 0; }
         if (cpu) { cpu.rubberArmReach = 0; cpu._hideFrontArm = false; cpu._rumbleRotation = 0; }
         if (player) { player._brushArmT = undefined; player._rumbleAlpha = undefined; }
@@ -6467,6 +6474,7 @@ function handleKeyPress(key) {
         rumbleTorrenaPhase = 0; rumbleTorrenaCloudX = 0; rumbleTorrenaCloudY = 0; rumbleRaindrops = []; rumbleHailstone = null; rumbleHailCracked = false; rumbleHailShards = []; rumbleTorrenaEvapParticles = [];
         rumbleSnazzDiscoBall = null; rumbleSnazzConfetti = []; rumbleSnazzPunchLanded = false;
         rumbleHaystackRavens = []; rumbleHaystackScythe = false; rumbleHaystackStrike = false; rumbleHaystackDust = []; rumbleHaystackDiveStart = null;
+        rumbleCodemaxLaser = false; rumbleCodemaxPixelLevel = 0; rumbleCodemaxGlitch = 0; rumbleCodemaxLaserParticles = [];
         if (player) { player.rubberArmReach = 0; player._hideFrontArm = false; player._rumbleRotation = 0; }
         if (cpu) { cpu.rubberArmReach = 0; cpu._hideFrontArm = false; cpu._rumbleRotation = 0; }
         if (player) { player._brushArmT = undefined; player._rumbleAlpha = undefined; }
@@ -6504,6 +6512,7 @@ function startRumblePractice() {
   rumbleTorrenaPhase = 0; rumbleTorrenaCloudX = 0; rumbleTorrenaCloudY = 0; rumbleRaindrops = []; rumbleHailstone = null; rumbleHailCracked = false; rumbleHailShards = []; rumbleTorrenaEvapParticles = [];
   rumbleSnazzDiscoBall = null; rumbleSnazzConfetti = []; rumbleSnazzPunchLanded = false;
   rumbleHaystackRavens = []; rumbleHaystackScythe = false; rumbleHaystackStrike = false; rumbleHaystackDust = []; rumbleHaystackDiveStart = null;
+  rumbleCodemaxLaser = false; rumbleCodemaxPixelLevel = 0; rumbleCodemaxGlitch = 0; rumbleCodemaxLaserParticles = [];
   if (player) { player._brushArmT = undefined; player._rumbleAlpha = undefined; player.waterPhase = false; player._hideFrontArm = false; player._rumbleRotation = 0; player.rubberArmReach = 0; player.dancing = false; player.danceTimer = 0; }
   if (cpu) { cpu._brushArmT = undefined; cpu._rumbleAlpha = undefined; cpu.waterPhase = false; cpu._hideFrontArm = false; cpu._rumbleRotation = 0; cpu.rubberArmReach = 0; cpu.dancing = false; cpu.danceTimer = 0; }
   // Set player as winner, cpu health to 0
@@ -6540,6 +6549,7 @@ function startFight() {
         rumbleTorrenaPhase = 0; rumbleTorrenaCloudX = 0; rumbleTorrenaCloudY = 0; rumbleRaindrops = []; rumbleHailstone = null; rumbleHailCracked = false; rumbleHailShards = []; rumbleTorrenaEvapParticles = [];
         rumbleSnazzDiscoBall = null; rumbleSnazzConfetti = []; rumbleSnazzPunchLanded = false;
         rumbleHaystackRavens = []; rumbleHaystackScythe = false; rumbleHaystackStrike = false; rumbleHaystackDust = []; rumbleHaystackDiveStart = null;
+        rumbleCodemaxLaser = false; rumbleCodemaxPixelLevel = 0; rumbleCodemaxGlitch = 0; rumbleCodemaxLaserParticles = [];
         if (player) { player.rubberArmReach = 0; player._hideFrontArm = false; player._rumbleRotation = 0; }
         if (cpu) { cpu.rubberArmReach = 0; cpu._hideFrontArm = false; cpu._rumbleRotation = 0; }
         if (player) { player._brushArmT = undefined; player._rumbleAlpha = undefined; }
@@ -11991,6 +12001,114 @@ function update() {
         }
       }
 
+      if (rumbleType === 'CODEMAX') {
+        // Codemax "Your New Overlord": ~360 frames
+        // 0-30: Codemax raises hand, charges laser
+        // 30-60: Green pixelated laser fires at opponent
+        // 60-100: Opponent pixelates (level 1 — large pixels)
+        // 100-140: Pixelate level 2 — larger pixels
+        // 140-180: Pixelate level 3 — very large pixels
+        // 180-220: Pixelate level 4 — barely recognizable
+        // 220-300: Glitch and blink out
+        // 300-360: Settle
+        const chargeEnd = 30;
+        const laserEnd = 60;
+        const pixel1End = 100;
+        const pixel2End = 140;
+        const pixel3End = 180;
+        const pixel4End = 220;
+        const glitchEnd = 300;
+        const endFrame = 360;
+
+        const dir = loseFighter.x > winFighter.x ? 1 : -1;
+        winFighter.facing = dir;
+        winFighter.vx = 0;
+
+        if (rumbleTimer <= chargeEnd) {
+          // Charge up — arm raised
+          winFighter.state = 'attack';
+          rumbleCodemaxLaser = false;
+          rumbleCodemaxPixelLevel = 0;
+        } else if (rumbleTimer <= laserEnd) {
+          // Fire laser
+          winFighter.state = 'attack';
+          rumbleCodemaxLaser = true;
+          // Spawn laser particles along the beam
+          if (rumbleTimer % 2 === 0) {
+            const sx = winFighter.x + dir * 25;
+            const sy = winFighter.y - 35;
+            const ex = loseFighter.x;
+            const ey = loseFighter.y - 30;
+            for (let i = 0; i < 5; i++) {
+              const t = Math.random();
+              rumbleCodemaxLaserParticles.push({
+                x: sx + (ex - sx) * t + (Math.random() - 0.5) * 8,
+                y: sy + (ey - sy) * t + (Math.random() - 0.5) * 8,
+                size: 3 + Math.random() * 5,
+                alpha: 0.8,
+                life: 15 + Math.random() * 10
+              });
+            }
+          }
+          if (rumbleTimer === laserEnd) {
+            loseFighter.flashTimer = 10;
+            shakeTimer = 8;
+            shakeIntensity = 4;
+          }
+        } else if (rumbleTimer <= pixel1End) {
+          winFighter.state = 'idle';
+          rumbleCodemaxLaser = false;
+          rumbleCodemaxPixelLevel = 1;
+          loseFighter._rumbleAlpha = 0; // hide real fighter, show pixel version
+        } else if (rumbleTimer <= pixel2End) {
+          rumbleCodemaxPixelLevel = 2;
+          loseFighter._rumbleAlpha = 0;
+          if (rumbleTimer === pixel1End + 1) {
+            shakeTimer = 4; shakeIntensity = 3;
+          }
+        } else if (rumbleTimer <= pixel3End) {
+          rumbleCodemaxPixelLevel = 3;
+          loseFighter._rumbleAlpha = 0;
+          if (rumbleTimer === pixel2End + 1) {
+            shakeTimer = 4; shakeIntensity = 3;
+          }
+        } else if (rumbleTimer <= pixel4End) {
+          rumbleCodemaxPixelLevel = 4;
+          loseFighter._rumbleAlpha = 0;
+          if (rumbleTimer === pixel3End + 1) {
+            shakeTimer = 6; shakeIntensity = 5;
+          }
+        } else if (rumbleTimer <= glitchEnd) {
+          // Glitch out phase
+          rumbleCodemaxPixelLevel = 4;
+          loseFighter._rumbleAlpha = 0;
+          rumbleCodemaxGlitch = rumbleTimer - pixel4End;
+          // Opponent fully gone after enough glitching
+          if (rumbleCodemaxGlitch > 40) {
+            rumbleLoserHidden = true;
+            rumbleCodemaxPixelLevel = 0;
+          }
+        } else {
+          // Settle
+          winFighter.state = 'idle';
+          rumbleLoserHidden = true;
+          rumbleCodemaxPixelLevel = 0;
+          rumbleCodemaxGlitch = 0;
+        }
+
+        // Update laser particles
+        for (let i = rumbleCodemaxLaserParticles.length - 1; i >= 0; i--) {
+          const p = rumbleCodemaxLaserParticles[i];
+          p.life--;
+          p.alpha = Math.max(0, p.life / 15);
+          if (p.life <= 0) rumbleCodemaxLaserParticles.splice(i, 1);
+        }
+
+        if (rumbleTimer >= endFrame) {
+          gameState = 'victory';
+        }
+      }
+
       if (rumbleType === 'HAYSTACK') {
         // Haystack "Don't Fear the Reaper": ~380 frames
         // 0-40: Arms out, ravens fly in from edges
@@ -12629,6 +12747,9 @@ function drawRumbleAnimation() {
   if (rumbleType === 'HAYSTACK') {
     drawHaystackRumble(loseFighter, winFighter);
   }
+  if (rumbleType === 'CODEMAX') {
+    drawCodemaxRumble(loseFighter, winFighter);
+  }
 }
 
 function drawBojdoRumble(loseFighter, winFighter) {
@@ -12669,6 +12790,155 @@ function drawBojdoRumble(loseFighter, winFighter) {
       ctx.lineTo(winFighter.x + Math.cos(angle) * r2, winFighter.y - 30 + Math.sin(angle) * r2);
       ctx.stroke();
     }
+    ctx.globalAlpha = 1;
+  }
+
+  ctx.restore();
+}
+
+function drawCodemaxRumble(loseFighter, winFighter) {
+  ctx.save();
+  const f = winFighter.facing;
+
+  // Charge-up glow on hand
+  if (rumbleTimer <= 30) {
+    const chargeT = rumbleTimer / 30;
+    ctx.globalAlpha = chargeT * 0.6;
+    ctx.fillStyle = '#00ff88';
+    ctx.shadowColor = '#00ff88';
+    ctx.shadowBlur = 15 * chargeT;
+    ctx.beginPath();
+    ctx.arc(winFighter.x + f * 22, winFighter.y - 35, 6 + chargeT * 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1;
+  }
+
+  // Pixelated laser beam
+  if (rumbleCodemaxLaser) {
+    const sx = winFighter.x + f * 25;
+    const sy = winFighter.y - 35;
+    const ex = loseFighter.x;
+    const ey = loseFighter.y - 30;
+    const dx = ex - sx;
+    const dy = ey - sy;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const steps = Math.floor(dist / 6);
+
+    // Blocky pixelated beam — draw squares along the line
+    for (let i = 0; i < steps; i++) {
+      const t = i / steps;
+      const bx = sx + dx * t;
+      const by = sy + dy * t;
+      const pixSize = 4 + Math.floor(Math.random() * 4);
+      const brightness = Math.random() > 0.3 ? '#00ff88' : '#00cc66';
+      ctx.fillStyle = brightness;
+      ctx.fillRect(Math.floor(bx / pixSize) * pixSize, Math.floor(by / pixSize) * pixSize, pixSize, pixSize);
+    }
+
+    // Glow at impact point
+    ctx.globalAlpha = 0.4;
+    ctx.fillStyle = '#00ff88';
+    ctx.shadowColor = '#00ff88';
+    ctx.shadowBlur = 20;
+    ctx.beginPath();
+    ctx.arc(ex, ey, 15, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1;
+  }
+
+  // Laser trail particles (pixelated green squares)
+  for (const p of rumbleCodemaxLaserParticles) {
+    if (p.alpha <= 0) continue;
+    ctx.globalAlpha = p.alpha;
+    ctx.fillStyle = '#00ff88';
+    ctx.fillRect(Math.floor(p.x), Math.floor(p.y), Math.floor(p.size), Math.floor(p.size));
+  }
+  ctx.globalAlpha = 1;
+
+  // Pixelated opponent replacement (fighter is hidden via _rumbleAlpha)
+  if (rumbleCodemaxPixelLevel > 0 && !rumbleLoserHidden) {
+    const loserChar = winner === 'player' ? selectedCPU : selectedPlayer;
+    const lx = loseFighter.x;
+    const ly = loseFighter.y; // feet/ground position
+    // Fighter body area: roughly 60 wide, 85 tall from feet up
+    const bodyW = 60;
+    const bodyH = 85;
+    const left = lx - bodyW / 2;
+    const top = ly - bodyH;
+
+    // Pixel size based on level: 5, 10, 16, 24
+    const pixSizes = [0, 5, 10, 16, 24];
+    const pixSize = pixSizes[rumbleCodemaxPixelLevel];
+
+    // Color palette from the character — weighted toward body colors
+    const colors = [loserChar.color, loserChar.color, loserChar.accent, loserChar.outline, loserChar.color, loserChar.accent];
+
+    // Build a fighter-shaped silhouette out of pixel blocks
+    for (let py = top; py < top + bodyH; py += pixSize) {
+      for (let px = left; px < left + bodyW; px += pixSize) {
+        // Shape mask: narrower at head and feet, wider at torso
+        const relY = (py - top) / bodyH; // 0=top, 1=bottom
+        let halfWidth;
+        if (relY < 0.22) {
+          // Head region — narrow circle
+          halfWidth = 10 + (relY / 0.22) * 5;
+        } else if (relY < 0.7) {
+          // Torso region — wider
+          halfWidth = 18 + Math.sin((relY - 0.22) / 0.48 * Math.PI) * 8;
+        } else {
+          // Legs — narrower, split
+          halfWidth = 16 - (relY - 0.7) / 0.3 * 4;
+        }
+        const distFromCenter = Math.abs((px + pixSize / 2) - lx);
+        if (distFromCenter > halfWidth) continue;
+
+        // Deterministic color based on grid position
+        const hash = (Math.floor(px / pixSize) * 7 + Math.floor(py / pixSize) * 13 + rumbleCodemaxPixelLevel * 5) & 0xff;
+        const colorIdx = hash % colors.length;
+        ctx.fillStyle = colors[colorIdx];
+        ctx.fillRect(px, py, pixSize - 1, pixSize - 1);
+      }
+    }
+  }
+
+  // Glitch effect — horizontal bars, blink, static
+  if (rumbleCodemaxGlitch > 0) {
+    const lx = loseFighter.x;
+    const ly = loseFighter.y;
+    const glitchT = rumbleCodemaxGlitch;
+
+    if (!rumbleLoserHidden) {
+      // Horizontal offset glitch bars over the pixelated body
+      ctx.globalAlpha = 0.7;
+      for (let i = 0; i < 6; i++) {
+        const barY = ly - 85 + ((glitchT * 7 + i * 17) % 90);
+        const barShift = Math.sin(glitchT * 0.3 + i * 1.7) * (8 + glitchT * 0.2);
+        ctx.fillStyle = i % 3 === 0 ? '#00ff88' : i % 3 === 1 ? '#ff0044' : '#0088ff';
+        ctx.fillRect(lx - 30 + barShift, barY, 60, 3);
+      }
+
+      // Blinking — black flashes
+      if (glitchT > 15 && Math.floor(glitchT / 3) % 3 === 0) {
+        ctx.globalAlpha = 0.5;
+        ctx.fillStyle = '#000';
+        ctx.fillRect(lx - 35, ly - 90, 70, 95);
+      }
+
+      // Static noise
+      if (glitchT > 25) {
+        ctx.globalAlpha = 0.5;
+        for (let i = 0; i < 20; i++) {
+          const nx = lx - 30 + Math.random() * 60;
+          const ny = ly - 85 + Math.random() * 90;
+          ctx.fillStyle = ['#00ff88', '#ffffff', '#ff0044', '#0088ff'][Math.floor(Math.random() * 4)];
+          const ns = 2 + Math.random() * 5;
+          ctx.fillRect(nx, ny, ns, ns);
+        }
+      }
+    }
+
     ctx.globalAlpha = 1;
   }
 
