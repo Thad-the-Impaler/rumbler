@@ -19,6 +19,12 @@ SOURCE_FILES = [
     'data/attacks.js',
     'data/rumble-defs.js',
     'data/combos.js',
+    # State
+    'state/game-state.js',
+    'state/rumble-state.js',
+    'state/unlock-state.js',
+    # Audio
+    'audio/music.js',
     # Remaining monolith (shrinks as more files are extracted)
     'all.js',
 ]

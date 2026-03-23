@@ -13,243 +13,10 @@ iconImages['ARTIK'] = artikIconImg;
 // Preload portrait icons for versus screen (base64 embedded)
 // [Extracted to data/assets.js]
 
-// --- GAME STATE ---
-let gameState = 'title'; // title, charSelect, practiceTargetSelect, assistSelect, difficultySelect, levelSelect, fight, finishHim, victory
-let gameMode = 'cpu'; // cpu, practice
-let titleCursor = 0; // 0 = Fight CPU, 1 = Practice
-let practiceTargetCursor = 0; // 0 = Bag, 1 = Mannequin
-let selectedPlayer = null;
-let selectedCPU = null;
-let selectedAssist = null;
-let cpuAssistIndex = 0;
-let charSelectCursor = 0;
-let charSelectScroll = 0;
-let charSelectMaxScroll = 0;
-let charSelectLastCursor = -1;
-let charSelectPerRow = 7; // updated by drawCharSelectScreen
-let cpuSelectCursor = 1;
-let selectingCPU = false;
-let showLockedChars = false;
-let assistCursor = 0;
-let selectingCPUAssist = false;
-let cpuAssistCursor = 0;
-let difficultyCursor = 1; // default Normal
+// [Extracted to state/game-state.js]
+// [Extracted to state/rumble-state.js]
+// [Extracted to state/unlock-state.js]
 
-// Lottery animation state
-let lotteryActive = false;
-let lotteryTimer = 0;
-let lotteryDuration = 90; // frames total
-let lotteryCurrent = 0; // currently displayed index
-let lotteryFinal = 0; // final chosen index
-let lotteryType = ''; // 'char', 'cpu', 'assist', 'cpuAssist'
-let lotteryCallback = null; // called when animation finishes
-let cpuDifficulty = null;
-let paused = false;
-let winner = null;
-let titlePulse = 0;
-let shakeTimer = 0;
-let shakeIntensity = 0;
-let finishHimTimer = 0;
-const FINISH_HIM_DURATION = 360; // 6 seconds at 60fps
-
-const femaleCharacters = new Set(['TORRENA', 'CORVIDA', 'TELATRINE', 'KILLA WATT', 'VORTICE']);
-
-// Rumble (fatality) state
-let rumbleActive = false;
-let rumbleTimer = 0;
-let rumbleType = null;
-let rumbleSubType = null; // specific rumble code when character has multiple rumbles
-let rumbleCodeBuffer = '';
-let rumbleAshes = null;
-let rumbleLoserHidden = false;
-let rumbleIceShards = [];
-let rumbleAcidBlob = null;
-let rumbleGoo = null;
-let rumbleAcidSplashes = [];
-let rumbleVenomMeltPct = 0; // 0-1 melt progress for clipping the loser
-let rumbleVenomDrips = []; // drips falling off the body during melt
-let rumbleLightBurst = null; // { x, y, timer } explosion of light
-let rumbleLightParticles = []; // beautiful light particles
-let rumbleZapActive = false; // electricity beam active
-let rumbleSinkhole = null; // { x, y, radius, maxRadius, depth } sinkhole state
-let rumbleSinkProgress = 0; // 0-1 how far the opponent has sunk
-let rumbleDirtParticles = []; // dirt/debris flying out of sinkhole
-let rumbleShadePoof = false; // opponent turned to smoke
-let rumbleSmokeParticles = []; // smoke puff particles
-let rumbleShadeComboHit = 0; // which hit in the combo we're on
-let rumbleShadeBrush = false; // Shade brushing shoulder
-let rumbleBojdoPhase = 0;
-let rumbleBojdoLaunchVy = 0;
-let rumbleTetherAngle = 0; // current swing angle for Tetherball
-let rumbleTetherSlams = 0; // number of slams done
-let rumbleTetherCracked = false; // final smash done
-let rumbleTetherGrabX = 0; // where Rubberman's arm reaches to
-let rumbleTorrenaPhase = 0; // 0=water, 1=evaporate, 2=cloud, 3=rain, 4=hailstone, 5=done
-let rumbleTorrenaCloudX = 0; // cloud position
-let rumbleTorrenaCloudY = 0;
-let rumbleRaindrops = []; // rain particles
-let rumbleHailstone = null; // { x, y, vy, size }
-let rumbleHailCracked = false; // hailstone has shattered on impact
-let rumbleSnazzDiscoBall = null; // { y, targetY } disco ball descending
-let rumbleHaystackRavens = []; // raven positions { x, y, wingPhase }
-let rumbleHaystackScythe = false; // scythe has been drawn
-let rumbleHaystackStrike = false; // scythe strike connected
-let rumbleHaystackDust = []; // dust particles from dissolved opponent
-let rumbleHaystackDiveStart = null; // { x, y } stored at start of dive
-let rumbleCodemaxLaser = false; // laser is firing
-let rumbleCodemaxPixelLevel = 0; // 0=none, 1-4 = progressively worse pixelation
-let rumbleCodemaxGlitch = 0; // glitch-out timer
-let rumbleCodemaxLaserParticles = []; // pixelated laser trail particles
-let rumbleCorvidaPhase = 0; // animation phase
-let rumbleCorvidaNestX = 0; // nest position
-let rumbleCorvidaEggs = []; // { x, y, hatched }
-let rumbleCorvidaGulpChick = -1; // which chick ate the opponent (-1 = none)
-let rumbleGolgarEntity2 = null; // { x, y, facing } second entity position
-let rumbleGolgarPhase = 0;
-let rumbleGolgarLaunchVy = 0; // opponent launch velocity
-let rumbleGolgarOpX = 0; // stored opponent X at start
-let rumbleTelatrinePhase = 0;
-let rumbleTelatrineShrug = 0; // shrug animation timer
-let rumbleSnazzConfetti = []; // confetti particles
-let rumbleSnazzPunchLanded = false; // final punch connected
-let rumbleHailShards = []; // ice shards from hailstone cracking
-let rumbleTorrenaEvapParticles = []; // evaporation steam particles
-let bojdoUnlocked = false;
-let bojdobojdoUnlocked = false;
-let bojdoCodeBuffer = '';
-let bojdoUnlockFlash = 0;
-let rubbermanUnlocked = false;
-let rubbermanCodeBuffer = '';
-let rubbermanUnlockFlash = 0;
-let torrenaUnlocked = false;
-let torrenaCodeBuffer = '';
-let torrenaUnlockFlash = 0;
-let masterCodeBuffer = '';
-let masterUnlockFlash = 0;
-let rumblePracticeUnlocked = false; // unlocked after first rumble or master passkey
-let snazzUnlocked = false;
-let snazzCodeBuffer = '';
-let snazzUnlockFlash = 0;
-let haystackUnlocked = false;
-let haystackCodeBuffer = '';
-let haystackUnlockFlash = 0;
-let codemaxUnlocked = false;
-let codemaxCodeBuffer = '';
-let codemaxUnlockFlash = 0;
-let corvidaUnlocked = false;
-let corvidaCodeBuffer = '';
-let corvidaUnlockFlash = 0;
-let golgarUnlocked = false;
-let golgarCodeBuffer = '';
-let golgarUnlockFlash = 0;
-let telatrineUnlocked = false;
-let telatrineCodeBuffer = '';
-let telatrineUnlockFlash = 0;
-let duplaireUnlocked = false;
-let duplaireCodeBuffer = '';
-let duplaireUnlockFlash = 0;
-let bozollokUnlocked = false;
-let bozollokCodeBuffer = '';
-let bozollokUnlockFlash = 0;
-let gourmandUnlocked = false;
-let gourmandCodeBuffer = '';
-let gourmandUnlockFlash = 0;
-let batschUnlocked = false;
-let batschCodeBuffer = '';
-let batschUnlockFlash = 0;
-let paletapUnlocked = false;
-let paletapCodeBuffer = '';
-let paletapUnlockFlash = 0;
-let matadorUnlocked = false;
-let matadorCodeBuffer = '';
-let matadorUnlockFlash = 0;
-let killawattUnlocked = false;
-let killawattCodeBuffer = '';
-let killawattUnlockFlash = 0;
-let backtrackUnlocked = false;
-let backtrackCodeBuffer = '';
-let backtrackUnlockFlash = 0;
-let exorUnlocked = false;
-let exorCodeBuffer = '';
-let exorUnlockFlash = 0;
-let buckUnlocked = false;
-let buckCodeBuffer = '';
-let buckUnlockFlash = 0;
-let vorticeUnlocked = false;
-let vorticeCodeBuffer = '';
-let vorticeUnlockFlash = 0;
-let xhaustUnlocked = false;
-let xhaustCodeBuffer = '';
-let xhaustUnlockFlash = 0;
-let weedthornUnlocked = false;
-let weedthornCodeBuffer = '';
-let weedthornUnlockFlash = 0;
-let bojAssistUnlocked = false;
-let bojAssistCodeBuffer = '';
-let bojAssistUnlockFlash = 0;
-let jazzAssistUnlocked = false;
-let jazzAssistCodeBuffer = '';
-let jazzAssistUnlockFlash = 0;
-let cyanoAssistUnlocked = false;
-let cyanoAssistCodeBuffer = '';
-let cyanoAssistUnlockFlash = 0;
-let warperAssistUnlocked = false;
-let warperAssistCodeBuffer = '';
-let warperAssistUnlockFlash = 0;
-let aphidAssistUnlocked = false;
-let aphidAssistCodeBuffer = '';
-let aphidAssistUnlockFlash = 0;
-let studAssistUnlocked = false;
-let studAssistCodeBuffer = '';
-let studAssistUnlockFlash = 0;
-let floatAssistUnlocked = false;
-let floatAssistCodeBuffer = '';
-let floatAssistUnlockFlash = 0;
-let stickerAssistUnlocked = false;
-let stickerAssistCodeBuffer = '';
-let stickerAssistUnlockFlash = 0;
-let serpentAssistUnlocked = false;
-let serpentAssistCodeBuffer = '';
-let serpentAssistUnlockFlash = 0;
-
-// Level select state
-let levelSelectCursor = 0;
-let selectedLevel = null;
-
-// Secret level unlock state
-let snowyCityUnlocked = false;
-let snowyCityCodeBuffer = '';
-let snowyCityUnlockFlash = 0;
-let foggyCityUnlocked = false;
-let foggyCityCodeBuffer = '';
-let foggyCityUnlockFlash = 0;
-let rainyCityUnlocked = false;
-let rainyCityCodeBuffer = '';
-let rainyCityUnlockFlash = 0;
-let glowingCityUnlocked = false;
-let glowingCityCodeBuffer = '';
-let glowingCityUnlockFlash = 0;
-let sunnyCityUnlocked = false;
-let sunnyCityCodeBuffer = '';
-let sunnyCityUnlockFlash = 0;
-
-// [Extracted to data/difficulties.js]
-// [Extracted to data/levels.js]
-
-// [Extracted to data/characters.js]
-
-// [Extracted to data/assists.js]
-
-// [Extracted to data/attacks.js]
-
-// --- COMBOS ---
-let frameCount = 0;
-
-// [Extracted to data/rumble-defs.js]
-
-// [Extracted to data/combos.js]
-
-// --- FIGHTER CLASS ---
 class Fighter {
   constructor(charData, x, facing, isPlayer, assistData) {
     this.char = charData;
@@ -5701,24 +5468,7 @@ function handleKeyPress(key) {
         gameState = 'title';
         paused = false;
         playTitleMusic();
-        rumbleActive = false; rumbleTimer = 0; rumbleType = null; rumbleSubType = null;
-        rumbleCodeBuffer = ''; rumbleAshes = null; rumbleLoserHidden = false; rumbleIceShards = [];
-        rumbleAcidBlob = null; rumbleGoo = null; rumbleAcidSplashes = []; rumbleVenomMeltPct = 0; rumbleVenomDrips = [];
-        rumbleLightBurst = null; rumbleLightParticles = []; rumbleZapActive = false;
-        rumbleSinkhole = null; rumbleSinkProgress = 0; rumbleDirtParticles = [];
-        rumbleShadePoof = false; rumbleSmokeParticles = []; rumbleShadeComboHit = 0; rumbleShadeBrush = false;
-        rumbleBojdoPhase = 0; rumbleBojdoLaunchVy = 0;
-        rumbleTetherAngle = 0; rumbleTetherSlams = 0; rumbleTetherCracked = false; rumbleTetherGrabX = 0;
-        rumbleTorrenaPhase = 0; rumbleTorrenaCloudX = 0; rumbleTorrenaCloudY = 0; rumbleRaindrops = []; rumbleHailstone = null; rumbleHailCracked = false; rumbleHailShards = []; rumbleTorrenaEvapParticles = [];
-        rumbleSnazzDiscoBall = null; rumbleSnazzConfetti = []; rumbleSnazzPunchLanded = false;
-        rumbleHaystackRavens = []; rumbleHaystackScythe = false; rumbleHaystackStrike = false; rumbleHaystackDust = []; rumbleHaystackDiveStart = null;
-        rumbleCodemaxLaser = false; rumbleCodemaxPixelLevel = 0; rumbleCodemaxGlitch = 0; rumbleCodemaxLaserParticles = [];
-        rumbleCorvidaPhase = 0; rumbleCorvidaNestX = 0; rumbleCorvidaEggs = []; rumbleCorvidaGulpChick = -1;
-        rumbleGolgarEntity2 = null; rumbleGolgarPhase = 0; rumbleGolgarLaunchVy = 0; rumbleGolgarOpX = 0;
-        if (player) { player.rubberArmReach = 0; player._hideFrontArm = false; player._hideBackArm = false; player._rumbleRotation = 0; }
-        if (cpu) { cpu.rubberArmReach = 0; cpu._hideFrontArm = false; cpu._hideBackArm = false; cpu._rumbleRotation = 0; }
-        if (player) { player._brushArmT = undefined; player._rumbleAlpha = undefined; }
-        if (cpu) { cpu._brushArmT = undefined; cpu._rumbleAlpha = undefined; }
+        resetRumbleState();
       }
       // Rumble code input (only when not paused and no rumble active)
       if (!paused && !rumbleActive && winner === 'player') {
@@ -5756,47 +5506,13 @@ function handleKeyPress(key) {
         gameState = 'title';
         paused = false;
         playTitleMusic();
-        rumbleActive = false; rumbleTimer = 0; rumbleType = null; rumbleSubType = null;
-        rumbleCodeBuffer = ''; rumbleAshes = null; rumbleLoserHidden = false; rumbleIceShards = [];
-        rumbleAcidBlob = null; rumbleGoo = null; rumbleAcidSplashes = []; rumbleVenomMeltPct = 0; rumbleVenomDrips = [];
-        rumbleLightBurst = null; rumbleLightParticles = []; rumbleZapActive = false;
-        rumbleSinkhole = null; rumbleSinkProgress = 0; rumbleDirtParticles = [];
-        rumbleShadePoof = false; rumbleSmokeParticles = []; rumbleShadeComboHit = 0; rumbleShadeBrush = false;
-        rumbleBojdoPhase = 0; rumbleBojdoLaunchVy = 0;
-        rumbleTetherAngle = 0; rumbleTetherSlams = 0; rumbleTetherCracked = false; rumbleTetherGrabX = 0;
-        rumbleTorrenaPhase = 0; rumbleTorrenaCloudX = 0; rumbleTorrenaCloudY = 0; rumbleRaindrops = []; rumbleHailstone = null; rumbleHailCracked = false; rumbleHailShards = []; rumbleTorrenaEvapParticles = [];
-        rumbleSnazzDiscoBall = null; rumbleSnazzConfetti = []; rumbleSnazzPunchLanded = false;
-        rumbleHaystackRavens = []; rumbleHaystackScythe = false; rumbleHaystackStrike = false; rumbleHaystackDust = []; rumbleHaystackDiveStart = null;
-        rumbleCodemaxLaser = false; rumbleCodemaxPixelLevel = 0; rumbleCodemaxGlitch = 0; rumbleCodemaxLaserParticles = [];
-        rumbleCorvidaPhase = 0; rumbleCorvidaNestX = 0; rumbleCorvidaEggs = []; rumbleCorvidaGulpChick = -1;
-        rumbleGolgarEntity2 = null; rumbleGolgarPhase = 0; rumbleGolgarLaunchVy = 0; rumbleGolgarOpX = 0;
-        if (player) { player.rubberArmReach = 0; player._hideFrontArm = false; player._hideBackArm = false; player._rumbleRotation = 0; }
-        if (cpu) { cpu.rubberArmReach = 0; cpu._hideFrontArm = false; cpu._hideBackArm = false; cpu._rumbleRotation = 0; }
-        if (player) { player._brushArmT = undefined; player._rumbleAlpha = undefined; }
-        if (cpu) { cpu._brushArmT = undefined; cpu._rumbleAlpha = undefined; }
+        resetRumbleState();
       }
       if ((key === 'Escape' || key === 'Backspace') && gameMode === 'rumblePractice') {
         gameState = 'title';
         paused = false;
         playTitleMusic();
-        rumbleActive = false; rumbleTimer = 0; rumbleType = null; rumbleSubType = null;
-        rumbleCodeBuffer = ''; rumbleAshes = null; rumbleLoserHidden = false; rumbleIceShards = [];
-        rumbleAcidBlob = null; rumbleGoo = null; rumbleAcidSplashes = []; rumbleVenomMeltPct = 0; rumbleVenomDrips = [];
-        rumbleLightBurst = null; rumbleLightParticles = []; rumbleZapActive = false;
-        rumbleSinkhole = null; rumbleSinkProgress = 0; rumbleDirtParticles = [];
-        rumbleShadePoof = false; rumbleSmokeParticles = []; rumbleShadeComboHit = 0; rumbleShadeBrush = false;
-        rumbleBojdoPhase = 0; rumbleBojdoLaunchVy = 0;
-        rumbleTetherAngle = 0; rumbleTetherSlams = 0; rumbleTetherCracked = false; rumbleTetherGrabX = 0;
-        rumbleTorrenaPhase = 0; rumbleTorrenaCloudX = 0; rumbleTorrenaCloudY = 0; rumbleRaindrops = []; rumbleHailstone = null; rumbleHailCracked = false; rumbleHailShards = []; rumbleTorrenaEvapParticles = [];
-        rumbleSnazzDiscoBall = null; rumbleSnazzConfetti = []; rumbleSnazzPunchLanded = false;
-        rumbleHaystackRavens = []; rumbleHaystackScythe = false; rumbleHaystackStrike = false; rumbleHaystackDust = []; rumbleHaystackDiveStart = null;
-        rumbleCodemaxLaser = false; rumbleCodemaxPixelLevel = 0; rumbleCodemaxGlitch = 0; rumbleCodemaxLaserParticles = [];
-        rumbleCorvidaPhase = 0; rumbleCorvidaNestX = 0; rumbleCorvidaEggs = []; rumbleCorvidaGulpChick = -1;
-        rumbleGolgarEntity2 = null; rumbleGolgarPhase = 0; rumbleGolgarLaunchVy = 0; rumbleGolgarOpX = 0;
-        if (player) { player.rubberArmReach = 0; player._hideFrontArm = false; player._hideBackArm = false; player._rumbleRotation = 0; }
-        if (cpu) { cpu.rubberArmReach = 0; cpu._hideFrontArm = false; cpu._hideBackArm = false; cpu._rumbleRotation = 0; }
-        if (player) { player._brushArmT = undefined; player._rumbleAlpha = undefined; }
-        if (cpu) { cpu._brushArmT = undefined; cpu._rumbleAlpha = undefined; }
+        resetRumbleState();
       }
       break;
   }
@@ -5822,23 +5538,7 @@ function startRumblePractice() {
   cpu = new Fighter(selectedCPU, 710, -1, false, assists[cpuAssistIndex]);
   paused = false;
   shakeTimer = 0;
-  rumbleActive = false; rumbleTimer = 0; rumbleType = null; rumbleSubType = null;
-  rumbleCodeBuffer = ''; rumbleAshes = null; rumbleLoserHidden = false; rumbleIceShards = [];
-  rumbleAcidBlob = null; rumbleGoo = null; rumbleAcidSplashes = []; rumbleVenomMeltPct = 0; rumbleVenomDrips = [];
-  rumbleLightBurst = null; rumbleLightParticles = []; rumbleZapActive = false;
-  rumbleSinkhole = null; rumbleSinkProgress = 0; rumbleDirtParticles = [];
-  rumbleShadePoof = false; rumbleSmokeParticles = []; rumbleShadeComboHit = 0; rumbleShadeBrush = false;
-  rumbleBojdoPhase = 0; rumbleBojdoLaunchVy = 0;
-  rumbleTetherAngle = 0; rumbleTetherSlams = 0; rumbleTetherCracked = false; rumbleTetherGrabX = 0;
-  rumbleTorrenaPhase = 0; rumbleTorrenaCloudX = 0; rumbleTorrenaCloudY = 0; rumbleRaindrops = []; rumbleHailstone = null; rumbleHailCracked = false; rumbleHailShards = []; rumbleTorrenaEvapParticles = [];
-  rumbleSnazzDiscoBall = null; rumbleSnazzConfetti = []; rumbleSnazzPunchLanded = false;
-  rumbleHaystackRavens = []; rumbleHaystackScythe = false; rumbleHaystackStrike = false; rumbleHaystackDust = []; rumbleHaystackDiveStart = null;
-  rumbleCodemaxLaser = false; rumbleCodemaxPixelLevel = 0; rumbleCodemaxGlitch = 0; rumbleCodemaxLaserParticles = [];
-  rumbleCorvidaPhase = 0; rumbleCorvidaNestX = 0; rumbleCorvidaEggs = []; rumbleCorvidaGulpChick = -1;
-  rumbleGolgarEntity2 = null; rumbleGolgarPhase = 0; rumbleGolgarLaunchVy = 0; rumbleGolgarOpX = 0;
-  rumbleTelatrinePhase = 0; rumbleTelatrineShrug = 0;
-  if (player) { player._brushArmT = undefined; player._rumbleAlpha = undefined; player.waterPhase = false; player._hideFrontArm = false; player._hideBackArm = false; player._rumbleRotation = 0; player.rubberArmReach = 0; player.dancing = false; player.danceTimer = 0; }
-  if (cpu) { cpu._brushArmT = undefined; cpu._rumbleAlpha = undefined; cpu.waterPhase = false; cpu._hideFrontArm = false; cpu._hideBackArm = false; cpu._rumbleRotation = 0; cpu.rubberArmReach = 0; cpu.dancing = false; cpu.danceTimer = 0; }
+  resetRumbleState();
   // Set player as winner, cpu health to 0
   winner = 'player';
   cpu.health = 0;
