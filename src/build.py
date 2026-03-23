@@ -10,6 +10,16 @@ OUTPUT = os.path.join(ROOT_DIR, 'index.html')
 # During Phase 0, this is just all.js (the full monolith).
 # As files are extracted, they replace sections of all.js.
 SOURCE_FILES = [
+    # Data (pure declarations, no logic dependencies)
+    'data/assets.js',
+    'data/difficulties.js',
+    'data/levels.js',
+    'data/characters.js',
+    'data/assists.js',
+    'data/attacks.js',
+    'data/rumble-defs.js',
+    'data/combos.js',
+    # Remaining monolith (shrinks as more files are extracted)
     'all.js',
 ]
 
