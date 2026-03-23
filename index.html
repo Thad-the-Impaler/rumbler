@@ -150,6 +150,7 @@ let torrenaCodeBuffer = '';
 let torrenaUnlockFlash = 0;
 let masterCodeBuffer = '';
 let masterUnlockFlash = 0;
+let rumblePracticeUnlocked = false; // unlocked after first rumble or master passkey
 let snazzUnlocked = false;
 let snazzCodeBuffer = '';
 let snazzUnlockFlash = 0;
@@ -746,6 +747,7 @@ function activateMasterPasskey() {
   if (!rainyCityUnlocked) { rainyCityUnlocked = true; }
   if (!glowingCityUnlocked) { glowingCityUnlocked = true; }
   if (!sunnyCityUnlocked) { sunnyCityUnlocked = true; }
+  rumblePracticeUnlocked = true;
   masterUnlockFlash = 60;
 }
 
@@ -5624,11 +5626,18 @@ window.addEventListener('keyup', e => { keys[e.key] = false; });
 
 function handleKeyPress(key) {
   switch (gameState) {
-    case 'title':
-      if (key === 'ArrowUp' || key === 'w' || key === 'W') titleCursor = (titleCursor - 1 + 2) % 2;
-      if (key === 'ArrowDown' || key === 's' || key === 'S') titleCursor = (titleCursor + 1) % 2;
+    case 'title': {
+      const titleOptionCount = rumblePracticeUnlocked ? 3 : 2;
+      if (key === 'ArrowUp' || key === 'w' || key === 'W') titleCursor = (titleCursor - 1 + titleOptionCount) % titleOptionCount;
+      if (key === 'ArrowDown' || key === 's' || key === 'S') titleCursor = (titleCursor + 1) % titleOptionCount;
       if (key === 'Enter' || key === ' ') {
-        gameMode = titleCursor === 0 ? 'cpu' : 'practice';
+        if (titleCursor === 0) {
+          gameMode = 'cpu';
+        } else if (titleCursor === 1) {
+          gameMode = 'practice';
+        } else {
+          gameMode = 'rumblePractice';
+        }
         gameState = 'charSelect';
         charSelectCursor = 0;
         cpuSelectCursor = 1;
@@ -5636,6 +5645,7 @@ function handleKeyPress(key) {
         selectingCPU = false;
       }
       break;
+    }
 
     case 'charSelect': {
       // Toggle locked character display
@@ -5940,7 +5950,12 @@ function handleKeyPress(key) {
             lotteryCallback = () => {
               selectedPlayer = characters[lotteryFinal];
               charSelectCursor = lotteryFinal;
-              if (gameMode === 'practice') {
+              if (gameMode === 'rumblePractice') {
+                selectedCPU = drone;
+                selectedAssist = assists[0];
+                cpuAssistIndex = 0;
+                gameState = 'levelSelect';
+              } else if (gameMode === 'practice') {
                 gameState = 'practiceTargetSelect';
                 practiceTargetCursor = 0;
               } else {
@@ -5950,7 +5965,12 @@ function handleKeyPress(key) {
             };
           } else {
             selectedPlayer = characters[charSelectCursor];
-            if (gameMode === 'practice') {
+            if (gameMode === 'rumblePractice') {
+              selectedCPU = drone;
+              selectedAssist = assists[0];
+              cpuAssistIndex = 0;
+              gameState = 'levelSelect';
+            } else if (gameMode === 'practice') {
               gameState = 'practiceTargetSelect';
               practiceTargetCursor = 0;
             } else {
@@ -6250,7 +6270,11 @@ function handleKeyPress(key) {
         }
       }
       if (key === 'Escape' || key === 'Backspace') {
-        if (gameMode === 'practice') {
+        if (gameMode === 'rumblePractice') {
+          gameState = 'charSelect';
+          selectingCPU = false;
+          charSelectScroll = 0;
+        } else if (gameMode === 'practice') {
           gameState = 'assistSelect';
         } else {
           gameState = 'difficultySelect';
@@ -6366,6 +6390,7 @@ function handleKeyPress(key) {
                 rumbleTimer = 0;
                 rumbleType = winChar.name;
                 rumbleSubType = rumble.code;
+                rumblePracticeUnlocked = true;
                 rumbleCodeBuffer = '';
                 player.assistActive = null;
                 cpu.assistActive = null;
@@ -6379,6 +6404,26 @@ function handleKeyPress(key) {
 
     case 'victory':
       if (key === 'Enter' || key === ' ') {
+        if (gameMode === 'rumblePractice') {
+          startRumblePractice();
+          break;
+        }
+        gameState = 'title';
+        paused = false;
+        rumbleActive = false; rumbleTimer = 0; rumbleType = null; rumbleSubType = null;
+        rumbleCodeBuffer = ''; rumbleAshes = null; rumbleLoserHidden = false; rumbleIceShards = [];
+        rumbleAcidBlob = null; rumbleGoo = null; rumbleAcidSplashes = []; rumbleVenomMeltPct = 0; rumbleVenomDrips = [];
+        rumbleLightBurst = null; rumbleLightParticles = []; rumbleZapActive = false;
+        rumbleSinkhole = null; rumbleSinkProgress = 0; rumbleDirtParticles = [];
+        rumbleShadePoof = false; rumbleSmokeParticles = []; rumbleShadeComboHit = 0; rumbleShadeBrush = false;
+        rumbleBojdoPhase = 0; rumbleBojdoLaunchVy = 0;
+        rumbleTetherAngle = 0; rumbleTetherSlams = 0; rumbleTetherCracked = false; rumbleTetherGrabX = 0;
+        if (player) { player.rubberArmReach = 0; player._hideFrontArm = false; player._rumbleRotation = 0; }
+        if (cpu) { cpu.rubberArmReach = 0; cpu._hideFrontArm = false; cpu._rumbleRotation = 0; }
+        if (player) player._brushArmT = undefined;
+        if (cpu) cpu._brushArmT = undefined;
+      }
+      if ((key === 'Escape' || key === 'Backspace') && gameMode === 'rumblePractice') {
         gameState = 'title';
         paused = false;
         rumbleActive = false; rumbleTimer = 0; rumbleType = null; rumbleSubType = null;
@@ -6407,6 +6452,36 @@ const VERSUS_DURATION = 150; // frames (~2.5 sec at 60fps)
 function startVersusScreen() {
   versusTimer = 0;
   gameState = 'versus';
+}
+
+function startRumblePractice() {
+  // Create fighters like a normal fight
+  player = new Fighter(selectedPlayer, 250, 1, true, selectedAssist);
+  cpu = new Fighter(selectedCPU, 710, -1, false, assists[cpuAssistIndex]);
+  paused = false;
+  shakeTimer = 0;
+  rumbleActive = false; rumbleTimer = 0; rumbleType = null; rumbleSubType = null;
+  rumbleCodeBuffer = ''; rumbleAshes = null; rumbleLoserHidden = false; rumbleIceShards = [];
+  rumbleAcidBlob = null; rumbleGoo = null; rumbleAcidSplashes = []; rumbleVenomMeltPct = 0; rumbleVenomDrips = [];
+  rumbleLightBurst = null; rumbleLightParticles = []; rumbleZapActive = false;
+  rumbleSinkhole = null; rumbleSinkProgress = 0; rumbleDirtParticles = [];
+  rumbleShadePoof = false; rumbleSmokeParticles = []; rumbleShadeComboHit = 0; rumbleShadeBrush = false;
+  if (player) player._brushArmT = undefined;
+  if (cpu) cpu._brushArmT = undefined;
+  // Set player as winner, cpu health to 0
+  winner = 'player';
+  cpu.health = 0;
+  // Clear hit effects on both fighters
+  for (const f of [player, cpu]) {
+    f.hitEffect = null;
+    f.assistActive = null;
+    f.queuedAttacks = [];
+    f.inputBuffer = [];
+    f.aiComboQueue = [];
+  }
+  // Go straight to finishHim
+  finishHimTimer = 0;
+  gameState = 'finishHim';
 }
 
 function startFight() {
@@ -8304,12 +8379,12 @@ function drawHUD() {
   ctx.strokeRect(580, barY, barWidth, barHeight);
 
   // Names with icons
-  drawFighterIcon(selectedPlayer.name, 16, barY + 5, 16, selectedPlayer.accent);
+  drawPortraitIcon(selectedPlayer.name, 16, barY + 5, 16);
   ctx.font = 'bold 16px Arial';
   ctx.textAlign = 'left';
   ctx.fillStyle = selectedPlayer.accent;
   ctx.fillText(selectedPlayer.name, 30, barY - 5);
-  drawFighterIcon(selectedCPU.name, 944, barY + 5, 16, selectedCPU.accent);
+  drawPortraitIcon(selectedCPU.name, 944, barY + 5, 16);
   ctx.textAlign = 'right';
   ctx.fillStyle = selectedCPU.accent;
   ctx.fillText(selectedCPU.name + (gameMode === 'practice' ? '' : ' (CPU)'), 930, barY - 5);
@@ -8493,6 +8568,8 @@ function drawTitleScreen() {
 
   // Menu options
   const menuItems = ['FIGHT CPU', 'PRACTICE'];
+  if (rumblePracticeUnlocked) menuItems.push('RUMBLE PRACTICE');
+  const menuDescs = ['Battle a CPU opponent', 'Practice combos on a bag or mannequin', 'Practice your Rumble finishers'];
   for (let i = 0; i < menuItems.length; i++) {
     const y = 330 + i * 55;
     const selected = i === titleCursor;
@@ -8526,7 +8603,7 @@ function drawTitleScreen() {
   ctx.font = '14px Arial';
   ctx.textAlign = 'center';
   ctx.fillStyle = '#666';
-  ctx.fillText(titleCursor === 0 ? 'Battle a CPU opponent' : 'Practice combos on a bag or mannequin', 480, 440);
+  ctx.fillText(menuDescs[titleCursor] || '', 480, 440);
 
   // Footer
   ctx.font = '14px Arial';
@@ -10875,7 +10952,14 @@ function drawVictoryScreen() {
 
   ctx.font = '20px Arial';
   ctx.fillStyle = '#aaa';
-  ctx.fillText('Press ENTER to return to title', 480, 380);
+  if (gameMode === 'rumblePractice') {
+    ctx.fillText('Press ENTER to retry', 480, 380);
+    ctx.font = '14px Arial';
+    ctx.fillStyle = '#666';
+    ctx.fillText('Press ESC to return to title', 480, 410);
+  } else {
+    ctx.fillText('Press ENTER to return to title', 480, 380);
+  }
 }
 
 // --- MAIN LOOP ---
@@ -11349,7 +11433,7 @@ function update() {
           }
           shakeTimer = 2;
           shakeIntensity = 3;
-        } else if (rumbleTimer >= sinkStart && rumbleTimer < sinkEnd) {
+        } else if (rumbleTimer >= sinkStart && rumbleTimer <= sinkEnd) {
           // Opponent sinking
           winFighter.state = 'idle';
           rumbleSinkhole.radius = rumbleSinkhole.maxRadius;
@@ -11877,7 +11961,7 @@ function update() {
       } else {
         winFighter.update(loseFighter, {});
       }
-      if (finishHimTimer >= FINISH_HIM_DURATION) {
+      if (finishHimTimer >= FINISH_HIM_DURATION && gameMode !== 'rumblePractice') {
         gameState = 'victory';
       }
     }
@@ -11938,14 +12022,21 @@ function drawFinishHimScreen() {
 
   ctx.restore();
 
-  // Countdown bar below text
-  const remaining = 1 - finishHimTimer / FINISH_HIM_DURATION;
-  const barW = 200;
-  const barX = 480 - barW / 2;
-  ctx.fillStyle = 'rgba(255,0,0,0.2)';
-  ctx.fillRect(barX, 68, barW, 3);
-  ctx.fillStyle = '#ff2222';
-  ctx.fillRect(barX, 68, barW * remaining, 3);
+  // Countdown bar below text (infinite in rumble practice)
+  if (gameMode === 'rumblePractice') {
+    ctx.font = '14px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(255,100,100,0.6)';
+    ctx.fillText('∞', 480, 73);
+  } else {
+    const remaining = 1 - finishHimTimer / FINISH_HIM_DURATION;
+    const barW = 200;
+    const barX = 480 - barW / 2;
+    ctx.fillStyle = 'rgba(255,0,0,0.2)';
+    ctx.fillRect(barX, 68, barW, 3);
+    ctx.fillStyle = '#ff2222';
+    ctx.fillRect(barX, 68, barW * remaining, 3);
+  }
 }
 
 function drawRumbleAnimation() {
@@ -13454,7 +13545,11 @@ function draw() {
     case 'versus':
       versusTimer++;
       if (versusTimer >= VERSUS_DURATION) {
-        startFight();
+        if (gameMode === 'rumblePractice') {
+          startRumblePractice();
+        } else {
+          startFight();
+        }
       } else {
         drawVersusScreen();
       }
