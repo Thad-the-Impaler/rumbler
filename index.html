@@ -138,6 +138,14 @@ let rumbleTetherAngle = 0; // current swing angle for Tetherball
 let rumbleTetherSlams = 0; // number of slams done
 let rumbleTetherCracked = false; // final smash done
 let rumbleTetherGrabX = 0; // where Rubberman's arm reaches to
+let rumbleTorrenaPhase = 0; // 0=water, 1=evaporate, 2=cloud, 3=rain, 4=hailstone, 5=done
+let rumbleTorrenaCloudX = 0; // cloud position
+let rumbleTorrenaCloudY = 0;
+let rumbleRaindrops = []; // rain particles
+let rumbleHailstone = null; // { x, y, vy, size }
+let rumbleHailCracked = false; // hailstone has shattered on impact
+let rumbleHailShards = []; // ice shards from hailstone cracking
+let rumbleTorrenaEvapParticles = []; // evaporation steam particles
 let bojdoUnlocked = false;
 let bojdobojdoUnlocked = false;
 let bojdoCodeBuffer = '';
@@ -779,7 +787,8 @@ const characterRumbles = {
   'BOJDOBOJDO': [
     { name: 'DEATH FROM BELOW', code: 'pellet', desc: 'Shrink tiny, get under them, and grow to launch them skyward' },
     { name: 'DEATH FROM ABOVE', code: 'massiv', desc: 'Grow gargantuan and stomp the opponent flat' }
-  ]
+  ],
+  'TORRENA': { name: 'CLOUDY, WITH A CHANCE OF DEMISE', code: 'stormy', desc: 'Become a cloud and pummel the opponent with rain and hail' }
 };
 
 const characterCombos = {
@@ -3997,6 +4006,11 @@ class Fighter {
     }
     if (this.phaseTimer > 0) ctx.globalAlpha = 0.4;
     if (this.waterPhase) ctx.globalAlpha = 0.35;
+    // Rumble alpha override (used by Torrena evaporation/reappear)
+    if (this._rumbleAlpha !== undefined) {
+      ctx.globalAlpha = Math.min(ctx.globalAlpha, this._rumbleAlpha);
+      if (this._rumbleAlpha <= 0) { ctx.restore(); return; }
+    }
     // Codemax: holographic flicker
     if (this.char.isCodemax) {
       ctx.globalAlpha = 0.75 + Math.sin(Date.now() * 0.02) * 0.1;
@@ -6370,10 +6384,11 @@ function handleKeyPress(key) {
         rumbleShadePoof = false; rumbleSmokeParticles = []; rumbleShadeComboHit = 0; rumbleShadeBrush = false;
         rumbleBojdoPhase = 0; rumbleBojdoLaunchVy = 0;
         rumbleTetherAngle = 0; rumbleTetherSlams = 0; rumbleTetherCracked = false; rumbleTetherGrabX = 0;
+        rumbleTorrenaPhase = 0; rumbleTorrenaCloudX = 0; rumbleTorrenaCloudY = 0; rumbleRaindrops = []; rumbleHailstone = null; rumbleHailCracked = false; rumbleHailShards = []; rumbleTorrenaEvapParticles = [];
         if (player) { player.rubberArmReach = 0; player._hideFrontArm = false; player._rumbleRotation = 0; }
         if (cpu) { cpu.rubberArmReach = 0; cpu._hideFrontArm = false; cpu._rumbleRotation = 0; }
-        if (player) player._brushArmT = undefined;
-        if (cpu) cpu._brushArmT = undefined;
+        if (player) { player._brushArmT = undefined; player._rumbleAlpha = undefined; }
+        if (cpu) { cpu._brushArmT = undefined; cpu._rumbleAlpha = undefined; }
       }
       // Rumble code input (only when not paused and no rumble active)
       if (!paused && !rumbleActive && winner === 'player') {
@@ -6418,10 +6433,11 @@ function handleKeyPress(key) {
         rumbleShadePoof = false; rumbleSmokeParticles = []; rumbleShadeComboHit = 0; rumbleShadeBrush = false;
         rumbleBojdoPhase = 0; rumbleBojdoLaunchVy = 0;
         rumbleTetherAngle = 0; rumbleTetherSlams = 0; rumbleTetherCracked = false; rumbleTetherGrabX = 0;
+        rumbleTorrenaPhase = 0; rumbleTorrenaCloudX = 0; rumbleTorrenaCloudY = 0; rumbleRaindrops = []; rumbleHailstone = null; rumbleHailCracked = false; rumbleHailShards = []; rumbleTorrenaEvapParticles = [];
         if (player) { player.rubberArmReach = 0; player._hideFrontArm = false; player._rumbleRotation = 0; }
         if (cpu) { cpu.rubberArmReach = 0; cpu._hideFrontArm = false; cpu._rumbleRotation = 0; }
-        if (player) player._brushArmT = undefined;
-        if (cpu) cpu._brushArmT = undefined;
+        if (player) { player._brushArmT = undefined; player._rumbleAlpha = undefined; }
+        if (cpu) { cpu._brushArmT = undefined; cpu._rumbleAlpha = undefined; }
       }
       if ((key === 'Escape' || key === 'Backspace') && gameMode === 'rumblePractice') {
         gameState = 'title';
@@ -6434,10 +6450,11 @@ function handleKeyPress(key) {
         rumbleShadePoof = false; rumbleSmokeParticles = []; rumbleShadeComboHit = 0; rumbleShadeBrush = false;
         rumbleBojdoPhase = 0; rumbleBojdoLaunchVy = 0;
         rumbleTetherAngle = 0; rumbleTetherSlams = 0; rumbleTetherCracked = false; rumbleTetherGrabX = 0;
+        rumbleTorrenaPhase = 0; rumbleTorrenaCloudX = 0; rumbleTorrenaCloudY = 0; rumbleRaindrops = []; rumbleHailstone = null; rumbleHailCracked = false; rumbleHailShards = []; rumbleTorrenaEvapParticles = [];
         if (player) { player.rubberArmReach = 0; player._hideFrontArm = false; player._rumbleRotation = 0; }
         if (cpu) { cpu.rubberArmReach = 0; cpu._hideFrontArm = false; cpu._rumbleRotation = 0; }
-        if (player) player._brushArmT = undefined;
-        if (cpu) cpu._brushArmT = undefined;
+        if (player) { player._brushArmT = undefined; player._rumbleAlpha = undefined; }
+        if (cpu) { cpu._brushArmT = undefined; cpu._rumbleAlpha = undefined; }
       }
       break;
   }
@@ -6466,8 +6483,11 @@ function startRumblePractice() {
   rumbleLightBurst = null; rumbleLightParticles = []; rumbleZapActive = false;
   rumbleSinkhole = null; rumbleSinkProgress = 0; rumbleDirtParticles = [];
   rumbleShadePoof = false; rumbleSmokeParticles = []; rumbleShadeComboHit = 0; rumbleShadeBrush = false;
-  if (player) player._brushArmT = undefined;
-  if (cpu) cpu._brushArmT = undefined;
+  rumbleBojdoPhase = 0; rumbleBojdoLaunchVy = 0;
+  rumbleTetherAngle = 0; rumbleTetherSlams = 0; rumbleTetherCracked = false; rumbleTetherGrabX = 0;
+  rumbleTorrenaPhase = 0; rumbleTorrenaCloudX = 0; rumbleTorrenaCloudY = 0; rumbleRaindrops = []; rumbleHailstone = null; rumbleHailCracked = false; rumbleHailShards = []; rumbleTorrenaEvapParticles = [];
+  if (player) { player._brushArmT = undefined; player._rumbleAlpha = undefined; player.waterPhase = false; player._hideFrontArm = false; player._rumbleRotation = 0; player.rubberArmReach = 0; }
+  if (cpu) { cpu._brushArmT = undefined; cpu._rumbleAlpha = undefined; cpu.waterPhase = false; cpu._hideFrontArm = false; cpu._rumbleRotation = 0; cpu.rubberArmReach = 0; }
   // Set player as winner, cpu health to 0
   winner = 'player';
   cpu.health = 0;
@@ -6499,10 +6519,11 @@ function startFight() {
         rumbleShadePoof = false; rumbleSmokeParticles = []; rumbleShadeComboHit = 0; rumbleShadeBrush = false;
         rumbleBojdoPhase = 0; rumbleBojdoLaunchVy = 0;
         rumbleTetherAngle = 0; rumbleTetherSlams = 0; rumbleTetherCracked = false; rumbleTetherGrabX = 0;
+        rumbleTorrenaPhase = 0; rumbleTorrenaCloudX = 0; rumbleTorrenaCloudY = 0; rumbleRaindrops = []; rumbleHailstone = null; rumbleHailCracked = false; rumbleHailShards = []; rumbleTorrenaEvapParticles = [];
         if (player) { player.rubberArmReach = 0; player._hideFrontArm = false; player._rumbleRotation = 0; }
         if (cpu) { cpu.rubberArmReach = 0; cpu._hideFrontArm = false; cpu._rumbleRotation = 0; }
-        if (player) player._brushArmT = undefined;
-        if (cpu) cpu._brushArmT = undefined;
+        if (player) { player._brushArmT = undefined; player._rumbleAlpha = undefined; }
+        if (cpu) { cpu._brushArmT = undefined; cpu._rumbleAlpha = undefined; }
 }
 
 // --- DRAWING FUNCTIONS ---
@@ -8570,8 +8591,10 @@ function drawTitleScreen() {
   const menuItems = ['FIGHT CPU', 'PRACTICE'];
   if (rumblePracticeUnlocked) menuItems.push('RUMBLE PRACTICE');
   const menuDescs = ['Battle a CPU opponent', 'Practice combos on a bag or mannequin', 'Practice your Rumble finishers'];
+  const menuSpacing = menuItems.length > 2 ? 45 : 55;
+  const menuStartY = menuItems.length > 2 ? 310 : 330;
   for (let i = 0; i < menuItems.length; i++) {
-    const y = 330 + i * 55;
+    const y = menuStartY + i * menuSpacing;
     const selected = i === titleCursor;
     const btnPulse = selected ? Math.sin(Date.now() * 0.004) * 0.5 + 0.5 : 0;
 
@@ -8600,15 +8623,16 @@ function drawTitleScreen() {
   }
 
   // Subtitle for selected mode
+  const descY = menuStartY + menuItems.length * menuSpacing + 15;
   ctx.font = '14px Arial';
   ctx.textAlign = 'center';
   ctx.fillStyle = '#666';
-  ctx.fillText(menuDescs[titleCursor] || '', 480, 440);
+  ctx.fillText(menuDescs[titleCursor] || '', 480, descY);
 
   // Footer
   ctx.font = '14px Arial';
   ctx.fillStyle = '#555';
-  ctx.fillText('Press ENTER to select', 480, 480);
+  ctx.fillText('Press ENTER to select', 480, descY + 35);
 }
 
 function drawLockedCharPreview(char, x, y, size) {
@@ -11947,6 +11971,208 @@ function update() {
         }
       }
 
+      if (rumbleType === 'TORRENA') {
+        // Torrena "Cloudy, with a chance of demise": ~420 frames
+        // 0-30: Enter water phase (go translucent)
+        // 30-70: Evaporate — rise up as steam particles, fighter fades out
+        // 70-90: Cloud forms above opponent
+        // 90-280: Heavy rain pummels opponent
+        // 280-300: Hailstone forms and drops
+        // 300-330: Impact + crush
+        // 330-420: Settle, transition to victory
+        const waterEnd = 30;
+        const evapEnd = 70;
+        const cloudFormEnd = 90;
+        const rainEnd = 280;
+        const hailFormEnd = 295;
+        const hailImpact = 340;
+        const endFrame = 440;
+
+        const cloudTargetX = loseFighter.x;
+        const cloudTargetY = 60;
+
+        winFighter.vx = 0;
+
+        if (rumbleTimer <= waterEnd) {
+          // Phase 0: Enter water phase
+          rumbleTorrenaPhase = 0;
+          winFighter.waterPhase = true;
+          winFighter.state = 'idle';
+        } else if (rumbleTimer <= evapEnd) {
+          // Phase 1: Evaporate — spawn steam particles rising from fighter position
+          rumbleTorrenaPhase = 1;
+          winFighter.waterPhase = true;
+          const evapT = (rumbleTimer - waterEnd) / (evapEnd - waterEnd);
+          // Fade out the winner (we'll use a custom alpha via a flag)
+          winFighter._rumbleAlpha = Math.max(0, 1 - evapT * 1.5);
+          // Spawn steam particles
+          if (rumbleTimer % 2 === 0) {
+            for (let i = 0; i < 3; i++) {
+              rumbleTorrenaEvapParticles.push({
+                x: winFighter.x + (Math.random() - 0.5) * 30,
+                y: winFighter.y - 30 + (Math.random() - 0.5) * 40,
+                vx: (Math.random() - 0.5) * 1.5,
+                vy: -1.5 - Math.random() * 2,
+                size: 3 + Math.random() * 5,
+                alpha: 0.6 + Math.random() * 0.3,
+                color: `rgba(100,200,255,`
+              });
+            }
+          }
+          if (evapT >= 0.8) {
+            // Start hiding winner
+            rumbleLoserHidden = false; // make sure loser still visible
+          }
+        } else if (rumbleTimer <= cloudFormEnd) {
+          // Phase 2: Cloud forms above opponent, winner is invisible
+          rumbleTorrenaPhase = 2;
+          winFighter._rumbleAlpha = 0;
+          const formT = (rumbleTimer - evapEnd) / (cloudFormEnd - evapEnd);
+          rumbleTorrenaCloudX = cloudTargetX;
+          rumbleTorrenaCloudY = cloudTargetY + (1 - formT) * 40;
+        } else if (rumbleTimer <= rainEnd) {
+          // Phase 3: Heavy rain pummels opponent
+          rumbleTorrenaPhase = 3;
+          winFighter._rumbleAlpha = 0;
+          rumbleTorrenaCloudX = cloudTargetX + Math.sin(rumbleTimer * 0.05) * 15;
+          rumbleTorrenaCloudY = cloudTargetY;
+
+          // Spawn raindrops from cloud
+          if (rumbleTimer % 2 === 0) {
+            for (let i = 0; i < 4; i++) {
+              rumbleRaindrops.push({
+                x: rumbleTorrenaCloudX + (Math.random() - 0.5) * 80,
+                y: rumbleTorrenaCloudY + 25 + Math.random() * 10,
+                vx: (Math.random() - 0.5) * 0.5,
+                vy: 6 + Math.random() * 4,
+                size: 1 + Math.random() * 2,
+                alpha: 0.7 + Math.random() * 0.3
+              });
+            }
+          }
+
+          // Rain hits opponent — flash and shake periodically
+          if (rumbleTimer % 15 === 0) {
+            loseFighter.flashTimer = 3;
+            shakeTimer = 3;
+            shakeIntensity = 2;
+          }
+
+          // Push opponent down slightly (staggering under rain)
+          loseFighter.state = 'hitstun';
+        } else if (rumbleTimer <= hailFormEnd) {
+          // Phase 4: Hailstone forms — rain stops, ominous pause
+          rumbleTorrenaPhase = 4;
+          winFighter._rumbleAlpha = 0;
+          rumbleTorrenaCloudX = cloudTargetX;
+          // Cloud darkens (handled in draw)
+          loseFighter.state = 'idle';
+          if (rumbleTimer === rainEnd + 1) {
+            // Create hailstone above cloud
+            rumbleHailstone = {
+              x: cloudTargetX,
+              y: cloudTargetY - 20,
+              vy: 0,
+              size: 0
+            };
+          }
+          if (rumbleHailstone) {
+            // Hailstone grows
+            const growT = (rumbleTimer - rainEnd) / (hailFormEnd - rainEnd);
+            rumbleHailstone.size = 25 * growT;
+          }
+        } else if (rumbleTimer <= hailImpact) {
+          // Phase 5: Hailstone drops
+          rumbleTorrenaPhase = 5;
+          winFighter._rumbleAlpha = 0;
+          if (rumbleHailstone) {
+            rumbleHailstone.vy += 1.8;
+            rumbleHailstone.y += rumbleHailstone.vy;
+            // Check if hailstone reached opponent
+            if (rumbleHailstone.y >= loseFighter.y - 30 && !rumbleHailCracked) {
+              rumbleHailstone.y = loseFighter.groundY - rumbleHailstone.size;
+              rumbleLoserHidden = true;
+              rumbleHailCracked = true;
+              shakeTimer = 30;
+              shakeIntensity = 15;
+              // Spawn hailstone shards flying outward
+              for (let i = 0; i < 25; i++) {
+                const angle = -Math.PI * Math.random(); // mostly upward
+                const speed = 3 + Math.random() * 6;
+                rumbleHailShards.push({
+                  x: loseFighter.x + (Math.random() - 0.5) * 30,
+                  y: loseFighter.groundY - 10,
+                  vx: Math.cos(angle) * speed * (Math.random() > 0.5 ? 1 : -1),
+                  vy: -2 - Math.random() * 5,
+                  size: 2 + Math.random() * 6,
+                  alpha: 1,
+                  rot: Math.random() * Math.PI * 2,
+                  rotSpeed: (Math.random() - 0.5) * 0.3
+                });
+              }
+            }
+          }
+        } else {
+          // Phase 6: Settle — cloud fades, winner reappears
+          rumbleTorrenaPhase = 6;
+          const settleT = (rumbleTimer - hailImpact) / (endFrame - hailImpact);
+          winFighter._rumbleAlpha = Math.min(1, settleT * 1.5);
+          winFighter.waterPhase = settleT < 0.5;
+          // Move winner back to ground near opponent
+          if (rumbleTimer === hailImpact + 1) {
+            winFighter.x = loseFighter.x + (winFighter.x > loseFighter.x ? 60 : -60);
+          }
+          winFighter.state = 'idle';
+        }
+
+        // Update evaporation particles
+        for (let i = rumbleTorrenaEvapParticles.length - 1; i >= 0; i--) {
+          const p = rumbleTorrenaEvapParticles[i];
+          p.x += p.vx;
+          p.y += p.vy;
+          p.vy *= 0.98;
+          p.alpha -= 0.01;
+          if (p.alpha <= 0) rumbleTorrenaEvapParticles.splice(i, 1);
+        }
+
+        // Update raindrops
+        for (let i = rumbleRaindrops.length - 1; i >= 0; i--) {
+          const r = rumbleRaindrops[i];
+          r.x += r.vx;
+          r.y += r.vy;
+          r.vy += 0.1;
+          if (r.y > loseFighter.groundY + 5) {
+            r.alpha -= 0.15;
+          }
+          if (r.alpha <= 0 || r.y > 550) rumbleRaindrops.splice(i, 1);
+        }
+
+        // Update hail shards
+        for (let i = rumbleHailShards.length - 1; i >= 0; i--) {
+          const s = rumbleHailShards[i];
+          s.x += s.vx;
+          s.y += s.vy;
+          s.vy += 0.25;
+          s.rot += s.rotSpeed;
+          if (s.y > loseFighter.groundY) {
+            s.y = loseFighter.groundY;
+            s.vy *= -0.3;
+            s.vx *= 0.7;
+            if (Math.abs(s.vy) < 0.5) {
+              s.vy = 0;
+              s.alpha -= 0.015;
+            }
+          }
+          if (s.alpha <= 0) rumbleHailShards.splice(i, 1);
+        }
+
+        if (rumbleTimer >= endFrame) {
+          winFighter._rumbleAlpha = undefined;
+          winFighter.waterPhase = false;
+          gameState = 'victory';
+        }
+      }
+
       // Animate winner
       winFighter.animTimer++;
       if (winFighter.animTimer > 8) { winFighter.animTimer = 0; winFighter.animFrame = (winFighter.animFrame + 1) % 4; }
@@ -12089,6 +12315,9 @@ function drawRumbleAnimation() {
   if (rumbleType === 'RUBBERMAN') {
     drawRubbermanRumble(loseFighter, winFighter);
   }
+  if (rumbleType === 'TORRENA') {
+    drawTorrenaRumble(loseFighter, winFighter);
+  }
 }
 
 function drawBojdoRumble(loseFighter, winFighter) {
@@ -12129,6 +12358,277 @@ function drawBojdoRumble(loseFighter, winFighter) {
       ctx.lineTo(winFighter.x + Math.cos(angle) * r2, winFighter.y - 30 + Math.sin(angle) * r2);
       ctx.stroke();
     }
+    ctx.globalAlpha = 1;
+  }
+
+  ctx.restore();
+}
+
+function drawTorrenaRumble(loseFighter, winFighter) {
+  ctx.save();
+
+  // Draw evaporation steam particles
+  for (const p of rumbleTorrenaEvapParticles) {
+    ctx.globalAlpha = p.alpha;
+    ctx.fillStyle = `rgba(100,200,255,${p.alpha})`;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // Draw cloud (phases 2+)
+  if (rumbleTorrenaPhase >= 2) {
+    const cx = rumbleTorrenaCloudX;
+    const cy = rumbleTorrenaCloudY;
+
+    // Cloud alpha — fade in during formation, fade out during settle
+    let cloudAlpha = 1;
+    if (rumbleTorrenaPhase === 2) {
+      const formT = Math.min(1, (rumbleTimer - 70) / 20);
+      cloudAlpha = formT;
+    } else if (rumbleTorrenaPhase >= 6) {
+      const fadeT = Math.min(1, (rumbleTimer - 320) / 60);
+      cloudAlpha = 1 - fadeT;
+    }
+
+    // Cloud darkens during hail formation
+    const isDark = rumbleTorrenaPhase >= 4;
+    const cloudColor = isDark ? '#556' : '#aaccdd';
+    const cloudDark = isDark ? '#334' : '#88aabb';
+
+    ctx.globalAlpha = cloudAlpha;
+
+    // Main cloud body — overlapping ellipses
+    ctx.fillStyle = cloudColor;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, 55, 25, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(cx - 30, cy + 5, 30, 20, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(cx + 30, cy + 5, 30, 20, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Top puffs
+    ctx.beginPath();
+    ctx.ellipse(cx - 15, cy - 12, 25, 18, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(cx + 15, cy - 12, 25, 18, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(cx, cy - 18, 20, 15, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Darker underside
+    ctx.fillStyle = cloudDark;
+    ctx.globalAlpha = cloudAlpha * 0.5;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + 10, 50, 15, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Torrena's eyes on the cloud (matching normal fighter eye style)
+    ctx.globalAlpha = cloudAlpha;
+    const eyeY = cy - 2;
+    // Dark filled circles
+    ctx.fillStyle = isDark ? '#112' : '#0d4f6b';
+    ctx.beginPath();
+    ctx.arc(cx - 8, eyeY, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(cx + 8, eyeY, 3, 0, Math.PI * 2);
+    ctx.fill();
+    // White highlights
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(cx - 7, eyeY - 1, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(cx + 9, eyeY - 1, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.globalAlpha = 1;
+  }
+
+  // Draw raindrops
+  for (const r of rumbleRaindrops) {
+    if (r.alpha <= 0) continue;
+    ctx.globalAlpha = r.alpha;
+    if (r.isIce) {
+      // Ice shard — light blue angular
+      ctx.fillStyle = '#aaddff';
+      ctx.save();
+      ctx.translate(r.x, r.y);
+      ctx.rotate(r.vx * 0.5);
+      ctx.fillRect(-r.size / 2, -r.size / 2, r.size, r.size * 0.6);
+      ctx.restore();
+    } else {
+      // Rain streak
+      ctx.strokeStyle = '#66bbee';
+      ctx.lineWidth = r.size;
+      ctx.beginPath();
+      ctx.moveTo(r.x, r.y);
+      ctx.lineTo(r.x - r.vx * 2, r.y - r.vy * 2);
+      ctx.stroke();
+    }
+  }
+  ctx.globalAlpha = 1;
+
+  // Draw hailstone (before or after cracking)
+  if (rumbleHailstone && rumbleHailstone.size > 0) {
+    const hx = rumbleHailstone.x;
+    const hy = rumbleHailstone.y;
+    const hs = rumbleHailstone.size;
+
+    if (!rumbleHailCracked) {
+      // Intact hailstone falling
+
+      // Shadow on ground
+      if (rumbleTorrenaPhase >= 5) {
+        ctx.globalAlpha = 0.3;
+        ctx.fillStyle = '#000';
+        ctx.beginPath();
+        ctx.ellipse(hx, loseFighter.groundY, hs * 0.8, 5, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+
+      // Main hailstone — icy sphere
+      const hailGrad = ctx.createRadialGradient(hx - hs * 0.2, hy - hs * 0.3, 0, hx, hy, hs);
+      hailGrad.addColorStop(0, '#ffffff');
+      hailGrad.addColorStop(0.3, '#cceeff');
+      hailGrad.addColorStop(0.7, '#88bbdd');
+      hailGrad.addColorStop(1, '#5588aa');
+      ctx.fillStyle = hailGrad;
+      ctx.beginPath();
+      ctx.arc(hx, hy, hs, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Internal crack lines
+      ctx.strokeStyle = 'rgba(200,230,255,0.6)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < 4; i++) {
+        const a = (i / 4) * Math.PI * 2 + 0.3;
+        ctx.beginPath();
+        ctx.moveTo(hx, hy);
+        ctx.lineTo(hx + Math.cos(a) * hs * 0.7, hy + Math.sin(a) * hs * 0.7);
+        ctx.stroke();
+      }
+
+      // Shine highlight
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.beginPath();
+      ctx.arc(hx - hs * 0.25, hy - hs * 0.25, hs * 0.2, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      // Cracked hailstone sitting on ground — broken into chunks
+      const groundY = loseFighter.groundY;
+      // Two large halves sitting on the ground
+      ctx.fillStyle = '#88bbdd';
+      ctx.strokeStyle = '#5588aa';
+      ctx.lineWidth = 1.5;
+      // Left half
+      ctx.beginPath();
+      ctx.ellipse(hx - hs * 0.4, groundY - hs * 0.3, hs * 0.5, hs * 0.4, -0.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      // Right half
+      ctx.beginPath();
+      ctx.ellipse(hx + hs * 0.4, groundY - hs * 0.25, hs * 0.45, hs * 0.35, 0.3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      // Smaller chunks
+      ctx.fillStyle = '#aaddff';
+      for (let i = 0; i < 4; i++) {
+        const cx = hx + (i - 1.5) * hs * 0.3;
+        const cy = groundY - 2 - Math.abs(i - 1.5) * 3;
+        ctx.beginPath();
+        ctx.arc(cx, cy, hs * 0.15 + i * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      // Ice shine on halves
+      ctx.fillStyle = 'rgba(255,255,255,0.4)';
+      ctx.beginPath();
+      ctx.arc(hx - hs * 0.5, groundY - hs * 0.45, hs * 0.12, 0, Math.PI * 2);
+      ctx.fill();
+      // Crack line through center
+      ctx.strokeStyle = '#cceeff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(hx - 2, groundY - hs * 0.6);
+      ctx.lineTo(hx + 1, groundY);
+      ctx.stroke();
+    }
+  }
+
+  // Draw flying hail shards
+  for (const s of rumbleHailShards) {
+    if (s.alpha <= 0) continue;
+    ctx.save();
+    ctx.globalAlpha = s.alpha;
+    ctx.translate(s.x, s.y);
+    ctx.rotate(s.rot);
+    ctx.fillStyle = '#aaddff';
+    ctx.strokeStyle = '#5588aa';
+    ctx.lineWidth = 1;
+    // Angular ice shard shape
+    ctx.beginPath();
+    ctx.moveTo(0, -s.size);
+    ctx.lineTo(s.size * 0.6, 0);
+    ctx.lineTo(0, s.size * 0.4);
+    ctx.lineTo(-s.size * 0.6, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Ground cracks after impact
+  if (rumbleHailCracked) {
+    const crackX = loseFighter.x;
+    const crackY = loseFighter.groundY;
+    // Use fixed seed-like values so cracks don't jitter every frame
+    ctx.strokeStyle = '#444';
+    ctx.lineWidth = 2;
+    const crackAngles = [0.3, 1.1, 1.9, 2.7, 3.5, 4.3, 5.1, 5.9];
+    const crackLens = [25, 35, 20, 40, 30, 22, 38, 28];
+    for (let i = 0; i < crackAngles.length; i++) {
+      const a = crackAngles[i];
+      const len = crackLens[i];
+      ctx.beginPath();
+      ctx.moveTo(crackX, crackY);
+      // Jagged crack with one midpoint
+      const mx = crackX + Math.cos(a) * len * 0.5 + Math.sin(a * 3) * 5;
+      const my = crackY + Math.sin(a) * len * 0.2 + Math.cos(a * 2) * 3;
+      ctx.lineTo(mx, my);
+      ctx.lineTo(crackX + Math.cos(a) * len, crackY + Math.sin(a) * len * 0.3);
+      ctx.stroke();
+    }
+  }
+
+  // Flattened opponent (pancake) under the hailstone
+  if (rumbleHailCracked && rumbleLoserHidden) {
+    const lx = loseFighter.x;
+    const ly = loseFighter.groundY;
+    const loserChar = winner === 'player' ? selectedCPU : selectedPlayer;
+    ctx.globalAlpha = 0.8;
+    // Flat oval (squished body)
+    ctx.fillStyle = loserChar.color;
+    ctx.strokeStyle = loserChar.outline || '#333';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(lx, ly - 2, 25, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    // Tiny eyes on the flat shape
+    ctx.fillStyle = loserChar.outline || '#333';
+    ctx.beginPath();
+    ctx.arc(lx - 6, ly - 3, 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(lx + 6, ly - 3, 2, 0, Math.PI * 2);
+    ctx.fill();
     ctx.globalAlpha = 1;
   }
 
@@ -13620,6 +14120,7 @@ function draw() {
       if (rumbleLightBurst && rumbleLoserHidden) drawSurgeRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
       if (rumbleSinkhole && rumbleLoserHidden) drawTitanRumble(winner === 'player' ? cpu : player);
       if (rumbleShadePoof) drawShadeRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
+      if (rumbleHailCracked) drawTorrenaRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
       ctx.restore();
       drawFinishHimScreen();
       if (paused) drawPauseOverlay();
@@ -13647,6 +14148,7 @@ function draw() {
       if (rumbleShadePoof) drawShadeRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
       if (rumbleType === 'BOJDOBOJDO' && rumbleSubType === 'massiv' && rumbleLoserHidden) drawBojdoStompRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
       if (rumbleType === 'RUBBERMAN' && rumbleTetherCracked) drawRubbermanRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
+      if (rumbleHailCracked) drawTorrenaRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
       drawHUD();
       ctx.restore();
       drawVictoryScreen();
