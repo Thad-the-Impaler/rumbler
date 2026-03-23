@@ -158,6 +158,10 @@ let rumbleCorvidaPhase = 0; // animation phase
 let rumbleCorvidaNestX = 0; // nest position
 let rumbleCorvidaEggs = []; // { x, y, hatched }
 let rumbleCorvidaGulpChick = -1; // which chick ate the opponent (-1 = none)
+let rumbleGolgarEntity2 = null; // { x, y, facing } second entity position
+let rumbleGolgarPhase = 0;
+let rumbleGolgarLaunchVy = 0; // opponent launch velocity
+let rumbleGolgarOpX = 0; // stored opponent X at start
 let rumbleSnazzConfetti = []; // confetti particles
 let rumbleSnazzPunchLanded = false; // final punch connected
 let rumbleHailShards = []; // ice shards from hailstone cracking
@@ -808,7 +812,8 @@ const characterRumbles = {
   'SNAZZ MCJAZZ': { name: 'ANNIE, ARE YOU OKAY?', code: 'groove', desc: 'Dance your way over and knock them out cold' },
   'HAYSTACK': { name: "DON'T FEAR THE REAPER", code: 'scythe', desc: 'Ravens carry you to strike with a scythe, dissolving the opponent' },
   'CODEMAX': { name: 'YOUR NEW OVERLORD', code: 'decode', desc: 'Pixelated laser degrades the opponent until they glitch out' },
-  'CORVIDA': { name: 'EARLY BIRD', code: 'nestle', desc: 'Giant jay drops a nest, hatches chicks, and feeds them the opponent' }
+  'CORVIDA': { name: 'EARLY BIRD', code: 'nestle', desc: 'Giant jay drops a nest, hatches chicks, and feeds them the opponent' },
+  'GOLGAR': { name: 'YOU MUST BE DOUBLE DEAD!', code: 'launch', desc: 'Both entities grab the opponent and launch them into the sky' }
 };
 
 const characterCombos = {
@@ -3952,7 +3957,7 @@ class Fighter {
     }
 
     // Golgar: draw dormant entity as stone statue
-    if (this.char.isGolgar) {
+    if (this.char.isGolgar && !(rumbleActive && rumbleType === 'GOLGAR')) {
       ctx.save();
       ctx.translate(this.golgarOtherX, this.golgarOtherY);
       ctx.globalAlpha = 0.6;
@@ -6415,6 +6420,7 @@ function handleKeyPress(key) {
         rumbleHaystackRavens = []; rumbleHaystackScythe = false; rumbleHaystackStrike = false; rumbleHaystackDust = []; rumbleHaystackDiveStart = null;
         rumbleCodemaxLaser = false; rumbleCodemaxPixelLevel = 0; rumbleCodemaxGlitch = 0; rumbleCodemaxLaserParticles = [];
         rumbleCorvidaPhase = 0; rumbleCorvidaNestX = 0; rumbleCorvidaEggs = []; rumbleCorvidaGulpChick = -1;
+        rumbleGolgarEntity2 = null; rumbleGolgarPhase = 0; rumbleGolgarLaunchVy = 0; rumbleGolgarOpX = 0;
         if (player) { player.rubberArmReach = 0; player._hideFrontArm = false; player._rumbleRotation = 0; }
         if (cpu) { cpu.rubberArmReach = 0; cpu._hideFrontArm = false; cpu._rumbleRotation = 0; }
         if (player) { player._brushArmT = undefined; player._rumbleAlpha = undefined; }
@@ -6468,6 +6474,7 @@ function handleKeyPress(key) {
         rumbleHaystackRavens = []; rumbleHaystackScythe = false; rumbleHaystackStrike = false; rumbleHaystackDust = []; rumbleHaystackDiveStart = null;
         rumbleCodemaxLaser = false; rumbleCodemaxPixelLevel = 0; rumbleCodemaxGlitch = 0; rumbleCodemaxLaserParticles = [];
         rumbleCorvidaPhase = 0; rumbleCorvidaNestX = 0; rumbleCorvidaEggs = []; rumbleCorvidaGulpChick = -1;
+        rumbleGolgarEntity2 = null; rumbleGolgarPhase = 0; rumbleGolgarLaunchVy = 0; rumbleGolgarOpX = 0;
         if (player) { player.rubberArmReach = 0; player._hideFrontArm = false; player._rumbleRotation = 0; }
         if (cpu) { cpu.rubberArmReach = 0; cpu._hideFrontArm = false; cpu._rumbleRotation = 0; }
         if (player) { player._brushArmT = undefined; player._rumbleAlpha = undefined; }
@@ -6489,6 +6496,7 @@ function handleKeyPress(key) {
         rumbleHaystackRavens = []; rumbleHaystackScythe = false; rumbleHaystackStrike = false; rumbleHaystackDust = []; rumbleHaystackDiveStart = null;
         rumbleCodemaxLaser = false; rumbleCodemaxPixelLevel = 0; rumbleCodemaxGlitch = 0; rumbleCodemaxLaserParticles = [];
         rumbleCorvidaPhase = 0; rumbleCorvidaNestX = 0; rumbleCorvidaEggs = []; rumbleCorvidaGulpChick = -1;
+        rumbleGolgarEntity2 = null; rumbleGolgarPhase = 0; rumbleGolgarLaunchVy = 0; rumbleGolgarOpX = 0;
         if (player) { player.rubberArmReach = 0; player._hideFrontArm = false; player._rumbleRotation = 0; }
         if (cpu) { cpu.rubberArmReach = 0; cpu._hideFrontArm = false; cpu._rumbleRotation = 0; }
         if (player) { player._brushArmT = undefined; player._rumbleAlpha = undefined; }
@@ -6565,6 +6573,7 @@ function startFight() {
         rumbleHaystackRavens = []; rumbleHaystackScythe = false; rumbleHaystackStrike = false; rumbleHaystackDust = []; rumbleHaystackDiveStart = null;
         rumbleCodemaxLaser = false; rumbleCodemaxPixelLevel = 0; rumbleCodemaxGlitch = 0; rumbleCodemaxLaserParticles = [];
         rumbleCorvidaPhase = 0; rumbleCorvidaNestX = 0; rumbleCorvidaEggs = []; rumbleCorvidaGulpChick = -1;
+        rumbleGolgarEntity2 = null; rumbleGolgarPhase = 0; rumbleGolgarLaunchVy = 0; rumbleGolgarOpX = 0;
         if (player) { player.rubberArmReach = 0; player._hideFrontArm = false; player._rumbleRotation = 0; }
         if (cpu) { cpu.rubberArmReach = 0; cpu._hideFrontArm = false; cpu._rumbleRotation = 0; }
         if (player) { player._brushArmT = undefined; player._rumbleAlpha = undefined; }
@@ -12016,6 +12025,143 @@ function update() {
         }
       }
 
+      if (rumbleType === 'GOLGAR') {
+        // Golgar "You Must Be Double Dead!": ~340 frames
+        // 0-40: Second entity walks to other side of opponent
+        // 40-70: Both entities grab opponent's arms
+        // 70-120: Wind up — pull opponent back together
+        // 120-140: Swing forward and release — launch!
+        // 140-200: Opponent flies diagonally into the sky
+        // 200-280: Both entities face each other and high-five
+        // 280-340: Settle
+        const walkEnd = 40;
+        const grabEnd = 70;
+        const windupEnd = 120;
+        const launchFrame = 135;
+        const flyEnd = 200;
+        const highFiveStart = 220;
+        const highFiveHit = 250;
+        const endFrame = 340;
+
+        const dir = loseFighter.x > winFighter.x ? 1 : -1;
+        winFighter.facing = dir;
+        winFighter.vx = 0;
+
+        if (!rumbleGolgarEntity2) {
+          // Initialize on first frame
+          rumbleGolgarEntity2 = {
+            x: winFighter.golgarOtherX,
+            y: winFighter.golgarOtherY || winFighter.y,
+            facing: -dir
+          };
+          rumbleGolgarPhase = 0;
+          rumbleGolgarLaunchVy = 0;
+          rumbleGolgarOpX = loseFighter.x; // store opponent position once
+        }
+
+        const e2 = rumbleGolgarEntity2;
+        // Target positions: one on each side of opponent (fixed from start)
+        const entity1TargetX = rumbleGolgarOpX - dir * 45;
+        const entity2TargetX = rumbleGolgarOpX + dir * 45;
+
+        if (rumbleTimer <= walkEnd) {
+          // Both entities walk toward opponent from each side
+          rumbleGolgarPhase = 0;
+          winFighter.x += (entity1TargetX - winFighter.x) * 0.08;
+          e2.x += (entity2TargetX - e2.x) * 0.08;
+          e2.y = winFighter.groundY;
+          e2.facing = -dir;
+          winFighter.state = 'idle';
+        } else if (rumbleTimer <= grabEnd) {
+          // Grab opponent's arms — both face inward
+          rumbleGolgarPhase = 1;
+          winFighter.x += (entity1TargetX - winFighter.x) * 0.15;
+          e2.x += (entity2TargetX - e2.x) * 0.15;
+          winFighter.facing = dir;
+          e2.facing = -dir;
+          winFighter.state = 'idle';
+          loseFighter.state = 'hitstun';
+        } else if (rumbleTimer <= windupEnd) {
+          // Wind up — both step back together (away from launch direction), pulling opponent
+          rumbleGolgarPhase = 2;
+          const t = (rumbleTimer - grabEnd) / (windupEnd - grabEnd);
+          const pullBack = Math.sin(t * Math.PI * 0.5) * 50; // pull back away from launch dir
+          winFighter.x = entity1TargetX - dir * pullBack;
+          e2.x = entity2TargetX - dir * pullBack;
+          // Opponent follows between them
+          loseFighter.x = (winFighter.x + e2.x) / 2;
+          loseFighter.y = winFighter.groundY;
+          winFighter.state = 'idle';
+        } else if (rumbleTimer <= launchFrame) {
+          // Swing forward and release — both lunge forward together
+          rumbleGolgarPhase = 3;
+          const t = (rumbleTimer - windupEnd) / (launchFrame - windupEnd);
+          const ease = t * t;
+          const swingForward = ease * 100;
+          winFighter.x = (entity1TargetX - dir * 50) + dir * swingForward;
+          e2.x = (entity2TargetX - dir * 50) + dir * swingForward;
+          loseFighter.x = (winFighter.x + e2.x) / 2;
+          // At launch frame, release opponent
+          if (rumbleTimer === launchFrame) {
+            rumbleGolgarLaunchVy = -18;
+            shakeTimer = 10;
+            shakeIntensity = 8;
+          }
+        } else if (rumbleTimer <= flyEnd) {
+          // Opponent flies diagonally into the sky — slingshot angle
+          rumbleGolgarPhase = 4;
+          winFighter.state = 'idle';
+          loseFighter.x += dir * 10; // strong horizontal — slingshot
+          loseFighter.y += rumbleGolgarLaunchVy;
+          rumbleGolgarLaunchVy -= 0.15; // gentler upward accel so angle stays diagonal
+          loseFighter.grounded = false;
+          loseFighter._rumbleRotation = (loseFighter._rumbleRotation || 0) + 0.2 * dir;
+          if (loseFighter.y < -100) {
+            rumbleLoserHidden = true;
+          }
+          // Entities return to center
+          const midX = (entity1TargetX + entity2TargetX) / 2;
+          winFighter.x += (midX - 30 - winFighter.x) * 0.05;
+          e2.x += (midX + 30 - e2.x) * 0.05;
+        } else if (rumbleTimer <= highFiveHit) {
+          // Walk toward each other for high-five
+          rumbleGolgarPhase = 5;
+          winFighter.state = 'idle';
+          winFighter._hideFrontArm = true; // hide normal arm, we draw raised arm
+          const midX = rumbleGolgarOpX;
+          winFighter.x += (midX - 35 - winFighter.x) * 0.12;
+          e2.x += (midX + 35 - e2.x) * 0.12;
+          winFighter.facing = 1;
+          e2.facing = -1;
+          rumbleLoserHidden = true;
+        } else if (rumbleTimer <= highFiveHit + 30) {
+          // High-five hold
+          rumbleGolgarPhase = 6;
+          winFighter.state = 'idle';
+          winFighter._hideFrontArm = true;
+          const midX = rumbleGolgarOpX;
+          winFighter.x = midX - 35;
+          e2.x = midX + 35;
+          winFighter.facing = 1;
+          e2.facing = -1;
+          if (rumbleTimer === highFiveHit + 1) {
+            shakeTimer = 3;
+            shakeIntensity = 2;
+          }
+        } else {
+          // Settle
+          rumbleGolgarPhase = 7;
+          winFighter.state = 'idle';
+          winFighter._hideFrontArm = false;
+        }
+
+        if (rumbleTimer >= endFrame) {
+          loseFighter._rumbleRotation = 0;
+          winFighter._hideFrontArm = false;
+          gameState = 'victory';
+        }
+      }
+
       if (rumbleType === 'CORVIDA') {
         // Corvida "Early Bird": ~480 frames
         // 0-40: Corvida transforms to giant blue jay
@@ -12807,7 +12953,8 @@ function update() {
     // Apply gravity so loser lands if airborne (skip during Bojdo launch)
     const bojdoLaunching = (rumbleType === 'BOJDO' || rumbleType === 'BOJDOBOJDO') && rumbleActive && (rumbleSubType === 'pellet' ? rumbleTimer > 110 : rumbleSubType === 'massiv');
     const rubberSwinging = rumbleType === 'RUBBERMAN' && rumbleActive;
-    if (!loseFighter.grounded && !bojdoLaunching && !rubberSwinging) {
+    const golgarLaunching = rumbleType === 'GOLGAR' && rumbleActive;
+    if (!loseFighter.grounded && !bojdoLaunching && !rubberSwinging && !golgarLaunching) {
       loseFighter.vy += 0.6;
       loseFighter.y += loseFighter.vy;
       if (loseFighter.y >= loseFighter.groundY) {
@@ -12931,6 +13078,9 @@ function drawRumbleAnimation() {
   if (rumbleType === 'CORVIDA') {
     drawCorvidaRumble(loseFighter, winFighter);
   }
+  if (rumbleType === 'GOLGAR') {
+    drawGolgarRumble(loseFighter, winFighter);
+  }
 }
 
 function drawBojdoRumble(loseFighter, winFighter) {
@@ -12974,6 +13124,161 @@ function drawBojdoRumble(loseFighter, winFighter) {
     ctx.globalAlpha = 1;
   }
 
+  ctx.restore();
+}
+
+function drawGolgarRumble(loseFighter, winFighter) {
+  if (!rumbleGolgarEntity2) return;
+  ctx.save();
+  const e2 = rumbleGolgarEntity2;
+  const df = e2.facing;
+  const stoneColor = '#777788';
+  const stoneDark = '#555566';
+  const stoneLight = '#999aaa';
+
+  // Draw entity 2 (the dormant one, now active)
+  ctx.save();
+  ctx.translate(e2.x, e2.y);
+
+  // Shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.2)';
+  ctx.beginPath();
+  ctx.ellipse(0, 2, 30, 6, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Legs
+  ctx.strokeStyle = stoneDark; ctx.lineWidth = 6; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(-df * 6, -8); ctx.lineTo(-df * 10, 0); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(df * 6, -8); ctx.lineTo(df * 10, 0); ctx.stroke();
+  ctx.strokeStyle = stoneColor; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.moveTo(-df * 6, -8); ctx.lineTo(-df * 10, 0); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(df * 6, -8); ctx.lineTo(df * 10, 0); ctx.stroke();
+  // Feet
+  ctx.fillStyle = stoneDark;
+  ctx.beginPath(); ctx.arc(-df * 10, 0, 5, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(df * 10, 0, 5, 0, Math.PI * 2); ctx.fill();
+  // Body
+  ctx.fillStyle = stoneColor; ctx.strokeStyle = stoneDark; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.roundRect(-16, -48, 32, 40, 6); ctx.fill(); ctx.stroke();
+  // Chest
+  ctx.fillStyle = stoneLight;
+  ctx.beginPath(); ctx.roundRect(-10, -40, 20, 20, 3); ctx.fill();
+
+  // Arms — context dependent
+  const armY = -36;
+  if (rumbleGolgarPhase >= 1 && rumbleGolgarPhase <= 3) {
+    // Arms reaching toward opponent (grab/windup/swing)
+    ctx.strokeStyle = stoneDark; ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.moveTo(df * 14, armY); ctx.lineTo(df * 35, armY - 5); ctx.stroke();
+    ctx.strokeStyle = stoneColor; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(df * 14, armY); ctx.lineTo(df * 35, armY - 5); ctx.stroke();
+    ctx.fillStyle = stoneLight;
+    ctx.beginPath(); ctx.arc(df * 35, armY - 5, 5, 0, Math.PI * 2); ctx.fill();
+    // Back arm at rest
+    ctx.strokeStyle = stoneDark; ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.moveTo(-df * 14, armY); ctx.lineTo(-df * 28, armY + 15); ctx.stroke();
+    ctx.strokeStyle = stoneColor; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(-df * 14, armY); ctx.lineTo(-df * 28, armY + 15); ctx.stroke();
+    ctx.fillStyle = stoneLight;
+    ctx.beginPath(); ctx.arc(-df * 28, armY + 15, 4, 0, Math.PI * 2); ctx.fill();
+  } else if (rumbleGolgarPhase === 5 || rumbleGolgarPhase === 6) {
+    // High-five — front arm raised up
+    ctx.strokeStyle = stoneDark; ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.moveTo(df * 14, armY); ctx.lineTo(df * 28, armY - 20); ctx.stroke();
+    ctx.strokeStyle = stoneColor; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(df * 14, armY); ctx.lineTo(df * 28, armY - 20); ctx.stroke();
+    ctx.fillStyle = stoneLight;
+    ctx.beginPath(); ctx.arc(df * 28, armY - 20, 5, 0, Math.PI * 2); ctx.fill();
+    // Back arm rest
+    ctx.strokeStyle = stoneDark; ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.moveTo(-df * 14, armY); ctx.lineTo(-df * 28, armY + 15); ctx.stroke();
+    ctx.strokeStyle = stoneColor; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(-df * 14, armY); ctx.lineTo(-df * 28, armY + 15); ctx.stroke();
+    ctx.fillStyle = stoneLight;
+    ctx.beginPath(); ctx.arc(-df * 28, armY + 15, 4, 0, Math.PI * 2); ctx.fill();
+  } else {
+    // Normal arms at rest
+    ctx.strokeStyle = stoneDark; ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.moveTo(-df * 14, armY); ctx.lineTo(-df * 28, armY + 15); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(df * 14, armY); ctx.lineTo(df * 28, armY + 15); ctx.stroke();
+    ctx.strokeStyle = stoneColor; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(-df * 14, armY); ctx.lineTo(-df * 28, armY + 15); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(df * 14, armY); ctx.lineTo(df * 28, armY + 15); ctx.stroke();
+    ctx.fillStyle = stoneLight;
+    ctx.beginPath(); ctx.arc(-df * 28, armY + 15, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(df * 28, armY + 15, 4, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // Head
+  ctx.fillStyle = stoneLight; ctx.strokeStyle = stoneDark; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(0, -64, 16, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  // Eyes (awake — not dormant)
+  ctx.fillStyle = '#8b7ec8';
+  ctx.beginPath(); ctx.arc(-5, -66, 3, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(5, -66, 3, 0, Math.PI * 2); ctx.fill();
+  // Eye highlights
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(-4, -67, 1.5, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(6, -67, 1.5, 0, Math.PI * 2); ctx.fill();
+
+  ctx.restore();
+
+  // Draw entity 1's raised front arm for high-five (normal arm is hidden via _hideFrontArm)
+  if ((rumbleGolgarPhase === 5 || rumbleGolgarPhase === 6) && winFighter._hideFrontArm) {
+    ctx.save();
+    ctx.translate(winFighter.x, winFighter.y);
+    const wf = winFighter.facing;
+    const wColor = winFighter.char ? winFighter.char.color : '#5a5a6e';
+    const wOutline = winFighter.char ? winFighter.char.outline : '#2e2e3e';
+    const wAccent = winFighter.char ? winFighter.char.accent : '#8b7ec8';
+    const wArmY = -44;
+    // Raised front arm
+    ctx.strokeStyle = wOutline; ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.moveTo(wf * 14, wArmY); ctx.lineTo(wf * 28, wArmY - 20); ctx.stroke();
+    ctx.strokeStyle = wColor; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(wf * 14, wArmY); ctx.lineTo(wf * 28, wArmY - 20); ctx.stroke();
+    // Fist
+    ctx.fillStyle = wAccent;
+    ctx.beginPath(); ctx.arc(wf * 28, wArmY - 20, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+
+  // High-five impact effect
+  if (rumbleGolgarPhase === 6) {
+    const midX = (winFighter.x + e2.x) / 2;
+    const midY = winFighter.y - 56;
+    // Impact star
+    const hfT = (rumbleTimer - 251);
+    if (hfT >= 0 && hfT < 20) {
+      ctx.globalAlpha = 1 - hfT / 20;
+      ctx.fillStyle = '#ffff44';
+      ctx.beginPath();
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2;
+        const r = i % 2 === 0 ? 8 + hfT * 0.5 : 3;
+        if (i === 0) ctx.moveTo(midX + Math.cos(a) * r, midY + Math.sin(a) * r);
+        else ctx.lineTo(midX + Math.cos(a) * r, midY + Math.sin(a) * r);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // Launch trail (star burst when launched)
+  if (rumbleGolgarPhase === 4 && !rumbleLoserHidden) {
+    ctx.globalAlpha = 0.4;
+    ctx.strokeStyle = '#8b7ec8';
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 3; i++) {
+      const trailX = loseFighter.x - f * (i + 1) * 15;
+      const trailY = loseFighter.y + (i + 1) * 12;
+      ctx.beginPath();
+      ctx.arc(trailX, trailY, 4 - i, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+
+  ctx.globalAlpha = 1;
   ctx.restore();
 }
 
@@ -15390,6 +15695,7 @@ function draw() {
       if (rumbleShadePoof) drawShadeRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
       if (rumbleHailCracked) drawTorrenaRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
       if (rumbleCorvidaGulpChick >= 0 && rumbleLoserHidden) drawCorvidaRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
+      if (rumbleGolgarEntity2 && rumbleLoserHidden) drawGolgarRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
       ctx.restore();
       drawFinishHimScreen();
       if (paused) drawPauseOverlay();
@@ -15419,6 +15725,7 @@ function draw() {
       if (rumbleType === 'RUBBERMAN' && rumbleTetherCracked) drawRubbermanRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
       if (rumbleHailCracked) drawTorrenaRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
       if (rumbleCorvidaGulpChick >= 0 && rumbleLoserHidden) drawCorvidaRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
+      if (rumbleGolgarEntity2 && rumbleLoserHidden) drawGolgarRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
       drawHUD();
       ctx.restore();
       drawVictoryScreen();
@@ -15427,8 +15734,19 @@ function draw() {
 }
 
 function gameLoop() {
-  update();
-  draw();
+  try {
+    update();
+    draw();
+  } catch (e) {
+    console.error('Game loop error:', e);
+    // Reset canvas state to prevent save/restore stack corruption
+    ctx.restore();
+    ctx.save();
+    ctx.restore();
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur = 0;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+  }
   requestAnimationFrame(gameLoop);
 }
 
