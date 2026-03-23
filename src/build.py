@@ -45,6 +45,15 @@ SOURCE_FILES = [
     'rumbles/rumble-secret-chars-1.js',
     'rumbles/rumble-secret-chars-2.js',
     'rumbles/rumble-secret-chars-3.js',
+    # Fighter system
+    'fighter/fighter-core.js',
+    'fighter/fighter-combat.js',
+    'fighter/fighter-update.js',
+    'fighter/fighter-input.js',
+    'fighter/fighter-ai.js',
+    'fighter/fighter-draw.js',
+    'fighter/fighter-draw-assist.js',
+    'fighter/fighter-draw-training.js',
     # Remaining monolith (shrinks as more files are extracted)
     'all.js',
 ]
