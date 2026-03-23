@@ -25,6 +25,17 @@ SOURCE_FILES = [
     'state/unlock-state.js',
     # Audio
     'audio/music.js',
+    # Screens
+    'screens/screen-hud.js',
+    'screens/screen-title.js',
+    'screens/screen-char-select.js',
+    'screens/screen-practice-select.js',
+    'screens/screen-assist-select.js',
+    'screens/screen-difficulty.js',
+    'screens/screen-pause.js',
+    'screens/screen-victory.js',
+    'screens/screen-level-select.js',
+    'screens/screen-versus.js',
     # Remaining monolith (shrinks as more files are extracted)
     'all.js',
 ]
