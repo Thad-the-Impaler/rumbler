@@ -12844,14 +12844,18 @@ artikIconImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAA
 iconImages['ARTIK'] = artikIconImg;
 
 // Preload portrait icons for versus screen (base64 embedded)
-// [Extracted to data/assets.js]
 
-// [Extracted to state/game-state.js]
-// [Extracted to state/rumble-state.js]
-// [Extracted to state/unlock-state.js]
+let player, cpu;
 
-// [Extracted to fighter/]
+// --- VERSUS SCREEN STATE ---
+let versusTimer = 0;
+const VERSUS_DURATION = 150; // frames (~2.5 sec at 60fps)
 
+// --- DRAWING FUNCTIONS ---
+
+// --- MAIN LOOP ---
+
+// Handle resize
 // --- INPUT ---
 const keys = {};
 window.addEventListener('wheel', e => {
@@ -13669,12 +13673,6 @@ function handleKeyPress(key) {
   }
 }
 
-let player, cpu;
-
-// --- VERSUS SCREEN STATE ---
-let versusTimer = 0;
-const VERSUS_DURATION = 150; // frames (~2.5 sec at 60fps)
-
 function startVersusScreen() {
   versusTimer = 0;
   gameState = 'versus';
@@ -13733,38 +13731,6 @@ function startFight() {
         if (cpu) { cpu._brushArmT = undefined; cpu._rumbleAlpha = undefined; }
 }
 
-// --- DRAWING FUNCTIONS ---
-// [Extracted to screens/]
-
-// [Extracted to screens/]
-
-// [Extracted to backgrounds/]
-
-// [Extracted to screens/]
-
-// [Extracted to screens/]
-
-// [Extracted to screens/]
-
-// [Extracted to screens/]
-
-// [Extracted to screens/]
-
-// [Extracted to screens/]
-
-// [Extracted to screens/]
-
-// [Extracted to screens/]
-
-// [Extracted to screens/]
-
-// [Extracted to screens/]
-
-// [Extracted to screens/]
-
-// [Extracted to screens/]
-
-// --- MAIN LOOP ---
 function update() {
   // Lottery animation update
   if (lotteryActive) {
@@ -15772,54 +15738,6 @@ function update() {
   }
 }
 
-// [Extracted to screens/]
-
-// [Extracted to rumbles/]
-
-// [Extracted to rumbles/]
-
-// [Extracted to rumbles/]
-
-// [Extracted to rumbles/]
-
-// [Extracted to rumbles/]
-
-// [Extracted to rumbles/]
-
-// [Extracted to rumbles/]
-
-// [Extracted to rumbles/]
-
-// [Extracted to rumbles/]
-
-// [Extracted to rumbles/]
-
-// [Extracted to rumbles/]
-
-// [Extracted to rumbles/]
-
-// [Extracted to rumbles/]
-
-// [Extracted to rumbles/]
-
-// [Extracted to rumbles/]
-
-// [Extracted to rumbles/]
-
-// [Extracted to rumbles/]
-
-// [Extracted to rumbles/]
-
-// [Extracted to rumbles/]
-
-// [Extracted to rumbles/]
-
-// [Extracted to screens/]
-
-// [Extracted to screens/]
-
-// [Extracted to screens/]
-
 function draw() {
   ctx.clearRect(0, 0, 960, 540);
 
@@ -15985,7 +15903,6 @@ function gameLoop() {
   requestAnimationFrame(gameLoop);
 }
 
-// Handle resize
 function resize() {
   const ratio = 960 / 540;
   let w = window.innerWidth;
@@ -15999,6 +15916,8 @@ function resize() {
   canvas.style.height = h + 'px';
   canvas.style.marginTop = ((window.innerHeight - h) / 2) + 'px';
 }
+
+
 window.addEventListener('resize', resize);
 resize();
 

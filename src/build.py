@@ -54,8 +54,15 @@ SOURCE_FILES = [
     'fighter/fighter-draw.js',
     'fighter/fighter-draw-assist.js',
     'fighter/fighter-draw-training.js',
-    # Remaining monolith (shrinks as more files are extracted)
+    # Canvas init (must come before everything that uses ctx)
     'all.js',
+    # Input
+    'input/input-handler.js',
+    # Game setup + loop
+    'game/fight-setup.js',
+    'game/update.js',
+    'game/draw.js',
+    'game/game-loop.js',
 ]
 
 def build():
