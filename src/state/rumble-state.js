@@ -54,6 +54,12 @@ let rumbleGolgarLaunchVy = 0; // opponent launch velocity
 let rumbleGolgarOpX = 0; // stored opponent X at start
 let rumbleTelatrinePhase = 0;
 let rumbleTelatrineShrug = 0; // shrug animation timer
+let rumbleDuplairePhase = 0;
+let rumbleDuplaireClones = []; // clones dropping from ceiling { x, y, vx, vy, facing, landed }
+let rumbleDuplairePileClones = []; // clones leaping in from offscreen
+let rumbleDuplaireZoom = 0; // 0=fight stage, 1=Earth view
+let rumbleDuplaireEarthDots = []; // cyan dots on Earth { angle, dist, size }
+let rumbleDuplaireStars = []; // background stars { x, y, size, alpha }
 let rumbleSnazzConfetti = []; // confetti particles
 let rumbleSnazzPunchLanded = false; // final punch connected
 let rumbleHailShards = []; // ice shards from hailstone cracking
@@ -79,4 +85,6 @@ function resetRumbleState() {
   if (player) { player._brushArmT = undefined; player._rumbleAlpha = undefined; }
   if (cpu) { cpu._brushArmT = undefined; cpu._rumbleAlpha = undefined; }
   rumbleTelatrinePhase = 0; rumbleTelatrineShrug = 0;
+  rumbleDuplairePhase = 0; rumbleDuplaireClones = []; rumbleDuplairePileClones = [];
+  rumbleDuplaireZoom = 0; rumbleDuplaireEarthDots = []; rumbleDuplaireStars = [];
 }

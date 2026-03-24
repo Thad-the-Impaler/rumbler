@@ -1200,6 +1200,203 @@ function update() {
         }
       }
 
+      if (rumbleType === 'DUPLAIRE') {
+        // Duplaire "Can't Get Enough of Me": ~480 frames
+        // 0-80: Clones drop from ceiling onto opponent
+        // 80-160: Clones leap in from offscreen, pile grows
+        // 160-280: Camera zooms out, space background fades in
+        // 280-400: Earth view, cyan dots cover it
+        // 400-450: Earth fully covered, silhouette Duplaires on perimeter
+        // 450-480: Hold + end
+        const dropEnd = 80;
+        const pileEnd = 160;
+        const zoomEnd = 280;
+        const earthCoverEnd = 400;
+        const finalPause = 450;
+        const endFrame = 480;
+
+        winFighter.vx = 0;
+        winFighter.state = 'idle';
+
+        // Initialization
+        if (rumbleTimer === 1) {
+          // Generate stars for space background
+          for (let i = 0; i < 40; i++) {
+            rumbleDuplaireStars.push({
+              x: Math.random() * 960,
+              y: Math.random() * 540,
+              size: 0.5 + Math.random() * 2,
+              alpha: 0.3 + Math.random() * 0.7
+            });
+          }
+        }
+
+        // Phase 0: Clones drop from ceiling (frames 1-80)
+        if (rumbleTimer <= dropEnd) {
+          rumbleDuplairePhase = 0;
+          // Spawn a clone every 5 frames (12 clones total from frame 10-70)
+          if (rumbleTimer >= 10 && rumbleTimer <= 70 && rumbleTimer % 5 === 0) {
+            rumbleDuplaireClones.push({
+              x: loseFighter.x + (Math.random() - 0.5) * 160,
+              y: -60 - Math.random() * 40,
+              vx: (Math.random() - 0.5) * 2,
+              vy: 0,
+              facing: Math.random() > 0.5 ? 1 : -1,
+              landed: false
+            });
+          }
+          // Opponent stays visible — hidden by clones visually, fades with zoom
+        }
+
+        // Phase 1: Clones leap in from offscreen (frames 80-160)
+        if (rumbleTimer > dropEnd && rumbleTimer <= pileEnd) {
+          rumbleDuplairePhase = 1;
+          if (rumbleTimer % 4 === 0) {
+            const fromLeft = rumbleDuplairePileClones.length % 2 === 0;
+            const startX = fromLeft ? -40 : 1000;
+            const dir = fromLeft ? 1 : -1;
+            rumbleDuplairePileClones.push({
+              x: startX,
+              y: loseFighter.groundY,
+              vx: dir * (5 + Math.random() * 3),
+              vy: -(8 + Math.random() * 4),
+              facing: dir,
+              landed: false
+            });
+          }
+        }
+
+        // Fade out both fighters as camera zooms out (sync with draw crossfade)
+        if (rumbleDuplaireZoom > 0.35) {
+          const fadeAlpha = Math.max(0, 1 - (rumbleDuplaireZoom - 0.35) / 0.2);
+          winFighter._rumbleAlpha = fadeAlpha;
+          loseFighter._rumbleAlpha = fadeAlpha;
+          if (fadeAlpha === 0) rumbleLoserHidden = true;
+        }
+
+        // Phase 2: Camera zoom out (frames 160-280)
+        if (rumbleTimer > pileEnd && rumbleTimer <= zoomEnd) {
+          rumbleDuplairePhase = 2;
+          rumbleDuplaireZoom = (rumbleTimer - pileEnd) / (zoomEnd - pileEnd) * 0.5;
+          // Occasional clone still leaping in
+          if (rumbleTimer % 10 === 0) {
+            const fromLeft = Math.random() > 0.5;
+            rumbleDuplairePileClones.push({
+              x: fromLeft ? -40 : 1000,
+              y: loseFighter.groundY,
+              vx: (fromLeft ? 1 : -1) * (5 + Math.random() * 3),
+              vy: -(8 + Math.random() * 4),
+              facing: fromLeft ? 1 : -1,
+              landed: false
+            });
+          }
+          // Start spawning Earth dots at frame 200
+          if (rumbleTimer >= 200 && rumbleTimer % 3 === 0) {
+            for (let i = 0; i < 2; i++) {
+              rumbleDuplaireEarthDots.push({
+                angle: Math.random() * Math.PI * 2,
+                dist: Math.random() * 0.95,
+                size: 1 + Math.random() * 1.5
+              });
+            }
+          }
+          if (rumbleTimer === pileEnd + 1) {
+            shakeTimer = 6;
+            shakeIntensity = 5;
+          }
+        }
+
+        // Phase 3: Earth view, dots cover it (frames 280-400)
+        if (rumbleTimer > zoomEnd && rumbleTimer <= earthCoverEnd) {
+          rumbleDuplairePhase = 3;
+          rumbleDuplaireZoom = 0.5 + (rumbleTimer - zoomEnd) / (earthCoverEnd - zoomEnd) * 0.5;
+          // Spawn Earth dots rapidly
+          if (rumbleTimer % 2 === 0) {
+            for (let i = 0; i < 4; i++) {
+              rumbleDuplaireEarthDots.push({
+                angle: Math.random() * Math.PI * 2,
+                dist: Math.random() * 0.95,
+                size: 1 + Math.random() * 2
+              });
+            }
+          }
+          if (rumbleTimer === 300) {
+            shakeTimer = 5;
+            shakeIntensity = 4;
+          }
+        }
+
+        // Phase 4: Earth fully covered (frames 400-450)
+        if (rumbleTimer > earthCoverEnd && rumbleTimer <= finalPause) {
+          rumbleDuplairePhase = 4;
+          rumbleDuplaireZoom = 1;
+          // Slow dot additions to fill gaps
+          if (rumbleTimer % 4 === 0) {
+            rumbleDuplaireEarthDots.push({
+              angle: Math.random() * Math.PI * 2,
+              dist: Math.random() * 0.95,
+              size: 1 + Math.random() * 1.5
+            });
+          }
+        }
+
+        // Phase 5: End (frames 450-480)
+        if (rumbleTimer > finalPause) {
+          rumbleDuplairePhase = 5;
+          rumbleDuplaireZoom = 1;
+        }
+
+        // Update falling clones (Phase 0)
+        const totalLanded = rumbleDuplaireClones.filter(c => c.landed).length;
+        for (const c of rumbleDuplaireClones) {
+          if (c.landed) continue;
+          c.vy += 0.6;
+          c.x += c.vx;
+          c.y += c.vy;
+          // Stack on pile — each landed clone sits higher
+          const landY = loseFighter.groundY - totalLanded * 8;
+          if (c.y >= landY) {
+            c.y = landY;
+            c.vy = 0;
+            c.vx = 0;
+            c.landed = true;
+            shakeTimer = 3;
+            shakeIntensity = 2 + totalLanded * 0.3;
+          }
+        }
+
+        // Update leaping pile clones (Phase 1+)
+        const pileTop = loseFighter.groundY - (totalLanded + rumbleDuplairePileClones.filter(c => c.landed).length) * 6;
+        for (const c of rumbleDuplairePileClones) {
+          if (c.landed) continue;
+          c.x += c.vx;
+          c.y += c.vy;
+          c.vy += 0.5;
+          // Land on pile when reaching the pile area
+          const targetY = pileTop + Math.random() * 20;
+          if (c.y >= targetY && Math.abs(c.x - loseFighter.x) < 100) {
+            c.y = targetY;
+            c.vy = 0;
+            c.vx = 0;
+            c.landed = true;
+            shakeTimer = 2;
+            shakeIntensity = 1.5;
+          }
+          // Remove if off-screen after passing through
+          if (c.y > 600) {
+            c.landed = true;
+            c.y = pileTop;
+            c.x = loseFighter.x + (Math.random() - 0.5) * 80;
+          }
+        }
+
+        if (rumbleTimer >= endFrame) {
+          winFighter._rumbleAlpha = undefined;
+          loseFighter._rumbleAlpha = undefined;
+          gameState = 'victory';
+        }
+      }
+
       if (rumbleType === 'CORVIDA') {
         // Corvida "Early Bird": ~480 frames
         // 0-40: Corvida transforms to giant blue jay

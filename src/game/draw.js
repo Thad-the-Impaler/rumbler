@@ -115,30 +115,35 @@ function draw() {
 
     case 'victory':
       ctx.save();
-      drawBackground();
-      {
-        const loserF = winner === 'player' ? cpu : player;
-        const winnerF = winner === 'player' ? player : cpu;
-        winnerF.draw(ctx);
-        if (!rumbleLoserHidden) {
-          if (rumbleType === 'VENOM' && rumbleVenomMeltPct > 0) {
-            drawMeltingFighter(loserF);
-          } else {
-            loserF.draw(ctx);
+      if (rumbleType === 'DUPLAIRE' && rumbleDuplaireZoom >= 1) {
+        // Show clone-covered Earth as victory background
+        drawDuplaireRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
+      } else {
+        drawBackground();
+        {
+          const loserF = winner === 'player' ? cpu : player;
+          const winnerF = winner === 'player' ? player : cpu;
+          winnerF.draw(ctx);
+          if (!rumbleLoserHidden) {
+            if (rumbleType === 'VENOM' && rumbleVenomMeltPct > 0) {
+              drawMeltingFighter(loserF);
+            } else {
+              loserF.draw(ctx);
+            }
           }
         }
+        if (rumbleAshes) drawAshPile(rumbleAshes.x, rumbleAshes.y);
+        if (rumbleGoo) drawVenomRumble(winner === 'player' ? cpu : player);
+        if (rumbleLightBurst && rumbleLoserHidden) drawSurgeRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
+        if (rumbleSinkhole && rumbleLoserHidden) drawTitanRumble(winner === 'player' ? cpu : player);
+        if (rumbleShadePoof) drawShadeRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
+        if (rumbleType === 'BOJDOBOJDO' && rumbleSubType === 'massiv' && rumbleLoserHidden) drawBojdoStompRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
+        if (rumbleType === 'RUBBERMAN' && rumbleTetherCracked) drawRubbermanRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
+        if (rumbleHailCracked) drawTorrenaRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
+        if (rumbleCorvidaGulpChick >= 0 && rumbleLoserHidden) drawCorvidaRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
+        if (rumbleGolgarEntity2 && rumbleLoserHidden) drawGolgarRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
+        if (rumbleTelatrinePhase === 5) drawTelatrineRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
       }
-      if (rumbleAshes) drawAshPile(rumbleAshes.x, rumbleAshes.y);
-      if (rumbleGoo) drawVenomRumble(winner === 'player' ? cpu : player);
-      if (rumbleLightBurst && rumbleLoserHidden) drawSurgeRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
-      if (rumbleSinkhole && rumbleLoserHidden) drawTitanRumble(winner === 'player' ? cpu : player);
-      if (rumbleShadePoof) drawShadeRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
-      if (rumbleType === 'BOJDOBOJDO' && rumbleSubType === 'massiv' && rumbleLoserHidden) drawBojdoStompRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
-      if (rumbleType === 'RUBBERMAN' && rumbleTetherCracked) drawRubbermanRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
-      if (rumbleHailCracked) drawTorrenaRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
-      if (rumbleCorvidaGulpChick >= 0 && rumbleLoserHidden) drawCorvidaRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
-      if (rumbleGolgarEntity2 && rumbleLoserHidden) drawGolgarRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
-      if (rumbleTelatrinePhase === 5) drawTelatrineRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
       drawHUD();
       ctx.restore();
       drawVictoryScreen();

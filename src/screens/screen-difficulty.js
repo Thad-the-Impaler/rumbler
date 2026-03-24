@@ -109,5 +109,20 @@ function drawDifficultySelectScreen() {
   ctx.font = '14px Arial';
   ctx.fillStyle = '#555';
   ctx.fillText('LEFT/RIGHT to browse | ENTER to select | ESC to go back', 480, 530);
+
+  // Master passkey flash
+  if (masterUnlockFlash > 0) {
+    masterUnlockFlash--;
+    ctx.save();
+    ctx.globalAlpha = masterUnlockFlash / 60 * 0.6;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, 960, 540);
+    ctx.globalAlpha = Math.min(1, masterUnlockFlash / 30);
+    ctx.font = 'bold 48px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#000';
+    ctx.fillText('MASTER PASSKEY ACTIVATED', 480, 270);
+    ctx.restore();
+  }
 }
 

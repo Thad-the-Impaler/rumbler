@@ -103,5 +103,20 @@ function drawTitleScreen() {
   ctx.font = '14px Arial';
   ctx.fillStyle = '#555';
   ctx.fillText('Press ENTER to select', 480, descY + 35);
+
+  // Master passkey flash
+  if (masterUnlockFlash > 0) {
+    masterUnlockFlash--;
+    ctx.save();
+    ctx.globalAlpha = masterUnlockFlash / 60 * 0.6;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, 960, 540);
+    ctx.globalAlpha = Math.min(1, masterUnlockFlash / 30);
+    ctx.font = 'bold 48px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#000';
+    ctx.fillText('MASTER PASSKEY ACTIVATED', 480, 270);
+    ctx.restore();
+  }
 }
 

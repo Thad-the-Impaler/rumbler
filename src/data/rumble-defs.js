@@ -18,5 +18,6 @@ const characterRumbles = {
   'CODEMAX': { name: 'YOUR NEW OVERLORD', code: 'decode', desc: 'Pixelated laser degrades the opponent until they glitch out' },
   'CORVIDA': { name: 'EARLY BIRD', code: 'nestle', desc: 'Giant jay drops a nest, hatches chicks, and feeds them the opponent' },
   'GOLGAR': { name: 'YOU MUST BE DOUBLE DEAD!', code: 'launch', desc: 'Both entities grab the opponent and launch them into the sky' },
-  'TELATRINE': { name: "THAT'S A WRAP", code: 'around', desc: 'Carry the opponent off the edge of the screen and lose them' }
+  'TELATRINE': { name: "THAT'S A WRAP", code: 'around', desc: 'Carry the opponent off the edge of the screen and lose them' },
+  'DUPLAIRE': { name: "CAN'T GET ENOUGH OF ME", code: 'invade', desc: 'Clone army buries the opponent and swarms the entire Earth' }
 };

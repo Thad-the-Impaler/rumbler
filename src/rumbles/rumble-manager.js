@@ -69,5 +69,8 @@ function drawRumbleAnimation() {
   if (rumbleType === 'TELATRINE') {
     drawTelatrineRumble(loseFighter, winFighter);
   }
+  if (rumbleType === 'DUPLAIRE') {
+    drawDuplaireRumble(loseFighter, winFighter);
+  }
 }
 

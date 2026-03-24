@@ -44,6 +44,15 @@ function handleKeyPress(key) {
         charSelectScroll = 0;
         selectingCPU = false;
       }
+      // Master passkey: type imp11 to unlock all secrets
+      if (isMasterPasskeyNeeded()) {
+        masterCodeBuffer += key.toLowerCase();
+        if (masterCodeBuffer.length > 20) masterCodeBuffer = masterCodeBuffer.slice(-20);
+        if (masterCodeBuffer.includes('imp11')) {
+          masterCodeBuffer = '';
+          activateMasterPasskey();
+        }
+      }
       break;
     }
 
@@ -435,6 +444,15 @@ function handleKeyPress(key) {
         gameState = 'charSelect';
         charSelectScroll = 0;
       }
+      // Master passkey: type imp11 to unlock all secrets
+      if (isMasterPasskeyNeeded()) {
+        masterCodeBuffer += key.toLowerCase();
+        if (masterCodeBuffer.length > 20) masterCodeBuffer = masterCodeBuffer.slice(-20);
+        if (masterCodeBuffer.includes('imp11')) {
+          masterCodeBuffer = '';
+          activateMasterPasskey();
+        }
+      }
       break;
     }
 
@@ -632,6 +650,15 @@ function handleKeyPress(key) {
       if (key === 'Escape' || key === 'Backspace') {
         gameState = 'assistSelect';
       }
+      // Master passkey: type imp11 to unlock all secrets
+      if (isMasterPasskeyNeeded()) {
+        masterCodeBuffer += key.toLowerCase();
+        if (masterCodeBuffer.length > 20) masterCodeBuffer = masterCodeBuffer.slice(-20);
+        if (masterCodeBuffer.includes('imp11')) {
+          masterCodeBuffer = '';
+          activateMasterPasskey();
+        }
+      }
       break;
 
     case 'levelSelect': {
@@ -678,6 +705,16 @@ function handleKeyPress(key) {
           gameState = 'assistSelect';
         } else {
           gameState = 'difficultySelect';
+        }
+      }
+
+      // Master passkey: type imp11 to unlock all secrets
+      if (isMasterPasskeyNeeded()) {
+        masterCodeBuffer += key.toLowerCase();
+        if (masterCodeBuffer.length > 20) masterCodeBuffer = masterCodeBuffer.slice(-20);
+        if (masterCodeBuffer.includes('imp11')) {
+          masterCodeBuffer = '';
+          activateMasterPasskey();
         }
       }
 

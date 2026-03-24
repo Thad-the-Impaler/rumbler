@@ -457,3 +457,220 @@ function drawTelatrineRumble(loseFighter, winFighter) {
   ctx.restore();
 }
 
+function drawMiniDuplaire(x, y, scale, facing) {
+  const s = scale;
+  const f = facing;
+  const color = '#3a5c6e';
+  const accent = '#66b8cc';
+  const outline = '#1e3a4a';
+  ctx.save();
+  ctx.translate(x, y);
+
+  // Shadow
+  if (s > 0.3) {
+    ctx.fillStyle = 'rgba(0,0,0,0.15)';
+    ctx.beginPath();
+    ctx.ellipse(0, 2 * s, 18 * s, 4 * s, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Legs
+  ctx.strokeStyle = outline; ctx.lineWidth = Math.max(1, 4 * s); ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(-6 * s, -8 * s); ctx.lineTo(-8 * s, 0); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(6 * s, -8 * s); ctx.lineTo(8 * s, 0); ctx.stroke();
+  ctx.strokeStyle = color; ctx.lineWidth = Math.max(1, 3 * s);
+  ctx.beginPath(); ctx.moveTo(-6 * s, -8 * s); ctx.lineTo(-8 * s, 0); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(6 * s, -8 * s); ctx.lineTo(8 * s, 0); ctx.stroke();
+
+  // Feet
+  ctx.fillStyle = outline;
+  ctx.beginPath(); ctx.arc(-8 * s, 0, 3 * s, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(8 * s, 0, 3 * s, 0, Math.PI * 2); ctx.fill();
+
+  // Body
+  ctx.fillStyle = color; ctx.strokeStyle = outline; ctx.lineWidth = Math.max(1, 1.5 * s);
+  ctx.beginPath(); ctx.roundRect(-12 * s, -42 * s, 24 * s, 34 * s, 4 * s); ctx.fill(); ctx.stroke();
+
+  // Chest accent
+  ctx.fillStyle = accent;
+  ctx.beginPath(); ctx.roundRect(-8 * s, -36 * s, 16 * s, 16 * s, 2 * s); ctx.fill();
+
+  // Arms
+  ctx.strokeStyle = outline; ctx.lineWidth = Math.max(1, 4 * s);
+  ctx.beginPath(); ctx.moveTo(f * 12 * s, -36 * s); ctx.lineTo(f * 24 * s, -22 * s); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-f * 12 * s, -36 * s); ctx.lineTo(-f * 22 * s, -20 * s); ctx.stroke();
+  ctx.strokeStyle = color; ctx.lineWidth = Math.max(1, 3 * s);
+  ctx.beginPath(); ctx.moveTo(f * 12 * s, -36 * s); ctx.lineTo(f * 24 * s, -22 * s); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-f * 12 * s, -36 * s); ctx.lineTo(-f * 22 * s, -20 * s); ctx.stroke();
+
+  // Hands
+  ctx.fillStyle = accent;
+  ctx.beginPath(); ctx.arc(f * 24 * s, -22 * s, 3 * s, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(-f * 22 * s, -20 * s, 3 * s, 0, Math.PI * 2); ctx.fill();
+
+  // Head
+  ctx.fillStyle = accent; ctx.strokeStyle = outline; ctx.lineWidth = Math.max(1, 1.5 * s);
+  ctx.beginPath(); ctx.arc(0, -54 * s, 12 * s, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+  // Eyes
+  if (s > 0.25) {
+    ctx.fillStyle = '#111';
+    ctx.beginPath(); ctx.arc(f * 4 * s, -56 * s, 2 * s, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-f * 4 * s, -56 * s, 2 * s, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(f * 4.5 * s, -57 * s, 1 * s, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-f * 3.5 * s, -57 * s, 1 * s, 0, Math.PI * 2); ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+function drawTinyDuplaire(x, y, angle) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle + Math.PI / 2);
+  ctx.fillStyle = '#66b8cc';
+  ctx.fillRect(-1, -4, 2, 3);
+  ctx.beginPath(); ctx.arc(0, -5.5, 1.5, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
+function drawDuplaireRumble(loseFighter, winFighter) {
+  ctx.save();
+
+  const fadeStart = 0.35;
+  const fadeMid = 0.55;
+
+  // --- FIGHT STAGE VIEW (fades out during zoom) ---
+  if (rumbleDuplaireZoom < fadeMid) {
+    const stageAlpha = rumbleDuplaireZoom < fadeStart ? 1 : Math.max(0, 1 - (rumbleDuplaireZoom - fadeStart) / (fadeMid - fadeStart));
+    if (stageAlpha > 0) {
+      ctx.save();
+      if (rumbleDuplaireZoom > 0) {
+        const pileX = loseFighter.x;
+        const pileY = loseFighter.groundY - 40;
+        const sc = 1 - rumbleDuplaireZoom * 0.8;
+        ctx.translate(pileX * (1 - sc), pileY * (1 - sc));
+        ctx.scale(sc, sc);
+      }
+      ctx.globalAlpha = stageAlpha;
+
+      // Draw landed clones (bottom first)
+      for (const c of rumbleDuplaireClones) {
+        if (c.landed) drawMiniDuplaire(c.x, c.y, 1, c.facing);
+      }
+      for (const c of rumbleDuplaireClones) {
+        if (!c.landed) drawMiniDuplaire(c.x, c.y, 1, c.facing);
+      }
+      for (const c of rumbleDuplairePileClones) {
+        if (c.landed) drawMiniDuplaire(c.x, c.y, 1, c.facing);
+      }
+      for (const c of rumbleDuplairePileClones) {
+        if (!c.landed) drawMiniDuplaire(c.x, c.y, 1, c.facing);
+      }
+
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    }
+  }
+
+  // --- SPACE + EARTH VIEW (fades in during zoom) ---
+  if (rumbleDuplaireZoom > fadeStart) {
+    const spaceAlpha = rumbleDuplaireZoom < fadeMid ? (rumbleDuplaireZoom - fadeStart) / (fadeMid - fadeStart) : 1;
+    ctx.save();
+    ctx.globalAlpha = spaceAlpha;
+
+    // Space background
+    ctx.fillStyle = '#050510';
+    ctx.fillRect(0, 0, 960, 540);
+
+    // Stars
+    for (const star of rumbleDuplaireStars) {
+      ctx.globalAlpha = spaceAlpha * star.alpha * (0.7 + 0.3 * Math.sin(Date.now() * 0.001 + star.x));
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = spaceAlpha;
+
+    // Earth
+    const earthProgress = Math.max(0, Math.min(1, (rumbleDuplaireZoom - 0.4) / 0.6));
+    const earthR = 20 + earthProgress * 160;
+    const earthX = 480;
+    const earthY = 270;
+
+    // Earth base (blue ocean)
+    const earthGrad = ctx.createRadialGradient(earthX - earthR * 0.15, earthY - earthR * 0.15, earthR * 0.1, earthX, earthY, earthR);
+    earthGrad.addColorStop(0, '#3366cc');
+    earthGrad.addColorStop(0.6, '#2244aa');
+    earthGrad.addColorStop(1, '#112255');
+    ctx.fillStyle = earthGrad;
+    ctx.beginPath();
+    ctx.arc(earthX, earthY, earthR, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Continent blobs (clip to Earth circle)
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(earthX, earthY, earthR, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.fillStyle = '#2a7a3a';
+    ctx.beginPath(); ctx.ellipse(earthX - earthR * 0.35, earthY - earthR * 0.25, earthR * 0.25, earthR * 0.18, -0.3, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(earthX - earthR * 0.15, earthY + earthR * 0.3, earthR * 0.12, earthR * 0.22, 0.2, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(earthX + earthR * 0.15, earthY - earthR * 0.1, earthR * 0.12, earthR * 0.35, 0.1, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(earthX + earthR * 0.4, earthY - earthR * 0.2, earthR * 0.22, earthR * 0.15, 0.2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#2a6a3a';
+    ctx.beginPath(); ctx.ellipse(earthX + earthR * 0.5, earthY + earthR * 0.35, earthR * 0.1, earthR * 0.07, 0.3, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+
+    // Atmosphere glow
+    ctx.strokeStyle = 'rgba(100, 180, 255, 0.25)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(earthX, earthY, earthR + 3, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Cyan Duplaire dots covering the Earth
+    for (const dot of rumbleDuplaireEarthDots) {
+      const dx = earthX + Math.cos(dot.angle) * dot.dist * earthR;
+      const dy = earthY + Math.sin(dot.angle) * dot.dist * earthR;
+      const distFromCenter = Math.sqrt((dx - earthX) ** 2 + (dy - earthY) ** 2);
+      if (distFromCenter <= earthR) {
+        ctx.globalAlpha = spaceAlpha * (0.6 + 0.4 * Math.sin(Date.now() * 0.003 + dot.angle * 10));
+        ctx.fillStyle = '#66b8cc';
+        ctx.beginPath();
+        ctx.arc(dx, dy, dot.size * (0.5 + earthProgress * 0.5), 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    ctx.globalAlpha = spaceAlpha;
+
+    // Tiny Duplaire silhouettes on Earth perimeter (Phase 4+)
+    if (rumbleDuplairePhase >= 4 && earthR > 60) {
+      const numFigures = Math.min(36, Math.floor(earthR / 5));
+      for (let i = 0; i < numFigures; i++) {
+        const a = (i / numFigures) * Math.PI * 2;
+        const figX = earthX + Math.cos(a) * (earthR - 1);
+        const figY = earthY + Math.sin(a) * (earthR - 1);
+        drawTinyDuplaire(figX, figY, a);
+      }
+    }
+
+    // Pulsing cyan glow during final phases
+    if (rumbleDuplairePhase >= 4) {
+      const glowAlpha = 0.08 + 0.04 * Math.sin(Date.now() * 0.002);
+      ctx.globalAlpha = spaceAlpha * glowAlpha;
+      ctx.fillStyle = '#66b8cc';
+      ctx.beginPath();
+      ctx.arc(earthX, earthY, earthR + 8, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
