@@ -3,7 +3,7 @@ function startVersusScreen() {
   gameState = 'versus';
   stopTitleMusic();
   const level = selectedLevel ? selectedLevel.name : 'CLASSIC';
-  if (level === 'CLASSIC') playFightMusic();
+  playFightMusic(level);
 }
 
 function startRumblePractice() {
