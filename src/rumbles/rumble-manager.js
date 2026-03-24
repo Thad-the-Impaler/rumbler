@@ -75,5 +75,8 @@ function drawRumbleAnimation() {
   if (rumbleType === 'BOZOLLOK') {
     drawBozollokRumble(loseFighter, winFighter);
   }
+  if (rumbleType === 'GOURMAND') {
+    drawGourmandRumble(loseFighter, winFighter);
+  }
 }
 

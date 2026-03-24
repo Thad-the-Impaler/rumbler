@@ -849,3 +849,250 @@ function drawBozollokRumble(loseFighter, winFighter) {
   ctx.restore();
 }
 
+function drawGourmandRumble(loseFighter, winFighter) {
+  ctx.save();
+  const panX = rumbleGourmandPanX;
+  const panY = rumbleGourmandPanY;
+  const plateX = rumbleGourmandPlateX || panX;
+
+  // --- Giant Frying Pan ---
+  if (rumbleGourmandPhase >= 0 && rumbleGourmandPhase <= 3) {
+    const panAlpha = rumbleGourmandPhase === 3 ? Math.max(0, 1 - ((rumbleTimer - 220) / 50) * 2) : 1;
+    ctx.globalAlpha = panAlpha;
+
+    // Pan handle
+    ctx.fillStyle = '#4a3520';
+    ctx.save();
+    ctx.translate(panX + 100, panY - 10);
+    ctx.rotate(-0.15);
+    ctx.fillRect(0, -6, 80, 12);
+    ctx.restore();
+
+    // Pan body (large oval)
+    ctx.fillStyle = '#3a3a3a';
+    ctx.strokeStyle = '#555';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.ellipse(panX, panY - 8, 100, 22, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Pan surface (hot)
+    const grad = ctx.createRadialGradient(panX, panY - 8, 0, panX, panY - 8, 90);
+    grad.addColorStop(0, 'rgba(200, 80, 20, 0.35)');
+    grad.addColorStop(0.7, 'rgba(100, 40, 10, 0.2)');
+    grad.addColorStop(1, 'rgba(50, 50, 50, 0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.ellipse(panX, panY - 8, 90, 18, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Sizzle particles
+    if (rumbleGourmandPhase === 2) {
+      ctx.fillStyle = '#fff';
+      for (let i = 0; i < 6; i++) {
+        const sx = panX + Math.sin(Date.now() * 0.01 + i * 1.5) * 60;
+        const sy = panY - 15 - Math.abs(Math.sin(Date.now() * 0.015 + i * 2.3)) * 15;
+        ctx.globalAlpha = 0.3 + Math.sin(Date.now() * 0.02 + i) * 0.2;
+        ctx.beginPath();
+        ctx.arc(sx, sy, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    ctx.globalAlpha = 1;
+  }
+
+  // --- Toppings falling / in pan ---
+  for (const top of rumbleGourmandToppings) {
+    ctx.save();
+    ctx.translate(top.x, top.y);
+    if (top.type === 'tomato') {
+      ctx.fillStyle = '#e74c3c';
+      ctx.beginPath(); ctx.arc(0, 0, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#c0392b';
+      ctx.beginPath(); ctx.arc(1, -1, 2, 0, Math.PI * 2); ctx.fill();
+    } else if (top.type === 'onion') {
+      ctx.fillStyle = '#f1c40f';
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 6, 3, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#d4ac0d'; ctx.lineWidth = 0.5;
+      ctx.beginPath(); ctx.ellipse(0, 0, 4, 2, 0, 0, Math.PI * 2); ctx.stroke();
+    } else if (top.type === 'pepper') {
+      ctx.fillStyle = '#27ae60';
+      ctx.fillRect(-3, -2, 6, 4);
+      ctx.fillStyle = '#229954';
+      ctx.fillRect(-2, -1, 4, 2);
+    } else if (top.type === 'mushroom') {
+      ctx.fillStyle = '#d4a574';
+      ctx.beginPath(); ctx.arc(0, -2, 5, Math.PI, 0); ctx.fill();
+      ctx.fillStyle = '#b8956a';
+      ctx.fillRect(-2, -2, 4, 5);
+    } else if (top.type === 'herb') {
+      ctx.fillStyle = '#2ecc71';
+      ctx.beginPath();
+      ctx.moveTo(0, -4);
+      ctx.bezierCurveTo(-4, -1, -3, 3, 0, 4);
+      ctx.bezierCurveTo(3, 3, 4, -1, 0, -4);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // --- Sauce drizzles ---
+  for (const sauce of rumbleGourmandSauces) {
+    ctx.save();
+    ctx.strokeStyle = sauce.color;
+    ctx.lineWidth = 2.5;
+    ctx.globalAlpha = 0.7;
+    ctx.beginPath();
+    const len = sauce.drizzleT * 30;
+    ctx.moveTo(sauce.x - len / 2, sauce.y - 5);
+    ctx.bezierCurveTo(
+      sauce.x - len / 4, sauce.y + 3,
+      sauce.x + len / 4, sauce.y - 3,
+      sauce.x + len / 2, sauce.y + 2
+    );
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  // --- Giant Plate (stays solid until swallow phase takes over) ---
+  if (rumbleGourmandPhase >= 3 && rumbleGourmandPhase <= 5) {
+    ctx.globalAlpha = 1;
+    // Plate (large white oval)
+    ctx.fillStyle = '#f5f5f0';
+    ctx.strokeStyle = '#ccc';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(plateX, panY - 2, 110, 18, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    // Plate rim
+    ctx.strokeStyle = '#ddd';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.ellipse(plateX, panY - 2, 95, 14, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Ornate leaf on top
+    if (rumbleGourmandLeafPlaced) {
+      ctx.save();
+      ctx.translate(plateX, panY - 14);
+      // Tiny ornate leaf
+      ctx.fillStyle = '#2ecc71';
+      ctx.strokeStyle = '#1a9c54';
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(0, -5);
+      ctx.bezierCurveTo(-5, -3, -5, 3, 0, 5);
+      ctx.bezierCurveTo(5, 3, 5, -3, 0, -5);
+      ctx.fill();
+      ctx.stroke();
+      // Leaf vein
+      ctx.strokeStyle = '#1a9c54';
+      ctx.lineWidth = 0.5;
+      ctx.beginPath();
+      ctx.moveTo(0, -4); ctx.lineTo(0, 4);
+      ctx.stroke();
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // --- Redraw opponent on top of pan AND plate (hidden from normal draw pass) ---
+  const showLoser = rumbleGourmandPhase <= 5;
+  if (showLoser) {
+    loseFighter.draw(ctx);
+  }
+
+  // --- Tongue + swallow shared geometry ---
+  // Mouth position: face is at roughly y - 52, mouth opens facing forward
+  const mouthX = winFighter.x + winFighter.facing * 14;
+  const mouthY = winFighter.y - 52;
+
+  // --- Phase 5: Tongue extends to plate, scoops everything ---
+  if (rumbleGourmandPhase === 5) {
+    const t = rumbleGourmandTongueT;
+    const tipX = mouthX + (plateX - mouthX) * t;
+    const tipY = mouthY + (panY - 2 - mouthY) * t;
+
+    ctx.save();
+    // Tongue body — thick flat strip from mouth to tip
+    ctx.fillStyle = '#d4596e';
+    ctx.strokeStyle = '#b8405a';
+    ctx.lineWidth = 1.5;
+    const hw = 6; // half-width of tongue
+    ctx.beginPath();
+    ctx.moveTo(mouthX, mouthY - hw);
+    ctx.lineTo(tipX, tipY - hw);
+    ctx.arc(tipX, tipY, hw, -Math.PI / 2, Math.PI / 2);
+    ctx.lineTo(mouthX, mouthY + hw);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // --- Phase 6: Tongue retracts, carrying plate + opponent + toppings into mouth ---
+  if (rumbleGourmandPhase === 6) {
+    const t = rumbleGourmandSwallowT;
+    // Everything slides from plate position toward the mouth and shrinks
+    const carryX = plateX + (mouthX - plateX) * t;
+    const carryY = (panY - 2) + (mouthY - (panY - 2)) * t;
+    const scale = Math.max(0.05, 1 - t * 0.95);
+
+    ctx.save();
+    // Tongue retracting
+    ctx.fillStyle = '#d4596e';
+    ctx.strokeStyle = '#b8405a';
+    ctx.lineWidth = 1.5;
+    const hw = 6;
+    ctx.beginPath();
+    ctx.moveTo(mouthX, mouthY - hw);
+    ctx.lineTo(carryX, carryY - hw * scale);
+    ctx.arc(carryX, carryY, hw * scale, -Math.PI / 2, Math.PI / 2);
+    ctx.lineTo(mouthX, mouthY + hw);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Plate shrinking toward mouth
+    if (scale > 0.08) {
+      ctx.fillStyle = '#f5f5f0';
+      ctx.strokeStyle = '#ccc';
+      ctx.lineWidth = 2 * scale;
+      ctx.beginPath();
+      ctx.ellipse(carryX, carryY, 110 * scale, 18 * scale, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Opponent shrinking with plate
+      ctx.save();
+      ctx.translate(carryX, carryY);
+      ctx.scale(scale, scale);
+      ctx.translate(-loseFighter.x, -loseFighter.y);
+      loseFighter.draw(ctx);
+      ctx.restore();
+
+      // Leaf on top
+      if (rumbleGourmandLeafPlaced) {
+        ctx.fillStyle = '#2ecc71';
+        ctx.beginPath();
+        ctx.moveTo(carryX, carryY - 5 * scale);
+        ctx.bezierCurveTo(carryX - 4 * scale, carryY - 3 * scale, carryX - 4 * scale, carryY + 3 * scale, carryX, carryY + 5 * scale);
+        ctx.bezierCurveTo(carryX + 4 * scale, carryY + 3 * scale, carryX + 4 * scale, carryY - 3 * scale, carryX, carryY - 5 * scale);
+        ctx.fill();
+      }
+    }
+    ctx.restore();
+  }
+
+  // --- Satisfied Gourmand in hold phase (no extra drawing needed) ---
+
+  ctx.restore();
+}
+

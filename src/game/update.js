@@ -1549,6 +1549,196 @@ function update() {
         }
       }
 
+      if (rumbleType === 'GOURMAND') {
+        // Gourmand "Last Course": ~600 frames
+        // 0-50: Gourmand picks up opponent
+        // 50-80: Drops opponent into giant pan (sizzle)
+        // 80-220: Pan-tossing with toppings & sauces
+        // 220-270: Drops opponent facedown on plate, throws pan
+        // 270-310: Places ornate leaf on top
+        // 310-370: Tongue scoops up entire plate
+        // 370-430: Swallow
+        // 430-600: Satisfied hold + end
+        const pickupEnd = 50;
+        const dropInPanEnd = 50; // opponent arcs directly into pan
+        const tossEnd = 220;
+        const plateEnd = 270;
+        const leafEnd = 310;
+        const tongueEnd = 370;
+        const swallowEnd = 430;
+        const endFrame = 600;
+
+        const dir = loseFighter.x > winFighter.x ? 1 : -1;
+        winFighter.facing = dir;
+        winFighter.vx = 0;
+        winFighter.state = 'idle';
+        loseFighter.vx = 0;
+
+        // Set up pan position once
+        if (rumbleTimer === 1) {
+          rumbleGourmandPanX = winFighter.x + dir * 100;
+          rumbleGourmandPanY = winFighter.groundY;
+        }
+
+        // Always hide loser from normal draw — we redraw them in the rumble draw function
+        // so they appear on top of the pan/plate, not behind it
+        rumbleLoserHidden = true;
+
+        // Phase 0: Opponent punted into pan in an arc (0-50)
+        if (rumbleTimer <= pickupEnd) {
+          rumbleGourmandPhase = 0;
+          if (rumbleTimer === 1) {
+            // Store starting position
+            loseFighter._startX = loseFighter.x;
+            loseFighter._startY = loseFighter.y;
+          }
+          const arcT = rumbleTimer / pickupEnd;
+          const startX = loseFighter._startX || loseFighter.x;
+          const startY = loseFighter._startY || loseFighter.y;
+          // Horizontal lerp from start to pan
+          loseFighter.x = startX + (rumbleGourmandPanX - startX) * arcT;
+          // Vertical arc: parabola peaking at midpoint
+          const arcHeight = 120;
+          loseFighter.y = startY + (rumbleGourmandPanY - startY) * arcT - arcHeight * Math.sin(arcT * Math.PI);
+          // Tumble rotation during flight
+          loseFighter._rumbleRotation = arcT * Math.PI * 2;
+          // Sizzle shake + flash on landing
+          if (rumbleTimer === pickupEnd) {
+            shakeTimer = 4; shakeIntensity = 3;
+            loseFighter.flashTimer = 6;
+            loseFighter._rumbleRotation = 0;
+          }
+        }
+
+        // Phase 2: Pan tossing with toppings & sauces (80-220)
+        if (rumbleTimer > dropInPanEnd && rumbleTimer <= tossEnd) {
+          rumbleGourmandPhase = 2;
+          // Opponent oscillates up and down in pan (tossing)
+          const tossT = (rumbleTimer - dropInPanEnd) / (tossEnd - dropInPanEnd);
+          const tossSpeed = 0.12;
+          rumbleGourmandTossAngle += tossSpeed;
+          const tossHeight = Math.sin(rumbleGourmandTossAngle) * 50;
+          loseFighter.y = rumbleGourmandPanY - Math.abs(tossHeight);
+          loseFighter.x = rumbleGourmandPanX;
+          loseFighter._rumbleRotation = Math.sin(rumbleGourmandTossAngle * 0.7) * 0.3;
+
+          // Count tosses for visual pacing
+          if (Math.abs(tossHeight) < 3 && rumbleTimer % 30 < 2) rumbleGourmandTossCount++;
+
+          // Drop toppings periodically
+          if (rumbleTimer % 25 === 0 && rumbleTimer < tossEnd - 20) {
+            const types = ['tomato', 'onion', 'pepper', 'mushroom', 'herb'];
+            rumbleGourmandToppings.push({
+              x: rumbleGourmandPanX + (Math.random() - 0.5) * 60,
+              y: -20,
+              vy: 2 + Math.random() * 2,
+              type: types[Math.floor(Math.random() * types.length)],
+              landed: false
+            });
+          }
+
+          // Drizzle sauces periodically
+          if (rumbleTimer % 40 === 20 && rumbleTimer < tossEnd - 30) {
+            const colors = ['#c0392b', '#f39c12', '#27ae60', '#8e44ad'];
+            rumbleGourmandSauces.push({
+              x: rumbleGourmandPanX + (Math.random() - 0.5) * 40,
+              y: rumbleGourmandPanY - 20,
+              color: colors[Math.floor(Math.random() * colors.length)],
+              drizzleT: 0
+            });
+          }
+
+          // Small sizzle shakes
+          if (rumbleTimer % 35 === 0) { shakeTimer = 2; shakeIntensity = 1; }
+          // Flash opponent from heat
+          if (rumbleTimer % 20 === 0) loseFighter.flashTimer = 3;
+        }
+
+        // Update toppings
+        for (const top of rumbleGourmandToppings) {
+          if (!top.landed) {
+            top.y += top.vy;
+            top.vy += 0.15;
+            if (top.y >= rumbleGourmandPanY - 10) {
+              top.y = rumbleGourmandPanY - 10;
+              top.landed = true;
+            }
+          }
+        }
+
+        // Update sauces
+        for (const sauce of rumbleGourmandSauces) {
+          if (sauce.drizzleT < 1) sauce.drizzleT += 0.03;
+        }
+
+        // Phase 3: Drop onto plate, throw pan (220-270)
+        if (rumbleTimer > tossEnd && rumbleTimer <= plateEnd) {
+          rumbleGourmandPhase = 3;
+          rumbleGourmandPlateX = rumbleGourmandPanX;
+          // Clear toppings/sauces from the pan phase — they don't carry to the plate
+          if (rumbleTimer === tossEnd + 1) {
+            rumbleGourmandToppings = [];
+            rumbleGourmandSauces = [];
+          }
+          const plateT = (rumbleTimer - tossEnd) / (plateEnd - tossEnd);
+
+          if (plateT < 0.4) {
+            // Drop opponent down onto plate
+            const dropT2 = plateT / 0.4;
+            loseFighter.y = rumbleGourmandPanY - 30 + dropT2 * 30;
+          } else {
+            loseFighter.y = rumbleGourmandPanY;
+          }
+          loseFighter.x = rumbleGourmandPanX;
+          loseFighter._rumbleRotation = 0;
+          // Shake on plate landing
+          if (rumbleTimer === tossEnd + Math.floor((plateEnd - tossEnd) * 0.4)) {
+            shakeTimer = 3; shakeIntensity = 2;
+          }
+        }
+
+        // Phase 4: Place ornate leaf (270-310) — opponent stays on plate
+        if (rumbleTimer > plateEnd && rumbleTimer <= leafEnd) {
+          rumbleGourmandPhase = 4;
+          loseFighter.x = rumbleGourmandPanX;
+          loseFighter.y = rumbleGourmandPanY;
+          loseFighter._rumbleRotation = 0;
+          const leafT = (rumbleTimer - plateEnd) / (leafEnd - plateEnd);
+          if (leafT > 0.7) rumbleGourmandLeafPlaced = true;
+        }
+
+        // Phase 5: Tongue scoops plate (310-370) — hide opponent once tongue arrives
+        if (rumbleTimer > leafEnd && rumbleTimer <= tongueEnd) {
+          rumbleGourmandPhase = 5;
+          rumbleGourmandTongueT = Math.min(1, (rumbleTimer - leafEnd) / (tongueEnd - leafEnd));
+          loseFighter.x = rumbleGourmandPanX;
+          loseFighter.y = rumbleGourmandPanY;
+          loseFighter._rumbleRotation = 0;
+        }
+
+        // Phase 6: Swallow (370-430)
+        if (rumbleTimer > tongueEnd && rumbleTimer <= swallowEnd) {
+          rumbleGourmandPhase = 6;
+          rumbleGourmandSwallowT = Math.min(1, (rumbleTimer - tongueEnd) / (swallowEnd - tongueEnd));
+          // Clear toppings and sauces — they go with the plate
+          if (rumbleTimer === tongueEnd + 1) {
+            rumbleGourmandToppings = [];
+            rumbleGourmandSauces = [];
+          }
+          // Satisfied shake
+          if (rumbleTimer === tongueEnd + 10) { shakeTimer = 4; shakeIntensity = 3; }
+        }
+
+        // Phase 7: Hold (430-600)
+        if (rumbleTimer > swallowEnd) {
+          rumbleGourmandPhase = 7;
+        }
+
+        if (rumbleTimer >= endFrame) {
+          gameState = 'victory';
+        }
+      }
+
       if (rumbleType === 'CORVIDA') {
         // Corvida "Early Bird": ~480 frames
         // 0-40: Corvida transforms to giant blue jay

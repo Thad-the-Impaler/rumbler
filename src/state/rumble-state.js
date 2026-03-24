@@ -63,6 +63,17 @@ let rumbleDuplaireStars = []; // background stars { x, y, size, alpha }
 let rumbleBozollokPhase = 0;
 let rumbleBozollokSwarm = []; // insect particles { x, y, vx, vy, angle, size }
 let rumbleBozollokSkeleton = null; // { x, groundY, collapseT }
+let rumbleGourmandPhase = 0; // 0=pickup, 1=drop in pan, 2=toss, 3=plate, 4=leaf, 5=tongue, 6=swallow, 7=hold
+let rumbleGourmandPanX = 0; // pan center X
+let rumbleGourmandPanY = 0; // pan center Y
+let rumbleGourmandTossAngle = 0; // opponent toss rotation
+let rumbleGourmandTossCount = 0; // number of tosses
+let rumbleGourmandToppings = []; // { x, y, type, vy, landed }
+let rumbleGourmandSauces = []; // { x, y, color, drizzleT }
+let rumbleGourmandPlateX = 0;
+let rumbleGourmandLeafPlaced = false;
+let rumbleGourmandTongueT = 0; // 0-1 tongue extension progress
+let rumbleGourmandSwallowT = 0; // 0-1 swallow progress
 let rumbleSnazzConfetti = []; // confetti particles
 let rumbleSnazzPunchLanded = false; // final punch connected
 let rumbleHailShards = []; // ice shards from hailstone cracking
@@ -91,4 +102,9 @@ function resetRumbleState() {
   rumbleDuplairePhase = 0; rumbleDuplaireClones = []; rumbleDuplairePileClones = [];
   rumbleDuplaireZoom = 0; rumbleDuplaireEarthDots = []; rumbleDuplaireStars = [];
   rumbleBozollokPhase = 0; rumbleBozollokSwarm = []; rumbleBozollokSkeleton = null;
+  rumbleGourmandPhase = 0; rumbleGourmandPanX = 0; rumbleGourmandPanY = 0;
+  rumbleGourmandTossAngle = 0; rumbleGourmandTossCount = 0;
+  rumbleGourmandToppings = []; rumbleGourmandSauces = [];
+  rumbleGourmandPlateX = 0; rumbleGourmandLeafPlaced = false;
+  rumbleGourmandTongueT = 0; rumbleGourmandSwallowT = 0;
 }

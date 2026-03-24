@@ -20,5 +20,6 @@ const characterRumbles = {
   'GOLGAR': { name: 'YOU MUST BE DOUBLE DEAD!', code: 'launch', desc: 'Both entities grab the opponent and launch them into the sky' },
   'TELATRINE': { name: "THAT'S A WRAP", code: 'around', desc: 'Carry the opponent off the edge of the screen and lose them' },
   'DUPLAIRE': { name: "CAN'T GET ENOUGH OF ME", code: 'invade', desc: 'Clone army buries the opponent and swarms the entire Earth' },
-  'BOZOLLOK': { name: 'THE WORLD, OUR HIVE', code: 'infest', desc: 'Insect swarm devours the opponent, leaving only a skeleton' }
+  'BOZOLLOK': { name: 'THE WORLD, OUR HIVE', code: 'infest', desc: 'Insect swarm devours the opponent, leaving only a skeleton' },
+  'GOURMAND': { name: 'LAST COURSE', code: 'ingest', desc: 'Cook the opponent in a giant frying pan and swallow them whole' }
 };
