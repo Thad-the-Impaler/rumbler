@@ -40,7 +40,7 @@ jobs:
           cp -r "Rumbler icons" "_site/Rumbler icons" 2>/dev/null || true
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages@v4
+        uses: actions/upload-pages-artifact@v3
         with:
           path: _site
 
