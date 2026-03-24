@@ -1397,6 +1397,158 @@ function update() {
         }
       }
 
+      if (rumbleType === 'BOZOLLOK') {
+        // Bozollok "The World, Our Hive": ~360 frames
+        // 0-40: Swarm arrives from offscreen
+        // 40-140: Swarm engulfs opponent
+        // 140-200: Swarm disperses, skeleton revealed
+        // 200-280: Skeleton collapses
+        // 280-360: Hold + end
+        const swarmArriveEnd = 40;
+        const engulfEnd = 140;
+        const disperseEnd = 200;
+        const collapseStart = 230;
+        const collapseEnd = 270;
+        const endFrame = 360;
+
+        const dir = loseFighter.x > winFighter.x ? 1 : -1;
+        winFighter.facing = dir;
+        winFighter.vx = 0;
+        winFighter.state = 'idle';
+
+        // Phase 0: Swarm arrives (frames 1-40)
+        if (rumbleTimer <= swarmArriveEnd) {
+          rumbleBozollokPhase = 0;
+          // Spawn insects converging on opponent
+          if (rumbleTimer >= 5 && rumbleTimer % 2 === 0) {
+            for (let i = 0; i < 4; i++) {
+              const fromLeft = Math.random() > 0.5;
+              const startX = fromLeft ? -20 - Math.random() * 40 : 980 + Math.random() * 40;
+              const startY = 50 + Math.random() * 300;
+              const dx = loseFighter.x - startX;
+              const dy = (loseFighter.y - 40) - startY;
+              const dist = Math.sqrt(dx * dx + dy * dy);
+              rumbleBozollokSwarm.push({
+                x: startX,
+                y: startY,
+                vx: (dx / dist) * (4 + Math.random() * 3),
+                vy: (dy / dist) * (4 + Math.random() * 3),
+                angle: Math.atan2(dy, dx),
+                size: 2 + Math.random() * 2,
+                orbiting: false
+              });
+            }
+          }
+        }
+
+        // Phase 1: Swarm engulfs opponent (frames 40-140)
+        if (rumbleTimer > swarmArriveEnd && rumbleTimer <= engulfEnd) {
+          rumbleBozollokPhase = 1;
+          // Flash the loser early on
+          if (rumbleTimer < 80 && rumbleTimer % 6 === 0) loseFighter.flashTimer = 3;
+          // Small continuous shake
+          if (rumbleTimer % 8 === 0) { shakeTimer = 2; shakeIntensity = 2; }
+          // Add more insects to the swarm
+          if (rumbleTimer % 6 === 0) {
+            const fromLeft = Math.random() > 0.5;
+            rumbleBozollokSwarm.push({
+              x: fromLeft ? -20 : 980,
+              y: 50 + Math.random() * 300,
+              vx: 0, vy: 0,
+              angle: Math.random() * Math.PI * 2,
+              size: 2 + Math.random() * 2,
+              orbiting: false
+            });
+          }
+        }
+
+        // Phase 2: Swarm disperses (frames 140-200)
+        if (rumbleTimer > engulfEnd && rumbleTimer <= disperseEnd) {
+          rumbleBozollokPhase = 2;
+          // Hide opponent and reveal skeleton when swarm disperses
+          if (!rumbleBozollokSkeleton) {
+            rumbleLoserHidden = true;
+            rumbleBozollokSkeleton = { x: loseFighter.x, groundY: loseFighter.groundY, collapseT: 0 };
+          }
+          // Scatter insects outward
+          if (rumbleTimer === engulfEnd + 1) {
+            for (const bug of rumbleBozollokSwarm) {
+              const angle = Math.random() * Math.PI * 2;
+              const speed = 4 + Math.random() * 6;
+              bug.vx = Math.cos(angle) * speed;
+              bug.vy = Math.sin(angle) * speed;
+              bug.orbiting = false;
+              bug.alpha = 1;
+            }
+          }
+        }
+
+        // Phase 3: Skeleton collapse (frames 200-280)
+        if (rumbleTimer > disperseEnd && rumbleTimer <= collapseEnd + 10) {
+          rumbleBozollokPhase = 3;
+          if (rumbleTimer >= collapseStart && rumbleBozollokSkeleton) {
+            rumbleBozollokSkeleton.collapseT = Math.min(1, (rumbleTimer - collapseStart) / (collapseEnd - collapseStart));
+            // Shake on collapse impact
+            if (rumbleTimer === collapseEnd) { shakeTimer = 6; shakeIntensity = 4; }
+          }
+        }
+
+        // Phase 4: Hold (frames 280-360)
+        if (rumbleTimer > collapseEnd + 10) {
+          rumbleBozollokPhase = 4;
+        }
+
+        // Update swarm insects every frame
+        const targetX = loseFighter.x;
+        const targetY = loseFighter.y - 40;
+        for (const bug of rumbleBozollokSwarm) {
+          if (rumbleBozollokPhase <= 1) {
+            // Move toward / orbit around opponent
+            const dx = targetX - bug.x;
+            const dy = targetY - bug.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist < 40) {
+              // Orbit tightly
+              bug.orbiting = true;
+              const orbitAngle = Math.atan2(bug.y - targetY, bug.x - targetX);
+              const orbitSpeed = 0.08 + Math.random() * 0.01;
+              const newAngle = orbitAngle + orbitSpeed;
+              const orbitR = 15 + Math.random() * 25;
+              bug.x = targetX + Math.cos(newAngle) * orbitR;
+              bug.y = targetY + Math.sin(newAngle) * orbitR;
+              bug.angle = newAngle + Math.PI / 2;
+              // Add jitter
+              bug.x += (Math.random() - 0.5) * 3;
+              bug.y += (Math.random() - 0.5) * 3;
+            } else {
+              // Fly toward target
+              bug.x += bug.vx;
+              bug.y += bug.vy;
+              // Steer toward target
+              bug.vx += (dx / dist) * 0.3;
+              bug.vy += (dy / dist) * 0.3;
+              const speed = Math.sqrt(bug.vx * bug.vx + bug.vy * bug.vy);
+              if (speed > 7) { bug.vx *= 7 / speed; bug.vy *= 7 / speed; }
+              bug.angle = Math.atan2(bug.vy, bug.vx);
+            }
+          } else if (rumbleBozollokPhase === 2) {
+            // Scatter outward
+            bug.x += bug.vx;
+            bug.y += bug.vy;
+            bug.vx *= 0.98;
+            bug.vy *= 0.98;
+            bug.angle = Math.atan2(bug.vy, bug.vx);
+            if (bug.alpha !== undefined) bug.alpha = Math.max(0, bug.alpha - 0.015);
+          }
+          // Phases 3+ : insects are gone (alpha faded)
+        }
+
+        if (rumbleTimer >= endFrame) {
+          gameState = 'victory';
+        }
+      }
+
       if (rumbleType === 'CORVIDA') {
         // Corvida "Early Bird": ~480 frames
         // 0-40: Corvida transforms to giant blue jay

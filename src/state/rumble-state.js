@@ -60,6 +60,9 @@ let rumbleDuplairePileClones = []; // clones leaping in from offscreen
 let rumbleDuplaireZoom = 0; // 0=fight stage, 1=Earth view
 let rumbleDuplaireEarthDots = []; // cyan dots on Earth { angle, dist, size }
 let rumbleDuplaireStars = []; // background stars { x, y, size, alpha }
+let rumbleBozollokPhase = 0;
+let rumbleBozollokSwarm = []; // insect particles { x, y, vx, vy, angle, size }
+let rumbleBozollokSkeleton = null; // { x, groundY, collapseT }
 let rumbleSnazzConfetti = []; // confetti particles
 let rumbleSnazzPunchLanded = false; // final punch connected
 let rumbleHailShards = []; // ice shards from hailstone cracking
@@ -87,4 +90,5 @@ function resetRumbleState() {
   rumbleTelatrinePhase = 0; rumbleTelatrineShrug = 0;
   rumbleDuplairePhase = 0; rumbleDuplaireClones = []; rumbleDuplairePileClones = [];
   rumbleDuplaireZoom = 0; rumbleDuplaireEarthDots = []; rumbleDuplaireStars = [];
+  rumbleBozollokPhase = 0; rumbleBozollokSwarm = []; rumbleBozollokSkeleton = null;
 }

@@ -674,3 +674,178 @@ function drawDuplaireRumble(loseFighter, winFighter) {
   ctx.restore();
 }
 
+function drawBozollokSkeleton(x, groundY, collapseT) {
+  const bone = '#e8dcc8';
+  const joint = '#ccc0a8';
+  const t = Math.min(1, collapseT);
+  ctx.save();
+  ctx.translate(x, groundY);
+
+  // Skull
+  const skullY = -70 + t * 55;
+  const skullRot = t * 1.2;
+  ctx.save();
+  ctx.translate(0, skullY);
+  ctx.rotate(skullRot);
+  ctx.fillStyle = bone;
+  ctx.strokeStyle = joint;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  // Eye sockets
+  ctx.fillStyle = '#333';
+  ctx.beginPath(); ctx.arc(-3, -1, 2, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(3, -1, 2, 0, Math.PI * 2); ctx.fill();
+  // Jaw
+  ctx.strokeStyle = bone; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(0, 3, 5, 0.2, Math.PI - 0.2); ctx.stroke();
+  ctx.restore();
+
+  // Spine
+  const spineTopY = -60 + t * 48;
+  const spineBotY = -25 + t * 22;
+  ctx.strokeStyle = bone; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(0, spineTopY); ctx.lineTo(0, spineBotY); ctx.stroke();
+
+  // Ribcage (3 pairs)
+  for (let i = 0; i < 3; i++) {
+    const ribY = -55 + i * 10 + t * (45 + i * 3);
+    const ribSpread = 12 + i * 2 + t * (i * 4);
+    const ribDrop = t * i * 3;
+    ctx.strokeStyle = bone; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(-1, ribY + ribDrop);
+    ctx.quadraticCurveTo(-ribSpread, ribY - 3 + ribDrop, -ribSpread + 2, ribY + 2 + ribDrop);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(1, ribY + ribDrop);
+    ctx.quadraticCurveTo(ribSpread, ribY - 3 + ribDrop, ribSpread - 2, ribY + 2 + ribDrop);
+    ctx.stroke();
+  }
+
+  // Pelvis
+  const pelvisY = -22 + t * 20;
+  ctx.strokeStyle = bone; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-8, pelvisY); ctx.lineTo(0, pelvisY - 3); ctx.lineTo(8, pelvisY);
+  ctx.stroke();
+
+  // Arms
+  const shoulderY = -58 + t * 48;
+  // Left arm
+  const lElbowX = -14 - t * 4;
+  const lElbowY = shoulderY + 12 + t * 8;
+  const lHandX = -10 - t * 8;
+  const lHandY = lElbowY + 12 + t * 6;
+  ctx.strokeStyle = bone; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(-4, shoulderY); ctx.lineTo(lElbowX, lElbowY); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(lElbowX, lElbowY); ctx.lineTo(lHandX, lHandY); ctx.stroke();
+  ctx.fillStyle = joint;
+  ctx.beginPath(); ctx.arc(lElbowX, lElbowY, 2, 0, Math.PI * 2); ctx.fill();
+  // Right arm
+  const rElbowX = 14 + t * 4;
+  const rElbowY = shoulderY + 12 + t * 8;
+  const rHandX = 10 + t * 8;
+  const rHandY = rElbowY + 12 + t * 6;
+  ctx.beginPath(); ctx.moveTo(4, shoulderY); ctx.lineTo(rElbowX, rElbowY); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(rElbowX, rElbowY); ctx.lineTo(rHandX, rHandY); ctx.stroke();
+  ctx.fillStyle = joint;
+  ctx.beginPath(); ctx.arc(rElbowX, rElbowY, 2, 0, Math.PI * 2); ctx.fill();
+
+  // Legs
+  // Left leg
+  const lKneeX = -6 - t * 5;
+  const lKneeY = pelvisY + 14 + t * 4;
+  const lFootX = -8 - t * 3;
+  const lFootY = Math.min(0, lKneeY + 14 + t * 2);
+  ctx.strokeStyle = bone; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(-6, pelvisY); ctx.lineTo(lKneeX, lKneeY); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(lKneeX, lKneeY); ctx.lineTo(lFootX, lFootY); ctx.stroke();
+  ctx.fillStyle = joint;
+  ctx.beginPath(); ctx.arc(lKneeX, lKneeY, 2, 0, Math.PI * 2); ctx.fill();
+  // Right leg
+  const rKneeX = 6 + t * 5;
+  const rKneeY = pelvisY + 14 + t * 4;
+  const rFootX = 8 + t * 3;
+  const rFootY = Math.min(0, rKneeY + 14 + t * 2);
+  ctx.beginPath(); ctx.moveTo(6, pelvisY); ctx.lineTo(rKneeX, rKneeY); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(rKneeX, rKneeY); ctx.lineTo(rFootX, rFootY); ctx.stroke();
+  ctx.fillStyle = joint;
+  ctx.beginPath(); ctx.arc(rKneeX, rKneeY, 2, 0, Math.PI * 2); ctx.fill();
+
+  ctx.restore();
+}
+
+function drawBozollokRumble(loseFighter, winFighter) {
+  ctx.save();
+
+  // Dense swarm cloud over opponent during engulf phase
+  if (rumbleBozollokPhase === 1) {
+    const cloudDensity = Math.min(0.85, (rumbleTimer - 40) / 80);
+    const cx = loseFighter.x;
+    const cy = loseFighter.y - 40;
+    const cloudR = 45;
+    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, cloudR);
+    grad.addColorStop(0, `rgba(30, 15, 5, ${cloudDensity})`);
+    grad.addColorStop(0.6, `rgba(30, 15, 5, ${cloudDensity * 0.7})`);
+    grad.addColorStop(1, `rgba(30, 15, 5, 0)`);
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, cloudR, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Draw swarm insects
+  for (const bug of rumbleBozollokSwarm) {
+    if (bug.alpha !== undefined && bug.alpha <= 0) continue;
+    ctx.save();
+    ctx.translate(bug.x, bug.y);
+    ctx.rotate(bug.angle);
+    if (bug.alpha !== undefined) ctx.globalAlpha = bug.alpha;
+
+    // Body
+    ctx.fillStyle = '#2a1a0a';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, bug.size, bug.size * 0.6, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Wings (flutter)
+    const wingFlap = Math.sin(Date.now() * 0.02 + bug.x * 0.1) * 0.5;
+    ctx.strokeStyle = '#c8a030';
+    ctx.lineWidth = 0.8;
+    ctx.globalAlpha = (bug.alpha !== undefined ? bug.alpha : 1) * 0.7;
+    ctx.beginPath();
+    ctx.moveTo(-1, -1);
+    ctx.lineTo(-bug.size - 1, -bug.size * (1 + wingFlap));
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(1, -1);
+    ctx.lineTo(bug.size + 1, -bug.size * (1 + wingFlap));
+    ctx.stroke();
+
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  // Draw skeleton (Phase 2+)
+  if (rumbleBozollokSkeleton) {
+    drawBozollokSkeleton(rumbleBozollokSkeleton.x, rumbleBozollokSkeleton.groundY, rumbleBozollokSkeleton.collapseT);
+  }
+
+  // Dust puff during collapse
+  if (rumbleBozollokSkeleton && rumbleBozollokSkeleton.collapseT > 0.5 && rumbleBozollokSkeleton.collapseT < 1.2) {
+    const dustT = (rumbleBozollokSkeleton.collapseT - 0.5) / 0.7;
+    ctx.globalAlpha = Math.max(0, 0.4 * (1 - dustT));
+    ctx.fillStyle = '#8a7a5a';
+    for (let i = 0; i < 5; i++) {
+      const dx = (i - 2) * 12 + Math.sin(i * 3.7) * 8 * dustT;
+      const dy = -3 - Math.abs(Math.sin(i * 2.1)) * 10 * dustT;
+      ctx.beginPath();
+      ctx.arc(rumbleBozollokSkeleton.x + dx, rumbleBozollokSkeleton.groundY + dy, 3 + dustT * 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  ctx.restore();
+}
+

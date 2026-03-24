@@ -143,6 +143,7 @@ function draw() {
         if (rumbleCorvidaGulpChick >= 0 && rumbleLoserHidden) drawCorvidaRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
         if (rumbleGolgarEntity2 && rumbleLoserHidden) drawGolgarRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
         if (rumbleTelatrinePhase === 5) drawTelatrineRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
+      if (rumbleBozollokSkeleton) drawBozollokSkeleton(rumbleBozollokSkeleton.x, rumbleBozollokSkeleton.groundY, rumbleBozollokSkeleton.collapseT);
       }
       drawHUD();
       ctx.restore();
