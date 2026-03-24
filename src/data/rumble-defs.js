@@ -1,0 +1,25 @@
+// --- RUMBLES (Fatalities) ---
+const characterRumbles = {
+  'BLAZE': { name: 'SCORCHED EARTH', code: 'cinder', desc: 'Pillar of fire incinerates the opponent' },
+  'ARTIK': { name: 'OPPSICLE', code: 'frozen', desc: 'Freeze solid, then shatter with a punch' },
+  'VENOM': { name: "YOU'VE BEEN PARDONED", code: 'acidic', desc: 'Spit acid that melts the opponent into goo' },
+  'SURGE': { name: 'MR. ELECTRIC BOOM', code: 'battery', desc: 'Overcharge the opponent until they explode in light' },
+  'TITAN': { name: 'AND WHAT ARE YOU SINKING ABOUT?', code: 'soiled', desc: 'Summon a sinkhole that swallows the opponent' },
+  'SHADE': { name: 'WANTED THE SMOKE, GOT THE SMOKE', code: 'shadow', desc: 'Martial arts combo finishes opponent into a puff of smoke' },
+  'RUBBERMAN': { name: 'TETHERBALL', code: 'slinky', desc: 'Grab and slam the opponent back and forth into the ground' },
+  'BOJDO': { name: 'DEATH FROM BELOW', code: 'pellet', desc: 'Shrink tiny, get under them, and grow to launch them skyward' },
+  'BOJDOBOJDO': [
+    { name: 'DEATH FROM BELOW', code: 'pellet', desc: 'Shrink tiny, get under them, and grow to launch them skyward' },
+    { name: 'DEATH FROM ABOVE', code: 'massiv', desc: 'Grow gargantuan and stomp the opponent flat' }
+  ],
+  'TORRENA': { name: 'CLOUDY, WITH A CHANCE OF DEMISE', code: 'stormy', desc: 'Become a cloud and pummel the opponent with rain and hail' },
+  'SNAZZ MCJAZZ': { name: 'ANNIE, ARE YOU OKAY?', code: 'groove', desc: 'Dance your way over and knock them out cold' },
+  'HAYSTACK': { name: "DON'T FEAR THE REAPER", code: 'scythe', desc: 'Ravens carry you to strike with a scythe, dissolving the opponent' },
+  'CODEMAX': { name: 'YOUR NEW OVERLORD', code: 'decode', desc: 'Pixelated laser degrades the opponent until they glitch out' },
+  'CORVIDA': { name: 'EARLY BIRD', code: 'nestle', desc: 'Giant jay drops a nest, hatches chicks, and feeds them the opponent' },
+  'GOLGAR': { name: 'YOU MUST BE DOUBLE DEAD!', code: 'launch', desc: 'Both entities grab the opponent and launch them into the sky' },
+  'TELATRINE': { name: "THAT'S A WRAP", code: 'around', desc: 'Carry the opponent off the edge of the screen and lose them' },
+  'DUPLAIRE': { name: "CAN'T GET ENOUGH OF ME", code: 'invade', desc: 'Clone army buries the opponent and swarms the entire Earth' },
+  'BOZOLLOK': { name: 'THE WORLD, OUR HIVE', code: 'infest', desc: 'Insect swarm devours the opponent, leaving only a skeleton' },
+  'GOURMAND': { name: 'LAST COURSE', code: 'ingest', desc: 'Cook the opponent in a giant frying pan and swallow them whole' }
+};

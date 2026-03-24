@@ -1,0 +1,1005 @@
+Fighter.prototype.update = function(opponent, keys) {
+  // Practice mode health regen
+  if (gameMode === 'practice') {
+    if (this.practiceRegenDelay > 0) {
+      this.practiceRegenDelay--;
+    } else if (this.health < this.maxHealth) {
+      this.health = Math.min(this.maxHealth, this.health + 2);
+      if (this.char.isDuplaire) {
+        const totalBodies = 1 + this.duplaireClones.filter(c => c.active).length;
+        const sectionMax = this.maxHealth / totalBodies;
+        this.duplaireOrigHealth = Math.min(sectionMax, this.duplaireOrigHealth + 2);
+        for (const c of this.duplaireClones) {
+          if (c.active) c.cloneHealth = Math.min(c.cloneMaxHealth, c.cloneHealth + 2);
+        }
+      }
+    }
+    if (this.health <= 0) this.health = 1; // never die in practice
+  }
+
+  // Timers
+  if (this.flashTimer > 0) this.flashTimer--;
+  if (this.assistCooldown > 0) this.assistCooldown--;
+  if (this.comboTimer > 0) { this.comboTimer--; if (this.comboTimer === 0) this.comboCount = 0; }
+  if (this.comboFlash > 0) this.comboFlash--;
+  if (this.comboNameTimer > 0) this.comboNameTimer--;
+
+  // Status effect timers
+  if (this.frozenTimer > 0) {
+    this.frozenTimer--;
+    // Frozen: can't do anything
+    return;
+  }
+  if (this.slowTimer > 0) this.slowTimer--;
+  if (this.armorTimer > 0) { this.armorTimer--; if (this.armorTimer <= 0) this.armorActive = false; }
+  if (this.phaseTimer > 0) this.phaseTimer--;
+  if (this.bojShrinkTimer > 0) this.bojShrinkTimer--;
+  if (this.cyanoJayTimer > 0) {
+    this.cyanoJayTimer--;
+    if (this.cyanoJayTimer <= 0) this.isJay = false;
+  }
+  if (this.studTortoiseTimer > 0) {
+    this.studTortoiseTimer--;
+    if (this.studTortoiseTimer <= 0) this.isTortoise = false;
+  }
+  if (this.stickerSlowTimer > 0) this.stickerSlowTimer--;
+
+  // Teleport ghost fade
+  if (this.teleportGhost) {
+    this.teleportGhost.timer--;
+    if (this.teleportGhost.timer <= 0) this.teleportGhost = null;
+  }
+
+  // DOT processing
+  if (this.dotEffect) {
+    this.dotEffect.tickTimer++;
+    if (this.dotEffect.tickTimer >= this.dotEffect.tickInterval) {
+      this.dotEffect.tickTimer = 0;
+      const dotDmg = this.dotEffect.tickDamage;
+      if (this.char.isDuplaire && this.duplaireClones.filter(c => c.active).length > 0) {
+        const activeClones = this.duplaireClones.filter(c => c.active);
+        const totalBodies = 1 + activeClones.length;
+        const share = dotDmg / totalBodies;
+        this.duplaireOrigHealth -= share;
+        for (const c of activeClones) c.cloneHealth -= share;
+        for (let i = this.duplaireClones.length - 1; i >= 0; i--) {
+          if (this.duplaireClones[i].cloneHealth <= 0) this.duplaireClones.splice(i, 1);
+        }
+        this.health = this.duplaireOrigHealth;
+        for (const c of this.duplaireClones) { if (c.active) this.health += c.cloneHealth; }
+      } else {
+        this.health -= dotDmg;
+        if (this.char.isDuplaire) this.duplaireOrigHealth = this.health;
+      }
+      this.flashTimer = 4;
+      this.dotEffect.ticksRemaining--;
+      if (this.health <= 0) this.health = 0;
+      if (gameMode === 'practice') this.practiceRegenDelay = 60;
+      if (this.dotEffect.ticksRemaining <= 0) this.dotEffect = null;
+    }
+  }
+
+  // Chain hits processing
+  if (this.chainHits) {
+    this.chainHits.timer++;
+    if (this.chainHits.timer >= this.chainHits.interval) {
+      this.chainHits.timer = 0;
+      const chainDmg = this.chainHits.damage;
+      if (this.char.isDuplaire && this.duplaireClones.filter(c => c.active).length > 0) {
+        const activeClones = this.duplaireClones.filter(c => c.active);
+        const totalBodies = 1 + activeClones.length;
+        const share = chainDmg / totalBodies;
+        this.duplaireOrigHealth -= share;
+        for (const c of activeClones) c.cloneHealth -= share;
+        for (let i = this.duplaireClones.length - 1; i >= 0; i--) {
+          if (this.duplaireClones[i].cloneHealth <= 0) this.duplaireClones.splice(i, 1);
+        }
+        this.health = this.duplaireOrigHealth;
+        for (const c of this.duplaireClones) { if (c.active) this.health += c.cloneHealth; }
+      } else {
+        this.health -= chainDmg;
+        if (this.char.isDuplaire) this.duplaireOrigHealth = this.health;
+      }
+      this.flashTimer = 3;
+      this.chainHits.remaining--;
+      if (this.health <= 0) this.health = 0;
+      if (gameMode === 'practice') this.practiceRegenDelay = 60;
+      if (this.chainHits.remaining <= 0) this.chainHits = null;
+    }
+  }
+
+  // Hit effect
+  if (this.hitEffect) {
+    this.hitEffect.timer--;
+    if (this.hitEffect.timer <= 0) this.hitEffect = null;
+  }
+
+  // Assist projectile
+  if (this.assistActive) {
+    const a = this.assistActive;
+    a.timer--;
+    if (a.isWeedthorn) {
+      a.eruptPhase++;
+      if (!a.hit && a.eruptPhase > 5 && a.eruptPhase < 30 && Math.abs(a.x - opponent.x) < 45 && opponent.y > a.y - 90) {
+        const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+        const dmg = this.assist.damage * this.char.stats.power * diffMult;
+        opponent.takeDamage(dmg, { hitstun: 20, blockstun: 10, launch: true }, this.facing, false, { x: a.x, y: a.y });
+        a.hit = true;
+      }
+      if (a.timer <= 0) this.assistActive = null;
+    } else if (a.isAphid) {
+      // Fly down toward opponent
+      const dx = opponent.x - a.x;
+      a.vx = dx * 0.05;
+      a.x += a.vx;
+      a.y += a.vy;
+      if (!a.hit && opponent.isHitAt(a.x, a.y, 35, 40)) {
+        const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+        const dmg = this.assist.damage * this.char.stats.power * diffMult;
+        opponent.takeDamage(dmg, { hitstun: 18, blockstun: 8, launch: false }, this.facing, false, { x: a.x, y: a.y });
+        a.hit = true;
+      }
+      if (a.timer <= 0 || a.y > 500) this.assistActive = null;
+    } else if (a.isWarper) {
+      a.x += a.vx;
+      if (!a.warped && (a.x < 0 || a.x > 960)) {
+        // Warp to opposite side and keep moving same direction (Pac-Man style)
+        a.x = a.x < 0 ? 960 : 0;
+        a.warped = true;
+      }
+      if (!a.hit && opponent.isHitAt(a.x, a.y, 40, 60)) {
+        const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+        const dmg = this.assist.damage * this.char.stats.power * diffMult;
+        opponent.takeDamage(dmg, { hitstun: 16, blockstun: 8, launch: false }, this.facing, false, { x: a.x, y: a.y });
+        a.hit = true;
+      }
+      if (a.timer <= 0 || (a.warped && (a.x < 0 || a.x > 960))) this.assistActive = null;
+    } else if (a.isFloat) {
+      a.x += a.vx;
+      a.vy += 0.25; // gravity
+      a.y += a.vy;
+      if (!a.hit && opponent.isHitAt(a.x, a.y, 40, 60)) {
+        const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+        const dmg = this.assist.damage * this.char.stats.power * diffMult;
+        opponent.takeDamage(dmg, { hitstun: 16, blockstun: 8, launch: false }, this.facing, false, { x: a.x, y: a.y });
+        a.hit = true;
+      }
+      if (a.timer <= 0 || a.y > 500 || a.x < 0 || a.x > 960) this.assistActive = null;
+    } else if (a.isSerpent) {
+      // Homing: steer toward opponent
+      const dx = opponent.x - a.x;
+      const dy = opponent.centerY - a.y;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      a.vx += (dx / dist) * 0.3;
+      a.vy += (dy / dist) * 0.3;
+      const spd = Math.sqrt(a.vx * a.vx + a.vy * a.vy);
+      if (spd > a.speed) { a.vx *= a.speed / spd; a.vy *= a.speed / spd; }
+      a.x += a.vx;
+      a.y += a.vy;
+      if (a.biteCooldown > 0) a.biteCooldown--;
+      if (a.biteCooldown <= 0 && opponent.isHitAt(a.x, a.y, 30, 30)) {
+        const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+        const dmg = this.assist.damage * this.char.stats.power * diffMult;
+        opponent.takeDamage(dmg, { hitstun: 20, blockstun: 10, launch: false }, this.facing, false, { x: a.x, y: a.y });
+        a.biteCooldown = 60; // 1 second between bites
+      }
+      if (a.timer <= 0) this.assistActive = null;
+    } else {
+      // Standard projectile (also handles Boj, Jazz, Cyano, Stud, Sticker)
+      a.x += a.vx;
+      if (!a.hit && opponent.isHitAt(a.x, a.y, 40, 60)) {
+        const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+        const dmg = this.assist.damage * this.char.stats.power * diffMult;
+        opponent.takeDamage(dmg, { hitstun: 16, blockstun: 8, launch: false }, this.facing, false, { x: a.x, y: a.y });
+        a.hit = true;
+        // On-hit effects
+        if (this.assist.isBoj) {
+          opponent.bojShrinkTimer = 360;
+        } else if (this.assist.isJazz) {
+          this.health = Math.min(this.maxHealth, this.health + 20);
+        } else if (this.assist.isCyano) {
+          opponent.cyanoJayTimer = 480;
+          opponent.isJay = true;
+        } else if (this.assist.isStud) {
+          opponent.studTortoiseTimer = 480;
+          opponent.isTortoise = true;
+        } else if (this.assist.isSticker) {
+          opponent.stickerSlowTimer = 480;
+        }
+      }
+      if (a.timer <= 0 || a.x < 0 || a.x > 960) this.assistActive = null;
+    }
+  }
+
+  // Animation
+  this.animTimer++;
+  if (this.animTimer > 8) { this.animTimer = 0; this.animFrame = (this.animFrame + 1) % 4; }
+
+  // Gravity
+  if (!this.grounded) {
+    if (this.isJay) {
+      // Corvida jay form: no gravity, free flight
+      this.vy *= 0.85; // dampen vertical velocity
+      this.y += this.vy;
+      // Clamp to stage bounds (don't fly off screen, but can touch ground to revert)
+      if (this.y >= this.groundY) {
+        this.y = this.groundY;
+        this.vy = 0;
+        this.grounded = true;
+        this.isJay = false;
+      }
+      if (this.y < 40) { this.y = 40; this.vy = 0; }
+    } else if (this.molting) {
+      // Bozollok molt: reduced gravity during ascent, no gravity during hover
+      if (this.moltHover > 0 && this.vy >= -2) {
+        // Hovering at apex - just dampen
+        this.vy *= 0.7;
+      } else if (this.moltHover > 0) {
+        // Still ascending - light gravity only
+        this.vy += 0.2;
+      } else {
+        // Descending - normal gravity
+        this.vy += 0.5;
+      }
+      this.y += this.vy;
+      // Ceiling clamp
+      if (this.y < 60) { this.y = 60; this.vy = 0; }
+    } else {
+      this.vy += 0.5;
+      this.y += this.vy;
+      if (this.y >= this.groundY) {
+        this.y = this.groundY;
+        this.vy = 0;
+        this.grounded = true;
+        if (this.state === 'launched') {
+          this.state = 'idle';
+          this.stateTimer = 0;
+        }
+      }
+    }
+  }
+
+  // Apply velocity with friction
+  this.x += this.vx;
+  this.vx *= 0.85;
+
+  // Boundaries
+  if (this.char.isTelatrine) {
+    if (this.x < 20) { this.x = 940; this.teleportGhost = { x: 20, y: this.y, timer: 12 }; }
+    else if (this.x > 940) { this.x = 20; this.teleportGhost = { x: 940, y: this.y, timer: 12 }; }
+  } else {
+    if (this.x < 40) this.x = 40;
+    if (this.x > 920) this.x = 920;
+  }
+
+  // Face opponent
+  if (this.state !== 'attack' && this.state !== 'hitstun' && this.state !== 'blockstun') {
+    this.facing = opponent.x > this.x ? 1 : -1;
+  }
+
+  // State timer
+  if (this.stateTimer > 0) {
+    this.stateTimer--;
+    if (this.stateTimer === 0 && (this.state === 'attack' || this.state === 'hitstun' || this.state === 'blockstun')) {
+      this.state = 'idle';
+      this.currentAttack = null;
+      // Execute next queued attack if one was buffered
+      if (this.queuedAttacks.length > 0) {
+        const queued = this.queuedAttacks.shift();
+        this.executeAttack(queued);
+      }
+    }
+  }
+
+  // Gourmand: full state prevents movement, projectile update
+  if (this.gourmandFull) {
+    this.vx = 0;
+    this.state = 'idle';
+  }
+  if (this.gourmandProjectile) {
+    const gp = this.gourmandProjectile;
+    gp.x += gp.vx;
+    gp.y += gp.vy;
+    gp.timer--;
+    // Hit detection
+    if (!gp.hit && opponent.isHitAt(gp.x, gp.y, 40, 50)) {
+      gp.hit = true;
+      const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+      opponent.takeDamage(gp.damage * diffMult, { hitstun: 20, blockstun: 12, launch: gp.damage > 40, knockbackForce: 6 }, gp.vx > 0 ? 1 : -1, false, { x: gp.x, y: gp.y });
+    }
+    if (gp.timer <= 0 || gp.x < -20 || gp.x > 980 || gp.hit) {
+      this.gourmandProjectile = null;
+    }
+  }
+
+  // Matador dash-slash update
+  if (this.matadorDashCooldown > 0) this.matadorDashCooldown--;
+  if (this.matadorDashing) {
+    this.matadorDashTimer++;
+    // Lerp position from start to end
+    const t = Math.min(1, this.matadorDashTimer / this.matadorDashFrames);
+    this.x = this.matadorDashStartX + (this.matadorDashEndX - this.matadorDashStartX) * t;
+    this.vx = 0;
+    this.state = 'idle';
+    // Slash opponent when crossing their position
+    if (!this.matadorDashHit) {
+      const crossedX = this.facing === 1
+        ? (this.matadorDashStartX <= opponent.x && this.x >= opponent.x - 30)
+        : (this.matadorDashStartX >= opponent.x && this.x <= opponent.x + 30);
+      if (crossedX && Math.abs(this.centerY - opponent.centerY) < 70) {
+        const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+        const dmg = 18 * this.char.stats.power * diffMult;
+        opponent.takeDamage(dmg, { hitstun: 18, blockstun: 10, launch: false, knockbackForce: 0 }, this.facing, false, { x: opponent.x, y: this.centerY });
+        this.matadorDashHit = true;
+      }
+    }
+    // End dash when lerp completes
+    if (t >= 1) {
+      this.matadorDashing = false;
+      this.matadorDashCooldown = 90;
+      this.vx = 0;
+      this.facing = opponent.x > this.x ? 1 : -1;
+    }
+  }
+  // Buck firework spray update
+  if (this.char.isBuck) {
+    if (this.buckFireCooldown > 0) this.buckFireCooldown--;
+    if (this.buckFiring) {
+      this.buckFireTimer--;
+      // Aim drifts between straight up (PI/2) and straight forward (0)
+      // Use a sine wave so it sweeps smoothly
+      const progress = 1 - (this.buckFireTimer / 360);
+      const aimAngle = (Math.sin(progress * Math.PI * 4) * 0.5 + 0.5) * (Math.PI / 2); // 0 to PI/2
+      // Spawn fireworks rapidly (every 3 frames)
+      if (this.buckFireTimer % 3 === 0) {
+        const colors = ['#ff0000', '#ffffff', '#0044cc'];
+        const spd = 8 + Math.random() * 3;
+        const spread = (Math.random() - 0.5) * 0.3;
+        const angle = aimAngle + spread;
+        this.buckFireworks.push({
+          x: this.x + this.facing * 15,
+          y: this.centerY - 15,
+          vx: this.facing * Math.cos(angle) * spd,
+          vy: -Math.sin(angle) * spd,
+          color: colors[Math.floor(Math.random() * 3)],
+          timer: 30 + Math.floor(Math.random() * 15),
+          trail: []
+        });
+      }
+      if (this.buckFireTimer <= 0) {
+        this.buckFiring = false;
+        this.buckFireCooldown = 480; // 8 second cooldown
+      }
+    }
+    // Update firework projectiles
+    for (let i = this.buckFireworks.length - 1; i >= 0; i--) {
+      const fw = this.buckFireworks[i];
+      fw.trail.push({ x: fw.x, y: fw.y, timer: 8 });
+      fw.x += fw.vx;
+      fw.vy += 0.15; // gravity
+      fw.y += fw.vy;
+      fw.timer--;
+      // Remove old trail points
+      for (let t = fw.trail.length - 1; t >= 0; t--) {
+        fw.trail[t].timer--;
+        if (fw.trail[t].timer <= 0) fw.trail.splice(t, 1);
+      }
+      // Check hit on opponent
+      if (opponent) {
+        const dx = fw.x - opponent.x;
+        const dy = fw.y - (opponent.y - 30);
+        if (Math.abs(dx) < 25 && Math.abs(dy) < 35) {
+          // Explode on hit
+          this.buckFireTimer = Math.max(this.buckFireTimer, 1); // keep firing
+          const colors = ['#ff0000', '#ffffff', '#0044cc', '#ff4444', '#ffaa00'];
+          const phrases = ['LIBERTY!', 'FREEDOM!', "'MERICA!", 'USA! USA!', 'JUSTICE!', 'GLORY!', 'BOOM!', 'YEEHAW!'];
+          for (let e = 0; e < 12; e++) {
+            const ea = Math.random() * Math.PI * 2;
+            const es = 2 + Math.random() * 4;
+            this.buckExplosions.push({
+              x: fw.x, y: fw.y,
+              vx: Math.cos(ea) * es, vy: Math.sin(ea) * es,
+              color: colors[Math.floor(Math.random() * colors.length)],
+              timer: 15 + Math.floor(Math.random() * 10)
+            });
+          }
+          // Add text explosion
+          this.buckExplosions.push({
+            x: fw.x, y: fw.y, vx: 0, vy: -1.5,
+            color: colors[Math.floor(Math.random() * colors.length)],
+            timer: 30,
+            text: phrases[Math.floor(Math.random() * phrases.length)]
+          });
+          const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+          opponent.takeDamage(2 * diffMult, { hitstun: 4, blockstun: 2, height: 'mid', launch: false, name: 'Firework' }, this.facing, false, { x: fw.x, y: fw.y });
+          this.buckFireworks.splice(i, 1);
+          continue;
+        }
+      }
+      // Explode when timer runs out or goes off screen
+      if (fw.timer <= 0 || fw.x < 0 || fw.x > 960 || fw.y > 540) {
+        // Air explosion
+        const colors = ['#ff0000', '#ffffff', '#0044cc', '#ff4444', '#ffaa00'];
+        const phrases = ['LIBERTY!', 'FREEDOM!', "'MERICA!", 'USA! USA!', 'JUSTICE!', 'GLORY!', 'BOOM!', 'YEEHAW!'];
+        for (let e = 0; e < 8; e++) {
+          const ea = Math.random() * Math.PI * 2;
+          const es = 1 + Math.random() * 3;
+          this.buckExplosions.push({
+            x: fw.x, y: fw.y,
+            vx: Math.cos(ea) * es, vy: Math.sin(ea) * es,
+            color: colors[Math.floor(Math.random() * colors.length)],
+            timer: 12 + Math.floor(Math.random() * 8)
+          });
+        }
+        // Add text explosion
+        this.buckExplosions.push({
+          x: fw.x, y: fw.y, vx: 0, vy: -1,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          timer: 25,
+          text: phrases[Math.floor(Math.random() * phrases.length)]
+        });
+        this.buckFireworks.splice(i, 1);
+      }
+    }
+    // Update explosion particles
+    for (let i = this.buckExplosions.length - 1; i >= 0; i--) {
+      const e = this.buckExplosions[i];
+      e.x += e.vx;
+      e.y += e.vy;
+      e.vy += 0.1;
+      e.vx *= 0.97;
+      e.timer--;
+      if (e.timer <= 0) this.buckExplosions.splice(i, 1);
+    }
+  }
+
+  // Vortice tornado update
+  if (this.char.isVortice) {
+    if (this.vorticePushCooldown > 0) this.vorticePushCooldown--;
+    // Push tornado timer
+    if (this.vorticePushing) {
+      this.vorticePushTimer--;
+      if (this.vorticePushTimer <= 0) this.vorticePushing = false;
+    }
+    const tornadoActive = this.vorticeTornado || this.vorticePushing;
+    if (tornadoActive && opponent) {
+      const dx = this.x - opponent.x;
+      const dist = Math.abs(dx);
+      if (this.vorticePushing) {
+        // Push opponent away — stronger the farther they get (inverse of pull)
+        if (dist < 250) {
+          const pushStrength = 1.5 * (dist / 250);
+          opponent.vx += (dx > 0 ? -pushStrength : pushStrength);
+        }
+      } else {
+        // Pull opponent closer (not Duplaire clones)
+        if (dist > 30 && dist < 250) {
+          const pullStrength = 1.5 * (1 - dist / 250);
+          opponent.vx += (dx > 0 ? pullStrength : -pullStrength);
+        }
+      }
+      // Spawn wind particles spiraling around player
+      if (frameCount % 2 === 0) {
+        const angle = Math.random() * Math.PI * 2;
+        const startR = this.vorticePushing ? 10 + Math.random() * 20 : 40 + Math.random() * 60;
+        this.vorticeTornadoParticles.push({
+          x: this.x + Math.cos(angle) * startR,
+          y: this.y - 20 - Math.random() * 70,
+          angle: angle,
+          r: startR,
+          speed: 0.08 + Math.random() * 0.04,
+          timer: 30 + Math.floor(Math.random() * 20),
+          size: 2 + Math.random() * 3,
+          pushing: this.vorticePushing
+        });
+      }
+    }
+    // Update tornado particles
+    for (let i = this.vorticeTornadoParticles.length - 1; i >= 0; i--) {
+      const p = this.vorticeTornadoParticles[i];
+      p.angle += p.speed;
+      if (p.pushing) {
+        p.r += 1.2; // spiral outward
+      } else {
+        p.r -= 0.5; // spiral inward
+      }
+      p.y -= 0.5; // drift upward
+      p.x = this.x + Math.cos(p.angle) * p.r;
+      p.timer--;
+      if (p.pushing) {
+        if (p.timer <= 0 || p.r > 150) this.vorticeTornadoParticles.splice(i, 1);
+      } else {
+        if (p.timer <= 0 || p.r <= 5) this.vorticeTornadoParticles.splice(i, 1);
+      }
+    }
+  }
+
+  // X-haust oil & fire update
+  if (this.char.isXhaust) {
+    // Leak oil trail while L held and moving
+    if (this.xhaustLeaking && this.xhaustOilTank > 0) {
+      // Drop oil every 4 frames
+      if (frameCount % 4 === 0) {
+        const drainAmount = 2;
+        this.xhaustOilTank = Math.max(0, this.xhaustOilTank - drainAmount);
+        // Check if there's already a puddle nearby to extend
+        let merged = false;
+        for (const p of this.xhaustOilPuddles) {
+          if (Math.abs(p.x - this.x) < p.width / 2 + 15) {
+            // Extend existing puddle
+            const left = Math.min(p.x - p.width / 2, this.x - 10);
+            const right = Math.max(p.x + p.width / 2, this.x + 10);
+            p.x = (left + right) / 2;
+            p.width = right - left;
+            merged = true;
+            break;
+          }
+        }
+        if (!merged) {
+          this.xhaustOilPuddles.push({ x: this.x, y: this.groundY, width: 20 });
+        }
+      }
+    }
+    // Update flames & damage opponent
+    for (let i = this.xhaustFlames.length - 1; i >= 0; i--) {
+      const f = this.xhaustFlames[i];
+      f.timer--;
+      if (f.timer <= 0) { this.xhaustFlames.splice(i, 1); continue; }
+      // Damage opponent if standing on fire
+      if (opponent && f.timer % 10 === 0) {
+        const oppDist = Math.abs(opponent.x - f.x);
+        if (oppDist < f.width / 2 + 15 && opponent.grounded) {
+          const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+          opponent.takeDamage(5 * diffMult, { hitstun: 8, blockstun: 4, height: 'low', launch: false, name: 'Oil Fire' }, this.facing, false, { x: opponent.x, y: opponent.y });
+        }
+      }
+    }
+  }
+
+  // Exor soul drain update
+  if (this.char.isExor) {
+    if (this.exorDrainCooldown > 0) this.exorDrainCooldown--;
+    if (this.exorDraining && this.exorDrainTarget) {
+      this.exorDrainTimer--;
+      const target = this.exorDrainTarget;
+      const dist = Math.abs(this.x - target.x);
+      // Break drain if target gets too far
+      if (dist > 200) {
+        this.exorDraining = false;
+        this.exorDrainTarget = null;
+        this.exorDrainCooldown = 180;
+      } else {
+        // Drain HP: steal from target, give to self
+        const drainRate = 0.4;
+        target.health -= drainRate;
+        if (target.health <= 0) target.health = 0;
+        this.health = Math.min(this.maxHealth, this.health + drainRate);
+        // Keep target slowed while draining
+        target.slowTimer = Math.max(target.slowTimer, 10);
+        // Spawn soul particles
+        if (Math.random() < 0.3) {
+          this.exorSoulParticles.push({
+            x: target.x + (Math.random() - 0.5) * 30,
+            y: target.centerY - 10 + (Math.random() - 0.5) * 30,
+            tx: this.x,
+            ty: this.centerY - 10,
+            t: 0,
+            speed: 0.03 + Math.random() * 0.02,
+            life: 1
+          });
+        }
+      }
+      if (this.exorDrainTimer <= 0) {
+        this.exorDraining = false;
+        this.exorDrainTarget = null;
+        this.exorDrainCooldown = 240; // 4 second cooldown
+      }
+    }
+    // Update soul particles
+    for (let i = this.exorSoulParticles.length - 1; i >= 0; i--) {
+      const p = this.exorSoulParticles[i];
+      p.t += p.speed;
+      if (p.t >= 1) {
+        this.exorSoulParticles.splice(i, 1);
+      }
+    }
+  }
+
+  // Backtrack: record history and update cooldown
+  if (this.char.isBacktrack) {
+    if (this.btRewindCooldown > 0) this.btRewindCooldown--;
+    if (this.btRewindEffect > 0) this.btRewindEffect--;
+    // Record snapshot every frame using ring buffer (O(1) instead of shift)
+    this.btHistory[this.btHistoryIdx] = {
+      x: this.x, y: this.y, health: this.health,
+      opp: opponent ? { x: opponent.x, y: opponent.y, health: opponent.health } : null
+    };
+    this.btHistoryIdx = (this.btHistoryIdx + 1) % this.btMaxHistory;
+    if (this.btHistoryLen < this.btMaxHistory) this.btHistoryLen++;
+  }
+
+  // Killa Watt zap update
+  if (this.char.isKillawatt) {
+    if (this.kwZapCooldown > 0) this.kwZapCooldown--;
+    if (this.kwZapEffect) {
+      this.kwZapEffect.timer--;
+      // Regenerate bolt paths for crackling effect
+      if (this.kwZapEffect.timer % 3 === 0) {
+        for (let b = 0; b < this.kwZapEffect.bolts.length; b++) {
+          const bolt = this.kwZapEffect.bolts[b];
+          const sx = bolt[0].x;
+          const sy = bolt[0].y;
+          const tx = bolt[bolt.length - 1].x;
+          const ty = bolt[bolt.length - 1].y;
+          for (let s = 1; s < bolt.length - 1; s++) {
+            const t = s / (bolt.length - 1);
+            bolt[s].x = sx + (tx - sx) * t + (Math.random() - 0.5) * 30;
+            bolt[s].y = sy + (ty - sy) * t + (Math.random() - 0.5) * 20;
+          }
+        }
+      }
+      if (this.kwZapEffect.timer <= 0) this.kwZapEffect = null;
+    }
+  }
+  // Stun vibration from Killa Watt zap
+  if (this.kwStunTimer > 0) this.kwStunTimer--;
+
+  // Matador roses: spawn when walking
+  if (this.char.isMatador && this.state === 'walk' && Math.random() < 0.08) {
+    const side = Math.random() < 0.5 ? -1 : 1; // from left or right
+    this.matadorRoses.push({
+      x: side < 0 ? this.x - 80 - Math.random() * 60 : this.x + 80 + Math.random() * 60,
+      y: this.y - 100 - Math.random() * 80,
+      vx: side * -(3 + Math.random() * 4),
+      vy: 2 + Math.random() * 3,
+      rot: Math.random() * Math.PI * 2,
+      rotSpeed: (Math.random() - 0.5) * 0.2,
+      timer: 60 + Math.floor(Math.random() * 30),
+      landed: false,
+      groundY: this.groundY + Math.random() * 5
+    });
+  }
+  // Update rose particles
+  for (let i = this.matadorRoses.length - 1; i >= 0; i--) {
+    const r = this.matadorRoses[i];
+    if (!r.landed) {
+      r.x += r.vx;
+      r.y += r.vy;
+      r.vy += 0.15;
+      r.rot += r.rotSpeed;
+      if (r.y >= r.groundY) {
+        r.y = r.groundY;
+        r.landed = true;
+        r.vx = 0;
+        r.vy = 0;
+      }
+    }
+    r.timer--;
+    if (r.timer <= 0) this.matadorRoses.splice(i, 1);
+  }
+
+  // Paletap shockwave and slam update
+  if (this.paletapShockCooldown > 0) this.paletapShockCooldown--;
+  if (this.paletapSlamming) {
+    this.paletapSlamFrame++;
+    if (this.paletapSlamFrame >= 20) {
+      // Slam complete — create shockwave
+      this.paletapSlamming = false;
+      this.paletapSlamFrame = 0;
+      this.paletapShockwave = {
+        x: this.x + this.facing * 30, y: this.groundY,
+        vx: this.facing * 6, timer: 0, maxTimer: 90, hit: false
+      };
+      this.paletapShockCooldown = 120;
+    }
+  }
+  if (this.paletapShockwave) {
+    const sw = this.paletapShockwave;
+    sw.x += sw.vx;
+    sw.timer++;
+    // Shockwave height: peaks at ~90px (player height) and decays
+    const progress = sw.timer / sw.maxTimer;
+    const swHeight = 90 * Math.max(0, 1 - progress * 0.5);
+    // Hit detection: opponent must be grounded or low enough
+    if (!sw.hit && opponent.isHitAt(sw.x, sw.y, 35, 70) && opponent.grounded && !opponent.crouching) {
+      // Opponent is standing on ground, gets hit
+      sw.hit = true;
+      const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+      opponent.takeDamage(20 * this.char.stats.power * diffMult, { hitstun: 15, blockstun: 10, launch: false, knockbackForce: 5 }, sw.vx > 0 ? 1 : -1, false, { x: sw.x, y: sw.y });
+    }
+    // Also hit airborne opponents if they're low enough (not jumping high enough)
+    if (!sw.hit && opponent.isHitAt(sw.x, sw.y, 35, 70) && !opponent.grounded && opponent.y > this.groundY - swHeight) {
+      sw.hit = true;
+      const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+      opponent.takeDamage(20 * this.char.stats.power * diffMult, { hitstun: 15, blockstun: 10, launch: false, knockbackForce: 5 }, sw.vx > 0 ? 1 : -1, false, { x: sw.x, y: sw.y });
+    }
+    if (sw.timer >= sw.maxTimer || sw.x < -20 || sw.x > 980) {
+      this.paletapShockwave = null;
+    }
+  }
+
+  // Bozollok molt cooldown and husk decomposition
+  if (this.moltCooldown > 0) this.moltCooldown--;
+  if (this.moltHusk) {
+    this.moltHusk.timer--;
+    if (this.moltHusk.timer <= 0) this.moltHusk = null;
+  }
+  // Bozollok molt hover and descent
+  if (this.molting) {
+    if (this.moltHover > 0) {
+      this.moltHover--;
+      if (this.moltHover <= 0) {
+        this.moltDescending = true;
+        this.vy = 6; // start descending fast
+      }
+    } else if (this.moltDescending) {
+      // Attack opponents near landing point during descent
+      if (opponent.isHitAt(this.x, this.y, 60, 45)) {
+        const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+        const dmg = 30 * this.char.stats.power * diffMult;
+        opponent.takeDamage(dmg, { damage: 30, knockback: 10, hitstun: 20, type: 'mid', startup: 0, active: 1, recovery: 0, range: 50 }, this.facing, false, { x: this.x, y: this.y });
+        this.moltDescending = false; // only hit once per descent
+      }
+    }
+    if (this.y >= this.groundY) {
+      this.y = this.groundY;
+      this.vy = 0;
+      this.grounded = true;
+      this.molting = false;
+      this.moltDescending = false;
+      this.moltHover = 0;
+    }
+  }
+
+  // Codemax swap cooldown and glitch effect
+  if (this.swapCooldown > 0) this.swapCooldown--;
+  if (this.glitchTimer > 0) this.glitchTimer--;
+
+  // Haystack explosion update
+  if (this.exploding) {
+    this.reformTimer--;
+    if (this.reformTimer <= 0) {
+      this.exploding = false;
+    }
+  }
+  // Haystack projectile update
+  for (let i = this.haystackProjectiles.length - 1; i >= 0; i--) {
+    const p = this.haystackProjectiles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.15; // gravity
+    p.timer--;
+    if (!p.hit && opponent.isHitAt(p.x, p.y, 30, 40)) {
+      const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+      const dmg = (p.type === 'sword' ? 18 : 8) * this.char.stats.power * diffMult;
+      opponent.takeDamage(dmg, { hitstun: p.type === 'sword' ? 20 : 10, blockstun: 6, launch: false }, this.facing, false, { x: p.x, y: p.y });
+      p.hit = true;
+    }
+    if (p.timer <= 0 || p.x < 0 || p.x > 960 || p.y > 500) {
+      this.haystackProjectiles.splice(i, 1);
+    }
+  }
+  // Hay particles update
+  for (let i = this.hayParticles.length - 1; i >= 0; i--) {
+    const hp = this.hayParticles[i];
+    hp.x += hp.vx;
+    hp.y += hp.vy;
+    hp.vy += 0.1;
+    hp.vx *= 0.98;
+    hp.timer--;
+    if (hp.timer <= 0) this.hayParticles.splice(i, 1);
+  }
+
+  // Duplaire clone update
+  if (this.char.isDuplaire) {
+    // Remove dead clones (cloneHealth <= 0)
+    for (let ci = this.duplaireClones.length - 1; ci >= 0; ci--) {
+      if (this.duplaireClones[ci].active && this.duplaireClones[ci].cloneHealth <= 0) {
+        this.duplaireClones.splice(ci, 1);
+      }
+    }
+    // Recalculate total health
+    this.health = this.duplaireOrigHealth;
+    for (const c of this.duplaireClones) {
+      if (c.active) this.health += c.cloneHealth;
+    }
+    for (let ci = this.duplaireClones.length - 1; ci >= 0; ci--) {
+      const clone = this.duplaireClones[ci];
+      // Activation countdown
+      if (!clone.active) {
+        clone.activationTimer--;
+        if (clone.activationTimer <= 0) clone.active = true;
+        continue;
+      }
+      // Clones stay stationary (no horizontal movement), but mirror jumps
+      // Gravity
+      if (!clone.grounded) {
+        clone.vy += 0.5;
+        clone.y += clone.vy;
+        if (clone.y >= this.groundY) {
+          clone.y = this.groundY;
+          clone.vy = 0;
+          clone.grounded = true;
+        }
+      }
+      // Jump when main jumps
+      if (!this.grounded && clone.grounded && this.vy < -5) {
+        clone.vy = this.vy;
+        clone.grounded = false;
+      }
+      if (clone.x < 40) clone.x = 40;
+      if (clone.x > 920) clone.x = 920;
+      // Mirror facing, crouching, blocking
+      clone.facing = this.facing;
+      clone.crouching = this.crouching;
+      clone.blocking = this.blocking;
+      clone.animTimer++;
+      if (clone.animTimer > 8) { clone.animTimer = 0; clone.animFrame = (clone.animFrame + 1) % 4; }
+      // Mirror attacks
+      if (this.state === 'attack' && this.currentAttack && clone.state !== 'attack') {
+        clone.state = 'attack';
+        clone.currentAttack = this.currentAttack;
+        clone.attackFrame = 0;
+        clone.stateTimer = this.currentAttack.startup + this.currentAttack.active + this.currentAttack.recovery;
+      }
+      if (clone.state === 'attack' && clone.currentAttack) {
+        clone.attackFrame++;
+        clone.stateTimer--;
+        const catk = clone.currentAttack;
+        if (clone.attackFrame >= catk.startup && clone.attackFrame < catk.startup + catk.active) {
+          const hitX = clone.x + clone.facing * catk.range;
+          if (opponent.isHitAt(hitX, clone.y - 25, 50, 70)) {
+            const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+            const cloneDmg = catk.damage * this.char.stats.power * diffMult / (1 + this.duplaireClones.filter(c => c.active).length);
+            opponent.takeDamage(cloneDmg, catk, clone.facing, false, { x: clone.x + clone.facing * catk.range, y: clone.y - 25 });
+          }
+        }
+        if (clone.stateTimer <= 0) {
+          clone.state = 'idle';
+          clone.currentAttack = null;
+        }
+      }
+    }
+  }
+
+  // Snazz McJazz dance timer
+  if (this.dancing) {
+    this.danceTimer--;
+    if (this.danceTimer <= 0) {
+      // Dance completed successfully - heal 25 HP
+      this.dancing = false;
+      this.health = Math.min(this.maxHealth, this.health + 25);
+      this.comboFlash = 20;
+      this.comboNameDisplay = 'GROOVE HEAL!';
+      this.comboNameTimer = 60;
+    }
+  }
+
+  // Update Rubberman stretch: store actual pixel distance the limb needs to reach
+  if (this.char.isRubberman && this.state === 'attack' && this.currentAttack) {
+    const dist = Math.abs(this.x - opponent.x);
+    this.rubberStretch = Math.min(480, dist);
+  } else {
+    this.rubberStretch = 0;
+  }
+
+  // Attack hit detection
+  if (this.state === 'attack' && this.currentAttack) {
+    this.attackFrame++;
+    const atk = this.currentAttack;
+    if (this.attackFrame >= atk.startup && this.attackFrame < atk.startup + atk.active) {
+      // Handle teleport effects before hit check
+      let bypassBlock = false;
+      if (atk.isCombo && this.pendingCombo) {
+        if (this.pendingCombo.effect === 'shadow_step' && this.attackFrame === atk.startup) {
+          // Teleport behind opponent
+          this.teleportGhost = { x: this.x, y: this.y, timer: 12 };
+          this.x = opponent.x + opponent.facing * 80;
+          this.facing = opponent.x > this.x ? 1 : -1;
+          bypassBlock = true;
+        }
+        if (this.pendingCombo.effect === 'teleport_strike' && this.attackFrame === atk.startup) {
+          this.teleportGhost = { x: this.x, y: this.y, timer: 12 };
+          this.x += this.facing * (this.pendingCombo.teleportDist || 60);
+        }
+      }
+
+      const bojdoRange = this.char.isBojdo ? this.bojdoScale : 1;
+      // Rubberman: range extends to reach opponent, up to half screen (480px)
+      const rubbermanRange = this.char.isRubberman ? Math.max(1, Math.min(480, Math.abs(this.x - opponent.x)) / atk.range) : 1;
+      const hitX = this.x + this.facing * atk.range * bojdoRange * rubbermanRange;
+      // Check hit against main body or any Duplaire clone
+      const hitRadius = 50 * (this.char.isBojdo ? this.bojdoScale : 1);
+      let hitBody = (Math.abs(hitX - opponent.x) < hitRadius && Math.abs(this.centerY - opponent.centerY) < 70);
+      let hitClonePos = null;
+      if (!hitBody && opponent.char.isDuplaire) {
+        for (const clone of opponent.duplaireClones) {
+          if (clone.active && Math.abs(hitX - clone.x) < hitRadius && Math.abs(this.centerY - (clone.y - 25)) < 70) {
+            hitBody = true;
+            hitClonePos = { x: hitX, y: this.centerY };
+            break;
+          }
+        }
+      }
+      if (hitBody) {
+        const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+        const bojdoPowerMult = this.char.isBojdo ? this.bojdoScale : 1;
+        const bojShrinkPowMult = (this.bojShrinkTimer > 0 && !this.char.isBojdo) ? 0.3 : 1;
+        // Rubberman: damage falls off with distance (full at melee range, 25% at max stretch)
+        const rubberDmgMult = this.char.isRubberman ? Math.max(0.25, 1 - (Math.abs(this.x - opponent.x) / 480) * 0.75) : 1;
+        const jayDmgMult = this.isJay ? 0.3 : 1;
+        const duplaireCount = this.char.isDuplaire ? 1 + this.duplaireClones.filter(c => c.active).length : 1;
+        const dmg = atk.damage * this.char.stats.power * diffMult * bojdoPowerMult * bojShrinkPowMult * rubberDmgMult * jayDmgMult / duplaireCount;
+        const didHit = opponent.takeDamage(dmg, atk, this.facing, bypassBlock, hitClonePos || { x: hitX, y: this.centerY });
+        if (didHit) {
+          this.comboCount++;
+          this.comboTimer = 60;
+
+          // X-haust: fill oil tank on hit
+          if (this.char.isXhaust) {
+            this.xhaustOilTank = Math.min(this.xhaustMaxOil, this.xhaustOilTank + 8);
+          }
+
+          // Apply combo special effects
+          if (atk.isCombo && this.pendingCombo) {
+            const combo = this.pendingCombo;
+            switch (combo.effect) {
+              case 'burn':
+              case 'poison':
+                opponent.dotEffect = {
+                  ticksRemaining: combo.effectTicks,
+                  tickDamage: combo.effectDamage,
+                  tickInterval: Math.floor(combo.effectDuration / combo.effectTicks),
+                  tickTimer: 0,
+                  color: combo.effectColor
+                };
+                break;
+              case 'freeze':
+                opponent.frozenTimer = combo.effectDuration;
+                opponent.state = 'hitstun';
+                opponent.stateTimer = combo.effectDuration;
+                break;
+              case 'slow':
+                opponent.slowTimer = combo.effectDuration;
+                break;
+              case 'armor':
+                this.armorActive = true;
+                this.armorTimer = combo.effectDuration;
+                break;
+              case 'earthquake':
+                shakeTimer = combo.shakeDuration;
+                shakeIntensity = combo.shakeIntensity;
+                break;
+              case 'chain':
+                opponent.chainHits = {
+                  remaining: combo.chainHits,
+                  damage: combo.chainDamage,
+                  timer: 0,
+                  interval: 6
+                };
+                break;
+              case 'phase':
+                this.phaseTimer = combo.effectDuration;
+                break;
+              case 'knockback':
+                opponent.vx = this.facing * (combo.knockbackForce || 8);
+                break;
+            }
+            this.pendingCombo = null;
+          }
+        }
+        // Prevent multi-hit
+        this.attackFrame = atk.startup + atk.active;
+      }
+    }
+  }
+
+  // Input handling
+  if (this.isPlayer) {
+    this.handlePlayerInput(keys, opponent);
+  } else {
+    this.handleAI(opponent);
+  }
+};
+
+
