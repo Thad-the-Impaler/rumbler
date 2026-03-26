@@ -163,6 +163,7 @@ class Fighter {
 
     // Bojdo scale system
     this.bojdoScale = 1.0; // 1.0 = normal, grows/shrinks with K/L
+    this.bojdoShifting = false;
     this.bojShrinkTimer = 0; // Boj assist shrink effect
     this.cyanoJayTimer = 0; // Cyano assist jay form effect
     this.studTortoiseTimer = 0; // Stud assist tortoise form effect
@@ -187,6 +188,27 @@ class Fighter {
     this.aiAction = null;
     this.aiReactTime = 20 + Math.random() * 20;
     this.aiComboQueue = [];
+
+    // Erictho boss state
+    if (this.char.isErictho) {
+      this.ericthoPortal = null;       // active portal { x, y, timer, phase } phase: 'enter','hidden','exit'
+      this.ericthoPortalCooldown = 90; // start with short cooldown
+      this.ericthoHidden = false;      // true when inside portal
+      this.ericthoHiddenTimer = 0;     // frames spent hidden
+      this.ericthoExitChosen = false;  // whether exit location has been picked
+      this.health = 180;
+      this.maxHealth = 180;
+    }
+
+    // Borgus boss state
+    if (this.char.isBorgus) {
+      this.borgusLaser = null;        // active laser projectile { x, y, vx, timer, hit }
+      this.borgusLaserCooldown = 60;  // start with short cooldown
+      this.borgusSlamCooldown = 0;
+      this.borgusLaserCharging = 0;   // charge-up frames before firing
+      this.health = 200;              // bosses have more HP
+      this.maxHealth = 200;
+    }
   }
 
   get left() { return this.x - this.width / 2; }

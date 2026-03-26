@@ -37,7 +37,13 @@ let shakeIntensity = 0;
 let finishHimTimer = 0;
 const FINISH_HIM_DURATION = 360; // 6 seconds at 60fps
 
-const femaleCharacters = new Set(['TORRENA', 'CORVIDA', 'TELATRINE', 'KILLA WATT', 'VORTICE']);
+const femaleCharacters = new Set(['TORRENA', 'CORVIDA', 'TELATRINE', 'KILLA WATT', 'VORTICE', 'ERICTHO']);
+
+// Campaign state
+let campaignId = null;        // 'brawler', etc.
+let campaignFightIndex = 0;   // current fight (0-19)
+let campaignSelectCursor = 0; // cursor on campaign select screen
+let campaignSkipBuffer = '';  // buffer for IMPAL24 skip code
 
 
 let frameCount = 0;

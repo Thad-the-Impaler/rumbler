@@ -26,6 +26,10 @@ function draw() {
       drawLevelSelectScreen();
       break;
 
+    case 'campaignSelect':
+      drawCampaignSelectScreen();
+      break;
+
     case 'versus':
       versusTimer++;
       if (versusTimer >= VERSUS_DURATION) {

@@ -78,5 +78,8 @@ function drawRumbleAnimation() {
   if (rumbleType === 'GOURMAND') {
     drawGourmandRumble(loseFighter, winFighter);
   }
+  if (rumbleType === 'BATSCH') {
+    drawBatschRumble(loseFighter, winFighter);
+  }
 }
 

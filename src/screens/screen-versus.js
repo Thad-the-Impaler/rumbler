@@ -165,6 +165,20 @@ function drawVersusScreen() {
     ctx.fillText('VS', 0, 2);
 
     ctx.restore();
+
+    // "Campaigner battle" label for boss fights
+    if (gameMode === 'campaign' && selectedCPU && selectedCPU.isBoss) {
+      ctx.save();
+      ctx.globalAlpha = vsEase;
+      ctx.font = 'bold 18px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#ff4444';
+      ctx.shadowColor = '#ff0000';
+      ctx.shadowBlur = 10;
+      ctx.fillText('CAMPAIGNER BATTLE', splitX, H / 2 + 50);
+      ctx.shadowBlur = 0;
+      ctx.restore();
+    }
   }
 
   // --- Flash transition at the end ---

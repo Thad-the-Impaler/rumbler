@@ -1739,6 +1739,239 @@ function update() {
         }
       }
 
+      if (rumbleType === 'BATSCH') {
+        // Batsch "Shell Shocked": ~480 frames
+        // 0-40: Batsch enters tortoise form, shell starts spinning
+        // 40-80: Spin up — shell spins faster and faster in place
+        // 80-340: Ricochet — shell bounces off walls, steers toward opponent, hits 5 times
+        //         5th hit launches opponent skyward, shell decelerates naturally
+        // 340-400: Shell slows to stop, Batsch pops out, looks up
+        // 400-480: Hold + end
+        const enterEnd = 40;
+        const spinUpEnd = 80;
+        const ricochetEnd = 420;
+        const popOutEnd = 470;
+        const endFrame = 540;
+        const totalHits = 5;
+
+        const dir = loseFighter.x > winFighter.x ? 1 : -1;
+        winFighter.facing = dir;
+        winFighter.vx = 0;
+        loseFighter.vx = 0;
+
+        // Hide Batsch's real body during shell flight phases — the drawn shell IS Batsch
+        if (rumbleBatschPhase >= 1 && rumbleBatschPhase <= 2) {
+          winFighter.x = -200; // park offscreen
+        }
+
+        // Phase 0: Enter tortoise form (0-40)
+        if (rumbleTimer <= enterEnd) {
+          rumbleBatschPhase = 0;
+          winFighter.state = 'idle';
+          if (rumbleTimer === 10) {
+            winFighter.isTortoise = true;
+          }
+          rumbleBatschShellX = winFighter.x;
+          rumbleBatschShellY = winFighter.y;
+          rumbleBatschSpinSpeed = 0.05;
+        }
+
+        // Phase 1: Spin up (40-80)
+        if (rumbleTimer > enterEnd && rumbleTimer <= spinUpEnd) {
+          rumbleBatschPhase = 1;
+          const spinT = (rumbleTimer - enterEnd) / (spinUpEnd - enterEnd);
+          rumbleBatschSpinSpeed = 0.05 + spinT * 0.45;
+          // Store origin on first frame so vibration is around a fixed point
+          if (rumbleTimer === enterEnd + 1) {
+            rumbleBatschShellVx = rumbleBatschShellX; // reuse as originX
+            rumbleBatschShellVy = rumbleBatschShellY; // reuse as originY
+          }
+          rumbleBatschShellX = rumbleBatschShellVx + (Math.random() - 0.5) * spinT * 6;
+          rumbleBatschShellY = rumbleBatschShellVy + (Math.random() - 0.5) * spinT * 3;
+          if (rumbleTimer % 10 === 0) { shakeTimer = 2; shakeIntensity = 1 + spinT * 2; }
+        }
+
+        // Phase 2: Ricochet (80-340)
+        if (rumbleTimer > spinUpEnd && rumbleTimer <= ricochetEnd) {
+          rumbleBatschPhase = 2;
+
+          // Launch on first frame
+          if (rumbleTimer === spinUpEnd + 1) {
+            rumbleBatschShellVx = dir * 14;
+            rumbleBatschShellVy = -3;
+            rumbleBatschHits = 0;
+            rumbleBatschSpinSpeed = 0.5;
+            rumbleBatschLaunchVy = 0;
+            rumbleBatschLastHitFrame = 0;
+          }
+
+          const hitCooldown = 18; // frames after a hit before steering resumes
+          const framesSinceHit = rumbleTimer - rumbleBatschLastHitFrame;
+
+          // If all hits landed, decelerate shell to a stop
+          if (rumbleBatschHits >= totalHits) {
+            rumbleBatschShellVx *= 0.93;
+            rumbleBatschShellVy *= 0.93;
+            rumbleBatschSpinSpeed = Math.max(0, rumbleBatschSpinSpeed - 0.008);
+            // Apply gravity to settle on ground
+            rumbleBatschShellVy += 0.4;
+            if (rumbleBatschShellY > loseFighter.groundY) {
+              rumbleBatschShellY = loseFighter.groundY;
+              rumbleBatschShellVy = 0;
+              rumbleBatschShellVx *= 0.85;
+            }
+          } else if (framesSinceHit > hitCooldown) {
+            // Steer shell toward opponent (only after cooldown)
+            const dx = loseFighter.x - rumbleBatschShellX;
+            const dy = (loseFighter.y - 20) - rumbleBatschShellY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist > 1) {
+              const steer = 0.6 + rumbleBatschHits * 0.15;
+              rumbleBatschShellVx += (dx / dist) * steer;
+              rumbleBatschShellVy += (dy / dist) * steer;
+            }
+            // Cap speed
+            const speed = Math.sqrt(rumbleBatschShellVx * rumbleBatschShellVx + rumbleBatschShellVy * rumbleBatschShellVy);
+            const maxSpeed = 12 + rumbleBatschHits * 2;
+            if (speed > maxSpeed) {
+              rumbleBatschShellVx *= maxSpeed / speed;
+              rumbleBatschShellVy *= maxSpeed / speed;
+            }
+          }
+
+          // Move shell
+          rumbleBatschShellX += rumbleBatschShellVx;
+          rumbleBatschShellY += rumbleBatschShellVy;
+
+          // Bounce off walls
+          if (rumbleBatschShellX < 30) {
+            rumbleBatschShellX = 30;
+            rumbleBatschShellVx = Math.abs(rumbleBatschShellVx);
+            for (let i = 0; i < 6; i++) {
+              rumbleBatschSparks.push({ x: 30, y: rumbleBatschShellY, vx: 2 + Math.random() * 4, vy: (Math.random() - 0.5) * 6, life: 15 });
+            }
+          }
+          if (rumbleBatschShellX > 930) {
+            rumbleBatschShellX = 930;
+            rumbleBatschShellVx = -Math.abs(rumbleBatschShellVx);
+            for (let i = 0; i < 6; i++) {
+              rumbleBatschSparks.push({ x: 930, y: rumbleBatschShellY, vx: -2 - Math.random() * 4, vy: (Math.random() - 0.5) * 6, life: 15 });
+            }
+          }
+          if (rumbleBatschShellY < 60) {
+            rumbleBatschShellY = 60;
+            rumbleBatschShellVy = Math.abs(rumbleBatschShellVy);
+          }
+          if (rumbleBatschShellY > loseFighter.groundY) {
+            rumbleBatschShellY = loseFighter.groundY;
+            rumbleBatschShellVy = -Math.abs(rumbleBatschShellVy);
+          }
+
+          // Check hit on opponent (only if we haven't finished all hits)
+          if (rumbleBatschHits < totalHits) {
+            const hdx = rumbleBatschShellX - loseFighter.x;
+            const hdy = rumbleBatschShellY - (loseFighter.y - 20);
+            const hitDist = Math.sqrt(hdx * hdx + hdy * hdy);
+            if (hitDist < 45) {
+              rumbleBatschHits++;
+              loseFighter.flashTimer = 8;
+
+              if (rumbleBatschHits < totalHits) {
+                // Regular hit — stagger and bounce off
+                shakeTimer = 6; shakeIntensity = 3 + rumbleBatschHits;
+                for (let i = 0; i < 10; i++) {
+                  rumbleBatschSparks.push({
+                    x: loseFighter.x, y: loseFighter.y - 30,
+                    vx: (Math.random() - 0.5) * 10, vy: (Math.random() - 0.5) * 10,
+                    life: 20
+                  });
+                }
+                loseFighter.x += Math.sign(rumbleBatschShellVx) * 20;
+                loseFighter.x = Math.max(80, Math.min(880, loseFighter.x));
+                // Bounce shell hard away from opponent
+                rumbleBatschShellVx = -Math.sign(rumbleBatschShellVx) * (10 + rumbleBatschHits * 1.5);
+                rumbleBatschShellVy = -5 - Math.random() * 3;
+                rumbleBatschLastHitFrame = rumbleTimer; // record hit frame for cooldown
+                rumbleBatschSpinSpeed = Math.min(1.2, rumbleBatschSpinSpeed + 0.12);
+              } else {
+                // 5th hit — launch opponent skyward
+                shakeTimer = 10; shakeIntensity = 8;
+                loseFighter.flashTimer = 15;
+                rumbleBatschLaunchVy = -14;
+                for (let i = 0; i < 20; i++) {
+                  rumbleBatschSparks.push({
+                    x: loseFighter.x, y: loseFighter.y - 30,
+                    vx: (Math.random() - 0.5) * 14, vy: -Math.random() * 12,
+                    life: 25
+                  });
+                }
+              }
+            }
+          }
+
+          // Opponent launch after 5th hit
+          if (rumbleBatschHits >= totalHits && rumbleBatschLaunchVy !== 0) {
+            loseFighter.y += rumbleBatschLaunchVy;
+            rumbleBatschLaunchVy -= 0.5;
+            if (loseFighter.y < -100) {
+              rumbleLoserHidden = true;
+              rumbleBatschLaunchVy = 0;
+            }
+          }
+
+          // Add trail (only while moving fast)
+          const trailSpeed = Math.sqrt(rumbleBatschShellVx * rumbleBatschShellVx + rumbleBatschShellVy * rumbleBatschShellVy);
+          if (trailSpeed > 3) {
+            rumbleBatschTrail.push({ x: rumbleBatschShellX, y: rumbleBatschShellY, alpha: 0.6 });
+            if (rumbleBatschTrail.length > 12) rumbleBatschTrail.shift();
+          }
+        }
+
+        // Phase 3: Pop out (340-400)
+        if (rumbleTimer > ricochetEnd && rumbleTimer <= popOutEnd) {
+          rumbleBatschPhase = 3;
+          rumbleBatschSpinSpeed = Math.max(0, rumbleBatschSpinSpeed - 0.03);
+          if (rumbleTimer === ricochetEnd + 15) {
+            winFighter.isTortoise = false;
+            winFighter.x = rumbleBatschShellX;
+            winFighter.y = rumbleBatschShellY;
+            winFighter.state = 'idle';
+            winFighter.facing = dir;
+          }
+          if (rumbleTimer > ricochetEnd + 15) {
+            winFighter.state = 'idle';
+          }
+        }
+
+        // Phase 4: Hold (400-480)
+        if (rumbleTimer > popOutEnd) {
+          rumbleBatschPhase = 4;
+          winFighter.state = 'idle';
+        }
+
+        // Update sparks every frame
+        for (let i = rumbleBatschSparks.length - 1; i >= 0; i--) {
+          const s = rumbleBatschSparks[i];
+          s.x += s.vx; s.y += s.vy;
+          s.vy += 0.3;
+          s.life--;
+          if (s.life <= 0) rumbleBatschSparks.splice(i, 1);
+        }
+
+        // Update trail fade
+        for (const t of rumbleBatschTrail) {
+          t.alpha *= 0.85;
+        }
+
+        // Update spin angle
+        rumbleBatschSpinAngle += rumbleBatschSpinSpeed;
+
+        if (rumbleTimer >= endFrame) {
+          winFighter.isTortoise = false;
+          gameState = 'victory';
+        }
+      }
+
       if (rumbleType === 'CORVIDA') {
         // Corvida "Early Bird": ~480 frames
         // 0-40: Corvida transforms to giant blue jay

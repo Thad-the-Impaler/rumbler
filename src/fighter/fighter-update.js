@@ -259,21 +259,23 @@ Fighter.prototype.update = function(opponent, keys) {
     }
   }
 
-  // Apply velocity with friction
-  this.x += this.vx;
-  this.vx *= 0.85;
+  // Apply velocity with friction (skip while Erictho is in portal)
+  if (!this.ericthoHidden) {
+    this.x += this.vx;
+    this.vx *= 0.85;
+  }
 
   // Boundaries
   if (this.char.isTelatrine) {
-    if (this.x < 20) { this.x = 940; this.teleportGhost = { x: 20, y: this.y, timer: 12 }; }
-    else if (this.x > 940) { this.x = 20; this.teleportGhost = { x: 940, y: this.y, timer: 12 }; }
-  } else {
+    if (this.x < 20) { this.x = 940; this.teleportGhost = { x: 20, y: this.y, timer: 12 }; playSfx(sfx_warpWalk); }
+    else if (this.x > 940) { this.x = 20; this.teleportGhost = { x: 940, y: this.y, timer: 12 }; playSfx(sfx_warpWalk); }
+  } else if (!this.ericthoHidden) {
     if (this.x < 40) this.x = 40;
     if (this.x > 920) this.x = 920;
   }
 
-  // Face opponent
-  if (this.state !== 'attack' && this.state !== 'hitstun' && this.state !== 'blockstun') {
+  // Face opponent (skip while Erictho is in portal)
+  if (this.state !== 'attack' && this.state !== 'hitstun' && this.state !== 'blockstun' && !this.ericthoHidden) {
     this.facing = opponent.x > this.x ? 1 : -1;
   }
 
@@ -309,6 +311,79 @@ Fighter.prototype.update = function(opponent, keys) {
     }
     if (gp.timer <= 0 || gp.x < -20 || gp.x > 980 || gp.hit) {
       this.gourmandProjectile = null;
+    }
+  }
+
+  // Borgus laser projectile update
+  if (this.borgusLaser) {
+    const bl = this.borgusLaser;
+    bl.x += bl.vx;
+    bl.timer--;
+    if (!bl.hit && opponent.isHitAt(bl.x, bl.y, 30, 40)) {
+      bl.hit = true;
+      const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+      opponent.takeDamage(8 * this.char.stats.power * diffMult, { hitstun: 12, blockstun: 8, launch: false, knockbackForce: 3 }, bl.vx > 0 ? 1 : -1, false, { x: bl.x, y: bl.y });
+    }
+    if (bl.timer <= 0 || bl.x < -30 || bl.x > 990 || bl.hit) {
+      this.borgusLaser = null;
+    }
+  }
+
+  // Erictho portal state machine (runs every frame)
+  if (this.char.isErictho) {
+    if (this.ericthoPortalCooldown > 0) this.ericthoPortalCooldown--;
+
+    if (this.ericthoPortal) {
+      const p = this.ericthoPortal;
+
+      if (p.phase === 'enter') {
+        p.timer++;
+        if (p.timer >= p.maxTimer) {
+          // Drop in — become hidden
+          this.ericthoHidden = true;
+          this.ericthoHiddenTimer = 0;
+          this.ericthoExitChosen = false;
+          this.x = -200; // move offscreen
+          this.vx = 0;
+          this.state = 'idle';
+          this.ericthoPortal = { x: p.x, y: this.groundY, timer: 0, phase: 'fade', maxTimer: 15 };
+        }
+      } else if (p.phase === 'exit') {
+        p.timer++;
+        if (p.timer >= p.maxTimer) {
+          // Pop out
+          this.x = p.x;
+          this.y = this.groundY;
+          this.grounded = true;
+          this.ericthoHidden = false;
+          this.ericthoHiddenTimer = 0;
+          this.facing = opponent.x > this.x ? 1 : -1;
+          this.ericthoPortalCooldown = 180 + Math.floor(Math.random() * 120);
+          this.ericthoPortal = { x: p.x, y: this.groundY, timer: 0, phase: 'fade', maxTimer: 15 };
+        }
+      } else if (p.phase === 'fade') {
+        p.timer++;
+        if (p.timer >= p.maxTimer) {
+          this.ericthoPortal = null;
+        }
+      }
+    }
+
+    // While hidden, count up and open exit portal
+    if (this.ericthoHidden) {
+      this.ericthoHiddenTimer++;
+      if (this.ericthoHiddenTimer > 45 && !this.ericthoExitChosen) {
+        this.ericthoExitChosen = true;
+        // Choose exit location
+        let exitX;
+        if (Math.random() < 0.6) {
+          exitX = opponent.x + (opponent.facing * -80);
+        } else {
+          exitX = 100 + Math.random() * 760;
+        }
+        exitX = Math.max(60, Math.min(900, exitX));
+        this.ericthoPortal = { x: exitX, y: this.groundY, timer: 0, phase: 'exit', maxTimer: 20 };
+      }
     }
   }
 

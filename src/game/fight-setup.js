@@ -6,6 +6,33 @@ function startVersusScreen() {
   playFightMusic(level);
 }
 
+function setupCampaignFight(index) {
+  const campaign = campaigns[campaignId];
+  const fight = campaign.fights[index];
+  if (!fight) return;
+
+  // Resolve opponent
+  if (typeof fight.opponent === 'string') {
+    selectedCPU = characters.find(c => c.name === fight.opponent)
+      || secretCharOrder.find(c => c.name === fight.opponent);
+  } else {
+    selectedCPU = fight.opponent; // boss character object
+  }
+
+  // Resolve difficulty
+  cpuDifficulty = difficulties.find(d => d.name === fight.difficulty) || difficulties[0];
+
+  // Resolve level
+  selectedLevel = defaultLevels.find(l => l.name === fight.level)
+    || secretLevels.find(l => l.name === fight.level)
+    || defaultLevels[0];
+
+  // Random CPU assist
+  cpuAssistIndex = Math.floor(Math.random() * assists.length);
+
+  startVersusScreen();
+}
+
 function startRumblePractice() {
   // Create fighters like a normal fight
   player = new Fighter(selectedPlayer, 250, 1, true, selectedAssist);

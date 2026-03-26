@@ -52,8 +52,26 @@ Fighter.prototype.executeAttack = function(type) {
       launch: this.pendingCombo.launch || base.launch,
       isCombo: true
     };
+    // Combo-specific or generic combo sound
+    const comboSound = comboSfxMap[this.pendingCombo.name];
+    playSfx(comboSound || sfx_comboAttack);
   } else {
     this.currentAttack = attacks[type];
+    // Character-specific and attack-type sound effects
+    const isShade = this.char.name === 'SHADE';
+    if (this.char.isRubberman) {
+      playSfx(sfx_rubberStretch);
+    } else if (isShade && (type === 'jab' || type === 'uppercut')) {
+      playSfx(sfx_shadePunch);
+    } else if (isShade && (type === 'lowKick' || type === 'highKick')) {
+      playSfx(sfx_shadeKick);
+    } else if (type === 'jab') {
+      playSfx(sfx_jab);
+    } else if (type === 'uppercut') {
+      playSfx(sfx_uppercut);
+    } else if (type === 'lowKick' || type === 'highKick') {
+      playSfx(sfx_kick);
+    }
   }
   this.attackFrame = 0;
   this.stateTimer = this.currentAttack.startup + this.currentAttack.active + this.currentAttack.recovery;
@@ -63,6 +81,14 @@ Fighter.prototype.executeAttack = function(type) {
 Fighter.prototype.callAssist = function(opponent) {
   if (this.assistCooldown > 0 || !this.assist) return;
   this.assistCooldown = this.assist.cooldownTime;
+  // Play assist sound effect
+  if (this.assist.isSerpent) {
+    playSfx(sfx_serpent);
+  } else if (this.assist.isSticker) {
+    playSfx(sfx_sticker);
+  } else {
+    playSfx(sfx_assistShoot);
+  }
   if (this.assist.isWeedthorn) {
     this.assistActive = {
       x: opponent.x, y: opponent.groundY, vx: 0, timer: 45, hit: false,
@@ -97,6 +123,7 @@ Fighter.prototype.callAssist = function(opponent) {
 
 
 Fighter.prototype.isHitAt = function(px, py, radiusX, radiusY) {
+  if (this.ericthoHidden) return false;
   if (Math.abs(px - this.x) < radiusX && Math.abs(py - this.centerY) < radiusY) return true;
   if (this.char.isDuplaire) {
     for (const clone of this.duplaireClones) {
@@ -108,6 +135,8 @@ Fighter.prototype.isHitAt = function(px, py, radiusX, radiusY) {
 
 
 Fighter.prototype.takeDamage = function(dmg, attackData, attackerFacing, bypassBlock, hitPos) {
+  // Erictho: immune while inside portal
+  if (this.ericthoHidden) return false;
   // Torrena water phase: immune to all damage
   if (this.waterPhase) return false;
 

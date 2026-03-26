@@ -61,6 +61,55 @@ Fighter.prototype.handleAI = function(opponent) {
   // Matador: locked into dash
   if (this.matadorDashing) return;
 
+  // Erictho boss: portal state blocks all AI while active
+  if (this.char.isErictho) {
+    // While hidden or portal animating, block normal AI
+    if (this.ericthoHidden) return;
+    if (this.ericthoPortal && (this.ericthoPortal.phase === 'enter' || this.ericthoPortal.phase === 'exit')) return;
+
+    // Decide to enter portal (AI trigger only — state machine runs in update)
+    if (this.ericthoPortalCooldown <= 0 && !this.ericthoPortal && this.state !== 'attack' && this.state !== 'hitstun' && this.state !== 'launched' && Math.random() < 0.02) {
+      this.ericthoPortal = { x: this.x, y: this.groundY, timer: 0, phase: 'enter', maxTimer: 20 };
+    }
+
+    // Otherwise fall through to normal AI
+  }
+
+  // Borgus boss: special move cooldowns + laser charging (runs every frame)
+  if (this.char.isBorgus) {
+    if (this.borgusLaserCooldown > 0) this.borgusLaserCooldown--;
+    if (this.borgusSlamCooldown > 0) this.borgusSlamCooldown--;
+
+    // Laser charging animation — locks out all other actions
+    if (this.borgusLaserCharging > 0) {
+      this.borgusLaserCharging--;
+      if (this.borgusLaserCharging === 0) {
+        this.borgusLaser = {
+          x: this.x + this.facing * 40,
+          y: this.centerY,
+          vx: this.facing * 14,
+          timer: 60,
+          hit: false
+        };
+        this.borgusLaserCooldown = 150;
+      }
+      return;
+    }
+
+    // Special moves — fire laser at long range, fist slam at close range
+    const bDist = Math.abs(this.x - opponent.x);
+    if (bDist > 200 && this.borgusLaserCooldown <= 0 && !this.borgusLaser && this.state !== 'attack') {
+      this.borgusLaserCharging = 20;
+      return;
+    }
+    if (bDist < 100 && this.borgusSlamCooldown <= 0 && this.state !== 'attack' && Math.random() < 0.08) {
+      this.startAttack('borgusSlam');
+      this.borgusSlamCooldown = 90;
+      return;
+    }
+    // Otherwise fall through to normal AI for jabs, kicks, movement, blocking
+  }
+
   // Continue combo queue
   if (this.aiComboQueue.length > 0 && this.state !== 'attack') {
     this.startAttack(this.aiComboQueue.shift());

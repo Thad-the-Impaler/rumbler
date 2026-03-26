@@ -395,6 +395,7 @@ Fighter.prototype.draw = function(ctx) {
   ctx.translate(this.x + kwVibX, this.y + kwVibY);
   if (this._rumbleRotation) ctx.rotate(this._rumbleRotation);
   if (this.char.isBojdo) ctx.scale(this.bojdoScale, this.bojdoScale);
+  if (this.char.isBorgus) ctx.scale(1.3, 1.3);
   if (this.isJay) ctx.scale(this.jayScale, this.jayScale);
   if (this.bojShrinkTimer > 0 && !this.char.isBojdo) ctx.scale(0.3, 0.3);
 
@@ -787,6 +788,29 @@ Fighter.prototype.draw = function(ctx) {
     } else if (this.currentAttack === attacks.lowKick) {
       legSpread = sinP * 25;
       bodyOffsetY += sinP * 5;
+    } else if (this.currentAttack === attacks.borgusSlam) {
+      // Borgus fist slam: arm raises high during startup, slams down during active
+      const atk = this.currentAttack;
+      const frame = this.attackFrame;
+      if (frame < atk.startup) {
+        // Windup: raise arm and lean back
+        const t = frame / atk.startup;
+        armAngle = -t * 2.5;
+        bodyOffsetY -= t * 20;
+        bodyOffsetX = -f * t * 8;
+      } else if (frame < atk.startup + atk.active) {
+        // Slam down: arm swings forward and down
+        const t = (frame - atk.startup) / atk.active;
+        armAngle = -2.5 + t * 4.0;
+        bodyOffsetY = -20 + t * 25;
+        bodyOffsetX = f * t * 15;
+      } else {
+        // Recovery: return to normal
+        const t = (frame - atk.startup - atk.active) / atk.recovery;
+        armAngle = 1.5 * (1 - t);
+        bodyOffsetY = 5 * (1 - t);
+        bodyOffsetX = f * 15 * (1 - t);
+      }
     }
     // Rubberman: override limb extension to reach the opponent
     if (this.char.isRubberman && this.rubberStretch > 0) {
@@ -1099,7 +1123,7 @@ Fighter.prototype.draw = function(ctx) {
 
   // Eyes
   const eyeBaseY = isPaletap ? 0 : headY;
-  ctx.fillStyle = outline;
+  ctx.fillStyle = this.char.isErictho ? '#9944dd' : outline;
   ctx.beginPath();
   ctx.arc(f * 5, eyeBaseY - 2, 3, 0, Math.PI * 2);
   ctx.fill();
@@ -1107,8 +1131,8 @@ Fighter.prototype.draw = function(ctx) {
   ctx.arc(f * 12, eyeBaseY - 2, 3, 0, Math.PI * 2);
   ctx.fill();
 
-  // Eye highlights (skip for Paletap)
-  if (!isPaletap) {
+  // Eye highlights (skip for Paletap and Erictho)
+  if (!isPaletap && !this.char.isErictho) {
     ctx.fillStyle = '#fff';
     ctx.beginPath();
     ctx.arc(f * 6, eyeBaseY - 3, 1.5, 0, Math.PI * 2);
@@ -1649,6 +1673,109 @@ Fighter.prototype.draw = function(ctx) {
     ctx.restore();
   }
 
+  // Erictho: hide fighter when inside portal
+  if (this.char.isErictho && this.ericthoHidden) {
+    // Don't draw the fighter body — just draw the portal if active
+    if (this.ericthoPortal) {
+      this.drawEricthoPortal(ctx);
+    }
+    // Draw assist projectile even while hidden
+    if (this.assistActive) {
+      ctx.save();
+      this.drawAssistProjectile(this.assistActive);
+      ctx.restore();
+    }
+    ctx.restore();
+    return;
+  }
+
+  // Erictho portal (when visible)
+  if (this.char.isErictho && this.ericthoPortal) {
+    this.drawEricthoPortal(ctx);
+  }
+
+  // Borgus slam ground impact
+  if (this.char.isBorgus && this.state === 'attack' && this.currentAttack === attacks.borgusSlam) {
+    const atk = this.currentAttack;
+    const frame = this.attackFrame;
+    if (frame >= atk.startup && frame < atk.startup + atk.active + 10) {
+      const impactT = (frame - atk.startup) / (atk.active + 10);
+      const impactX = this.x + this.facing * 40;
+      const impactY = this.groundY;
+      ctx.save();
+      // Shockwave ring
+      ctx.globalAlpha = (1 - impactT) * 0.6;
+      ctx.strokeStyle = '#ff8800';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.ellipse(impactX, impactY, 20 + impactT * 50, 6 + impactT * 12, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      // Dust particles
+      for (let i = 0; i < 6; i++) {
+        const angle = (i / 6) * Math.PI - Math.PI / 2;
+        const r = impactT * 40;
+        ctx.globalAlpha = (1 - impactT) * 0.4;
+        ctx.fillStyle = '#aa7744';
+        ctx.beginPath();
+        ctx.arc(impactX + Math.cos(angle) * r, impactY - Math.abs(Math.sin(angle)) * r * 0.5, 3 + (1 - impactT) * 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    }
+  }
+
+  // Borgus laser beam
+  if (this.borgusLaser) {
+    const bl = this.borgusLaser;
+    ctx.save();
+    // Beam trail
+    ctx.globalAlpha = 0.3;
+    ctx.strokeStyle = '#ff4400';
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.moveTo(bl.x - bl.vx * 3, bl.y);
+    ctx.lineTo(bl.x, bl.y);
+    ctx.stroke();
+    // Main beam
+    ctx.globalAlpha = 0.8;
+    ctx.strokeStyle = '#ff8800';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(bl.x - bl.vx * 2, bl.y);
+    ctx.lineTo(bl.x, bl.y);
+    ctx.stroke();
+    // Core
+    ctx.strokeStyle = '#ffcc44';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(bl.x - bl.vx * 1.5, bl.y);
+    ctx.lineTo(bl.x, bl.y);
+    ctx.stroke();
+    // Head glow
+    ctx.shadowColor = '#ff6600';
+    ctx.shadowBlur = 12;
+    ctx.fillStyle = '#ffdd66';
+    ctx.beginPath();
+    ctx.arc(bl.x, bl.y, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+  // Borgus laser charging indicator
+  if (this.borgusLaserCharging > 0) {
+    const chT = 1 - this.borgusLaserCharging / 20;
+    ctx.save();
+    ctx.globalAlpha = chT * 0.6;
+    ctx.fillStyle = '#ff6600';
+    ctx.beginPath();
+    ctx.arc(this.x + this.facing * 35, this.centerY, 4 + chT * 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
   // Paletap shockwave
   if (this.paletapShockwave) {
     const sw = this.paletapShockwave;
@@ -1912,6 +2039,83 @@ Fighter.prototype.draw = function(ctx) {
   if (this.char.isHaystack) {
     this.drawHaystackProjectiles(ctx);
   }
+};
+
+Fighter.prototype.drawEricthoPortal = function(ctx) {
+  const p = this.ericthoPortal;
+  if (!p) return;
+  ctx.save();
+  // Reset to world coordinates
+  ctx.resetTransform();
+  const scaleX = canvas.width / 960;
+  const scaleY = canvas.height / 540;
+  ctx.scale(scaleX, scaleY);
+
+  let alpha = 1;
+  let portalScale = 1;
+  if (p.phase === 'enter') {
+    portalScale = p.timer / p.maxTimer;
+    alpha = portalScale;
+  } else if (p.phase === 'exit') {
+    portalScale = p.timer / p.maxTimer;
+    alpha = portalScale;
+  } else if (p.phase === 'fade') {
+    alpha = 1 - p.timer / p.maxTimer;
+    portalScale = 1;
+  }
+
+  ctx.globalAlpha = alpha;
+  ctx.translate(p.x, p.y);
+
+  // Portal: dark purple oval on ground with swirling energy
+  const w = 40 * portalScale;
+  const h = 10 * portalScale;
+
+  // Shadow/depth
+  ctx.fillStyle = '#0a0015';
+  ctx.beginPath();
+  ctx.ellipse(0, 0, w, h, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Inner glow
+  ctx.fillStyle = '#6622aa';
+  ctx.beginPath();
+  ctx.ellipse(0, 0, w * 0.8, h * 0.8, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Bright core
+  ctx.fillStyle = '#bb66ff';
+  ctx.beginPath();
+  ctx.ellipse(0, 0, w * 0.5, h * 0.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Swirling particles
+  const time = Date.now() * 0.005;
+  for (let i = 0; i < 6; i++) {
+    const angle = time + (i / 6) * Math.PI * 2;
+    const r = w * 0.6;
+    const px = Math.cos(angle) * r;
+    const py = Math.sin(angle) * h * 0.6;
+    ctx.fillStyle = i % 2 === 0 ? '#dd88ff' : '#7733bb';
+    ctx.beginPath();
+    ctx.arc(px, py, 2 + Math.sin(time + i) * 1, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Rising wisps when entering/exiting
+  if (p.phase === 'enter' || p.phase === 'exit') {
+    for (let i = 0; i < 4; i++) {
+      const wispT = (p.timer / p.maxTimer + i * 0.25) % 1;
+      ctx.globalAlpha = alpha * (1 - wispT) * 0.6;
+      ctx.fillStyle = '#bb66ff';
+      ctx.beginPath();
+      ctx.arc((Math.sin(i * 2.5 + time) * w * 0.4), -wispT * 50, 3 - wispT * 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  ctx.globalAlpha = 1;
+  ctx.restore();
 };
 
 

@@ -58,9 +58,9 @@ function drawTitleScreen() {
   ctx.stroke();
 
   // Menu options
-  const menuItems = ['FIGHT CPU', 'PRACTICE'];
+  const menuItems = ['FIGHT CPU', 'CAMPAIGN', 'PRACTICE'];
   if (rumblePracticeUnlocked) menuItems.push('RUMBLE PRACTICE');
-  const menuDescs = ['Battle a CPU opponent', 'Practice combos on a bag or mannequin', 'Practice your Rumble finishers'];
+  const menuDescs = ['Battle a CPU opponent', 'Fight through a series of challengers', 'Practice combos on a bag or mannequin', 'Practice your Rumble finishers'];
   const menuSpacing = menuItems.length > 2 ? 45 : 55;
   const menuStartY = menuItems.length > 2 ? 310 : 330;
   for (let i = 0; i < menuItems.length; i++) {

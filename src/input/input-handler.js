@@ -27,18 +27,23 @@ function handleKeyPress(key) {
   }
   switch (gameState) {
     case 'title': {
-      const titleOptionCount = rumblePracticeUnlocked ? 3 : 2;
+      const titleOptionCount = rumblePracticeUnlocked ? 4 : 3;
       if (key === 'ArrowUp' || key === 'w' || key === 'W') titleCursor = (titleCursor - 1 + titleOptionCount) % titleOptionCount;
       if (key === 'ArrowDown' || key === 's' || key === 'S') titleCursor = (titleCursor + 1) % titleOptionCount;
       if (key === 'Enter' || key === ' ') {
         if (titleCursor === 0) {
           gameMode = 'cpu';
+          gameState = 'charSelect';
         } else if (titleCursor === 1) {
+          gameMode = 'campaign';
+          gameState = 'charSelect';
+        } else if (titleCursor === 2) {
           gameMode = 'practice';
+          gameState = 'charSelect';
         } else {
           gameMode = 'rumblePractice';
+          gameState = 'charSelect';
         }
-        gameState = 'charSelect';
         charSelectCursor = 0;
         cpuSelectCursor = 1;
         charSelectScroll = 0;
@@ -367,6 +372,10 @@ function handleKeyPress(key) {
               } else if (gameMode === 'practice') {
                 gameState = 'practiceTargetSelect';
                 practiceTargetCursor = 0;
+              } else if (gameMode === 'campaign') {
+                gameState = 'assistSelect';
+                assistCursor = 0;
+                selectingCPUAssist = false;
               } else {
                 selectingCPU = true;
                 cpuSelectCursor = (charSelectCursor + 1) % charSlots;
@@ -382,6 +391,10 @@ function handleKeyPress(key) {
             } else if (gameMode === 'practice') {
               gameState = 'practiceTargetSelect';
               practiceTargetCursor = 0;
+            } else if (gameMode === 'campaign') {
+              gameState = 'assistSelect';
+              assistCursor = 0;
+              selectingCPUAssist = false;
             } else {
               selectingCPU = true;
               cpuSelectCursor = (charSelectCursor + 1) % charSlots;
@@ -475,6 +488,9 @@ function handleKeyPress(key) {
                 cpuAssistIndex = Math.floor(Math.random() * assists.length);
                 levelSelectCursor = 0;
                 gameState = 'levelSelect';
+              } else if (gameMode === 'campaign') {
+                campaignSelectCursor = 0;
+                gameState = 'campaignSelect';
               } else {
                 selectingCPUAssist = true;
                 cpuAssistCursor = 0;
@@ -486,6 +502,9 @@ function handleKeyPress(key) {
               cpuAssistIndex = Math.floor(Math.random() * assists.length);
               levelSelectCursor = 0;
               gameState = 'levelSelect';
+            } else if (gameMode === 'campaign') {
+              campaignSelectCursor = 0;
+              gameState = 'campaignSelect';
             } else {
               selectingCPUAssist = true;
               cpuAssistCursor = 0;
@@ -762,9 +781,31 @@ function handleKeyPress(key) {
       break;
     }
 
+    case 'campaignSelect': {
+      const cKeys = campaignKeys;
+      if (key === 'ArrowUp' || key === 'w' || key === 'W') campaignSelectCursor = (campaignSelectCursor - 1 + cKeys.length) % cKeys.length;
+      if (key === 'ArrowDown' || key === 's' || key === 'S') campaignSelectCursor = (campaignSelectCursor + 1) % cKeys.length;
+      if (key === 'Enter' || key === ' ') {
+        campaignId = cKeys[campaignSelectCursor];
+        campaignFightIndex = 0;
+        setupCampaignFight(0);
+      }
+      if (key === 'Escape' || key === 'Backspace') {
+        gameState = 'assistSelect';
+        selectingCPUAssist = false;
+      }
+      break;
+    }
+
     case 'versus':
       if (key === 'Escape') {
-        gameState = 'levelSelect';
+        if (gameMode === 'campaign') {
+          gameState = 'campaignSelect';
+          stopFightMusic();
+          playTitleMusic();
+        } else {
+          gameState = 'levelSelect';
+        }
       }
       break;
 
@@ -775,6 +816,26 @@ function handleKeyPress(key) {
         paused = false;
         stopFightMusic();
         playTitleMusic();
+      }
+      // Campaign skip code: IMPAL24
+      if (gameMode === 'campaign' && key.length === 1) {
+        if (!campaignSkipBuffer) campaignSkipBuffer = '';
+        campaignSkipBuffer += key.toUpperCase();
+        if (campaignSkipBuffer.length > 10) campaignSkipBuffer = campaignSkipBuffer.slice(-10);
+        if (campaignSkipBuffer.includes('IMPAL24')) {
+          campaignSkipBuffer = '';
+          resetRumbleState();
+          campaignFightIndex++;
+          const campaign = campaigns[campaignId];
+          if (campaignFightIndex < campaign.fights.length && campaign.fights[campaignFightIndex] !== null) {
+            setupCampaignFight(campaignFightIndex);
+          } else {
+            gameState = 'title';
+            paused = false;
+            stopFightMusic();
+            playTitleMusic();
+          }
+        }
       }
       // Corvida: detect double-tap jump for jay transform
       if ((key === 'ArrowUp' || key === 'w' || key === 'W') && player && player.char.isCorvida && !player.isJay) {
@@ -837,12 +898,34 @@ function handleKeyPress(key) {
           startRumblePractice();
           break;
         }
+        if (gameMode === 'campaign') {
+          resetRumbleState();
+          if (winner === 'player') {
+            // Advance to next fight
+            campaignFightIndex++;
+            const campaign = campaigns[campaignId];
+            if (campaignFightIndex < campaign.fights.length && campaign.fights[campaignFightIndex] !== null) {
+              setupCampaignFight(campaignFightIndex);
+            } else {
+              // Campaign complete or no more fights
+              gameState = 'title';
+              paused = false;
+              playTitleMusic();
+            }
+          } else {
+            // Player lost — campaign over
+            gameState = 'title';
+            paused = false;
+            playTitleMusic();
+          }
+          break;
+        }
         gameState = 'title';
         paused = false;
         playTitleMusic();
         resetRumbleState();
       }
-      if ((key === 'Escape' || key === 'Backspace') && gameMode === 'rumblePractice') {
+      if ((key === 'Escape' || key === 'Backspace') && (gameMode === 'rumblePractice' || gameMode === 'campaign')) {
         gameState = 'title';
         paused = false;
         playTitleMusic();

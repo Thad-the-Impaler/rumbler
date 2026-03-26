@@ -19,12 +19,15 @@ SOURCE_FILES = [
     'data/attacks.js',
     'data/rumble-defs.js',
     'data/combos.js',
+    'data/campaign.js',
     # State
     'state/game-state.js',
     'state/rumble-state.js',
     'state/unlock-state.js',
     # Audio
     'audio/music.js',
+    'audio/sfx.js',
+    'audio/ability-sfx.js',
     # Screens
     'screens/screen-hud.js',
     'screens/screen-title.js',
@@ -36,6 +39,7 @@ SOURCE_FILES = [
     'screens/screen-victory.js',
     'screens/screen-level-select.js',
     'screens/screen-versus.js',
+    'screens/screen-campaign-select.js',
     # Backgrounds
     'backgrounds/background.js',
     # Rumbles

@@ -1096,3 +1096,93 @@ function drawGourmandRumble(loseFighter, winFighter) {
   ctx.restore();
 }
 
+function drawBatschRumble(loseFighter, winFighter) {
+  ctx.save();
+
+  // --- Motion blur trail ---
+  for (const t of rumbleBatschTrail) {
+    if (t.alpha < 0.05) continue;
+    ctx.globalAlpha = t.alpha * 0.4;
+    ctx.fillStyle = '#5a7a3a';
+    ctx.beginPath();
+    ctx.ellipse(t.x, t.y - 8, 22, 14, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // --- Spinning shell (phases 1-2, and slowing in 3) ---
+  if (rumbleBatschPhase >= 1 && rumbleBatschPhase <= 3 && rumbleBatschSpinSpeed > 0) {
+    ctx.save();
+    ctx.translate(rumbleBatschShellX, rumbleBatschShellY - 8);
+    ctx.rotate(rumbleBatschSpinAngle);
+
+    // Shell dome
+    ctx.fillStyle = '#5a7a3a';
+    ctx.strokeStyle = '#3a5a1a';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 22, 14, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Shell segments
+    ctx.strokeStyle = '#3a5a1a';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(-8, -12); ctx.lineTo(-8, 12); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(8, -12); ctx.lineTo(8, 12); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-20, -2); ctx.lineTo(20, -2); ctx.stroke();
+
+    // Speed lines when moving fast
+    if (rumbleBatschPhase === 2) {
+      const speed = Math.sqrt(rumbleBatschShellVx * rumbleBatschShellVx + rumbleBatschShellVy * rumbleBatschShellVy);
+      if (speed > 8) {
+        ctx.strokeStyle = 'rgba(255, 255, 200, 0.4)';
+        ctx.lineWidth = 1;
+        for (let i = 0; i < 4; i++) {
+          const angle = (i / 4) * Math.PI * 2;
+          const r = 24 + Math.random() * 8;
+          ctx.beginPath();
+          ctx.moveTo(Math.cos(angle) * 22, Math.sin(angle) * 14);
+          ctx.lineTo(Math.cos(angle) * r, Math.sin(angle) * (r * 0.6));
+          ctx.stroke();
+        }
+      }
+    }
+
+    ctx.restore();
+  }
+
+  // --- Impact sparks ---
+  for (const s of rumbleBatschSparks) {
+    ctx.save();
+    const sparkAlpha = s.life / 20;
+    ctx.globalAlpha = sparkAlpha;
+    // Yellow-orange sparks
+    const r = 255;
+    const g = Math.floor(150 + Math.random() * 105);
+    ctx.fillStyle = `rgb(${r}, ${g}, 0)`;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, 1.5 + Math.random(), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // --- "Look up" indicator during pop-out / hold phase ---
+  if (rumbleBatschPhase === 3 || rumbleBatschPhase === 4) {
+    const t = rumbleBatschPhase === 3 ? Math.min(1, (rumbleTimer - 420) / 30) : 1;
+    if (t > 0.5) {
+      ctx.globalAlpha = 0.4;
+      ctx.fillStyle = '#c4a55a';
+      for (let i = 0; i < 3; i++) {
+        const dotY = winFighter.y - 65 - i * 8 - Math.sin(Date.now() * 0.003 + i) * 3;
+        ctx.beginPath();
+        ctx.arc(winFighter.x, dotY, 2 - i * 0.4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  ctx.restore();
+}
+
