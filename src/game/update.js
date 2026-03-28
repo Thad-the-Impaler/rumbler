@@ -26,6 +26,32 @@ function update() {
 
   if (gameState === 'fight' && !paused && !winner) {
     frameCount++;
+
+    // Test Your Might bonus: countdown timer and track damage
+    if (testYourMightActive) {
+      testYourMightTimer--;
+      // Track damage dealt to the printer
+      if (cpu._lastHP === undefined) cpu._lastHP = cpu.health;
+      if (cpu.health < cpu._lastHP) {
+        testYourMightDamage += (cpu._lastHP - cpu.health);
+      }
+      cpu._lastHP = cpu.health;
+      // If printer HP hits 0, refill it so the fight continues
+      if (cpu.health <= 0) {
+        cpu.health = cpu.maxHealth;
+        cpu._lastHP = cpu.maxHealth;
+        cpu.state = 'idle';
+        cpu.stateTimer = 0;
+      }
+
+      if (testYourMightTimer <= 0) {
+        winner = 'player';
+        gameState = 'victory';
+        stopFightMusic();
+        return;
+      }
+    }
+
     // Screen shake
     if (shakeTimer > 0) shakeTimer--;
 

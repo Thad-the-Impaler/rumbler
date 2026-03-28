@@ -228,3 +228,190 @@ Fighter.prototype.drawMannequin = function(ctx) {
 };
 
 
+
+Fighter.prototype.drawPrinter = function(ctx) {
+  const flash = this.flashTimer > 0 && this.flashTimer % 2 === 0;
+  const bodyColor = flash ? '#fff' : '#dddddd';
+  const darkColor = flash ? '#eee' : '#aaaaaa';
+  const outline = flash ? '#ccc' : '#777777';
+
+  ctx.save();
+  ctx.translate(this.x, this.y);
+
+  const sway = (this.state === 'hitstun' || this.state === 'launched') ? Math.sin(this.stateTimer * 0.5) * 4 : 0;
+
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.beginPath();
+  ctx.ellipse(0, 2, 35, 8, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.save();
+  ctx.translate(sway, 0);
+
+  // Main body
+  ctx.fillStyle = bodyColor;
+  ctx.strokeStyle = outline;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(-35, -70, 70, 55, 4);
+  ctx.fill();
+  ctx.stroke();
+
+  // Paper tray (top)
+  ctx.fillStyle = darkColor;
+  ctx.beginPath();
+  ctx.roundRect(-30, -80, 60, 14, 3);
+  ctx.fill();
+  ctx.strokeStyle = outline;
+  ctx.stroke();
+
+  // Paper sticking out
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(-20, -92, 40, 16);
+  ctx.strokeStyle = '#cccccc';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(-20, -92, 40, 16);
+  ctx.fillStyle = '#bbb';
+  ctx.fillRect(-16, -89, 25, 2);
+  ctx.fillRect(-16, -85, 18, 2);
+  ctx.fillRect(-16, -81, 30, 2);
+
+  // Output tray
+  ctx.fillStyle = '#555';
+  ctx.fillRect(-28, -18, 56, 5);
+
+  // Base
+  ctx.fillStyle = darkColor;
+  ctx.strokeStyle = outline;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(-38, -15, 76, 15, 3);
+  ctx.fill();
+  ctx.stroke();
+
+  // Buttons
+  ctx.fillStyle = '#44aa44';
+  ctx.beginPath();
+  ctx.arc(20, -50, 4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#aa4444';
+  ctx.beginPath();
+  ctx.arc(28, -50, 3, 0, Math.PI * 2);
+  ctx.fill();
+
+  // LCD
+  ctx.fillStyle = '#113311';
+  ctx.fillRect(8, -62, 24, 8);
+  ctx.fillStyle = '#44ff44';
+  ctx.font = '6px monospace';
+  ctx.textAlign = 'left';
+  const dmgLevel = testYourMightActive ? testYourMightDamage : 0;
+  ctx.fillText(dmgLevel >= 300 ? 'ERROR' : dmgLevel >= 100 ? 'HELP!' : 'READY', 10, -56);
+
+  // Damage overlays based on total damage dealt
+  if (dmgLevel >= 50) {
+    // Cracks
+    ctx.strokeStyle = '#666';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(-15, -60);
+    ctx.lineTo(-5, -48);
+    ctx.lineTo(-12, -35);
+    ctx.stroke();
+  }
+  if (dmgLevel >= 100) {
+    // More cracks + dents
+    ctx.strokeStyle = '#555';
+    ctx.beginPath();
+    ctx.moveTo(10, -68);
+    ctx.lineTo(18, -55);
+    ctx.lineTo(12, -40);
+    ctx.lineTo(20, -30);
+    ctx.stroke();
+    // Dent
+    ctx.fillStyle = '#999';
+    ctx.beginPath();
+    ctx.ellipse(-20, -50, 8, 5, 0.3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  if (dmgLevel >= 200) {
+    // Paper tray broken off (draw over it)
+    ctx.fillStyle = darkColor;
+    ctx.fillRect(-30, -80, 60, 14);
+    // Smoke wisps
+    const t = Date.now() * 0.003;
+    ctx.globalAlpha = 0.4;
+    ctx.fillStyle = '#888';
+    for (let i = 0; i < 3; i++) {
+      const sx = -10 + i * 12 + Math.sin(t + i * 2) * 5;
+      const sy = -85 - Math.sin(t * 1.5 + i) * 8 - i * 6;
+      ctx.beginPath();
+      ctx.arc(sx, sy, 4 + i * 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+  if (dmgLevel >= 300) {
+    // LCD cracked (X over it)
+    ctx.strokeStyle = '#ff0000';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(8, -62);
+    ctx.lineTo(32, -54);
+    ctx.moveTo(32, -62);
+    ctx.lineTo(8, -54);
+    ctx.stroke();
+    // Buttons knocked off
+    ctx.fillStyle = bodyColor;
+    ctx.beginPath();
+    ctx.arc(20, -50, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(28, -50, 4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  if (dmgLevel >= 400) {
+    // Major structural damage — body splitting
+    ctx.strokeStyle = '#444';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-35, -45);
+    ctx.lineTo(35, -45);
+    ctx.stroke();
+    // Sparks
+    const sparkT = Date.now() * 0.01;
+    ctx.fillStyle = '#ffff00';
+    for (let i = 0; i < 4; i++) {
+      const sx = -20 + Math.sin(sparkT + i * 1.7) * 25;
+      const sy = -45 + Math.cos(sparkT * 1.3 + i) * 3;
+      if (Math.sin(sparkT * 3 + i * 5) > 0) {
+        ctx.beginPath();
+        ctx.arc(sx, sy, 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  ctx.restore();
+
+  // Hit effect
+  if (this.hitEffect && this.hitEffect.timer > 0) {
+    const t = this.hitEffect.timer / 10;
+    ctx.globalAlpha = t;
+    ctx.strokeStyle = '#ffff00';
+    ctx.lineWidth = 3;
+    const r = 15 + (1 - t) * 20;
+    const cx = this.hitEffect.x - this.x;
+    const cy = this.hitEffect.y - this.y;
+    for (let i = 0; i < 6; i++) {
+      const angle = (i / 6) * Math.PI * 2 + (1 - t) * 2;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(angle) * r * 0.3, cy + Math.sin(angle) * r * 0.3);
+      ctx.lineTo(cx + Math.cos(angle) * r, cy + Math.sin(angle) * r);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  ctx.restore();
+};

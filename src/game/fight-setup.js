@@ -16,7 +16,7 @@ function setupCampaignFight(index) {
     selectedCPU = characters.find(c => c.name === fight.opponent)
       || secretCharOrder.find(c => c.name === fight.opponent);
   } else {
-    selectedCPU = fight.opponent; // boss character object
+    selectedCPU = fight.opponent; // boss or special character object
   }
 
   // Resolve difficulty
@@ -29,6 +29,16 @@ function setupCampaignFight(index) {
 
   // Random CPU assist
   cpuAssistIndex = Math.floor(Math.random() * assists.length);
+
+  // Set up bonus fight state
+  if (fight.isBonus && fight.bonusType === 'testYourMight') {
+    testYourMightActive = true;
+    testYourMightMaxTime = fight.bonusTime * 60; // seconds to frames
+    testYourMightTimer = testYourMightMaxTime;
+    testYourMightDamage = 0;
+  } else {
+    testYourMightActive = false;
+  }
 
   startVersusScreen();
 }

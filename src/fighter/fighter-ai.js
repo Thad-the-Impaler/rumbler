@@ -58,8 +58,32 @@ Fighter.prototype.handleAI = function(opponent) {
     return;
   }
 
+  // Printer: just stands there
+  if (this.char.isPrinter) return;
+
   // Matador: locked into dash
   if (this.matadorDashing) return;
+
+  // Quellic boss: toggle fire phase
+  if (this.char.isQuellic) {
+    if (!this.quellicFirePhase && this.quellicFireCooldown <= 0 && this.state !== 'hitstun' && this.state !== 'launched') {
+      // Activate fire phase when close to opponent or taking pressure
+      const qDist = Math.abs(this.x - opponent.x);
+      if ((qDist < 150 && Math.random() < 0.03) || (this.state === 'blockstun' && Math.random() < 0.1)) {
+        this.quellicFirePhase = true;
+        this.quellicFireTimer = this.quellicFireMaxDuration;
+      }
+    }
+    // While in fire phase, rush toward opponent aggressively
+    if (this.quellicFirePhase) {
+      this.facing = opponent.x > this.x ? 1 : -1;
+      this.vx = this.facing * this.char.stats.speed * 1.3;
+      this.state = 'walk';
+      this.blocking = false;
+      return;
+    }
+    // Otherwise fall through to normal AI
+  }
 
   // Erictho boss: portal state blocks all AI while active
   if (this.char.isErictho) {
@@ -144,20 +168,23 @@ Fighter.prototype.handleAI = function(opponent) {
 
   // Bojdo AI size shifting: shrink when far away for speed, grow when close for power
   if (this.char.isBojdo) {
-    const maxScale = bojdobojdoUnlocked ? 3.5 : 2.0;
-    const minScale = bojdobojdoUnlocked ? 0.2 : 0.5;
-    if (dist > 120 || this.aiAction === 'approach' || this.aiAction === 'retreat') {
-      // Shrink for speed when moving around
-      const targetScale = Math.max(minScale, 0.6);
-      if (this.bojdoScale > targetScale) this.bojdoScale = Math.max(targetScale, this.bojdoScale - 0.03);
-    } else if (dist < 80 && (this.aiAction === 'attack' || this.state === 'attack')) {
+    const isBojdo3 = this.char.isBojdo3;
+    const isUpgraded = this.char.name === 'BOJDOBOJDO' || isBojdo3;
+    const maxScale = isBojdo3 ? 5.0 : (isUpgraded ? 3.5 : 2.0);
+    const minScale = isBojdo3 ? 1.0 : (isUpgraded ? 0.2 : 0.5);
+    const shiftSpeed = isBojdo3 ? 0.05 : 0.03;
+    if (dist > 200 || this.aiAction === 'retreat') {
+      // Shrink for speed when far away or retreating (Bojdo3: only return to default, never shrink)
+      const targetScale = Math.max(minScale, isBojdo3 ? 1.0 : 0.6);
+      if (this.bojdoScale > targetScale) this.bojdoScale = Math.max(targetScale, this.bojdoScale - shiftSpeed);
+    } else if (dist < 120 && (this.aiAction === 'attack' || this.aiAction === 'approach' || this.state === 'attack')) {
       // Grow for power and range when attacking up close
-      const targetScale = Math.min(maxScale, bojdobojdoUnlocked ? 2.5 : 1.8);
-      if (this.bojdoScale < targetScale) this.bojdoScale = Math.min(targetScale, this.bojdoScale + 0.04);
+      const targetScale = Math.min(maxScale, isBojdo3 ? 4.0 : (isUpgraded ? 2.5 : 1.8));
+      if (this.bojdoScale < targetScale) this.bojdoScale = Math.min(targetScale, this.bojdoScale + shiftSpeed + 0.01);
     } else if (this.aiAction === 'block') {
       // Grow big when blocking for more defense
-      const targetScale = Math.min(maxScale, bojdobojdoUnlocked ? 3.0 : 2.0);
-      if (this.bojdoScale < targetScale) this.bojdoScale = Math.min(targetScale, this.bojdoScale + 0.03);
+      const targetScale = Math.min(maxScale, isBojdo3 ? 4.5 : (isUpgraded ? 3.0 : 2.0));
+      if (this.bojdoScale < targetScale) this.bojdoScale = Math.min(targetScale, this.bojdoScale + shiftSpeed);
     }
   }
 
@@ -462,14 +489,17 @@ Fighter.prototype.handleAI = function(opponent) {
 
   if (this.state === 'attack') return;
 
+  // Bojdo AI speed multiplier: smaller = faster (matches player physics)
+  const bojdoAiSpeedMult = this.char.isBojdo ? Math.max(0.3, (3.0 - this.bojdoScale) / 2.0) : 1;
+
   switch (this.aiAction) {
     case 'approach':
-      this.vx = this.facing * this.char.stats.speed * (this.slowTimer > 0 ? 0.4 : 0.8);
+      this.vx = this.facing * this.char.stats.speed * (this.slowTimer > 0 ? 0.4 : 0.8) * bojdoAiSpeedMult;
       this.state = 'walk';
       if (dist < 80) this.aiAction = 'attack';
       break;
     case 'retreat':
-      this.vx = -this.facing * this.char.stats.speed * (this.slowTimer > 0 ? 0.3 : 0.6);
+      this.vx = -this.facing * this.char.stats.speed * (this.slowTimer > 0 ? 0.3 : 0.6) * bojdoAiSpeedMult;
       this.state = 'walk';
       break;
     case 'attack':

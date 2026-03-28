@@ -1,6 +1,8 @@
 Fighter.prototype.startAttack = function(type) {
   // Torrena cannot attack while in water phase
   if (this.waterPhase) return;
+  // Quellic cannot attack while in fire phase
+  if (this.quellicFirePhase) return;
 
   // Clear stale buffer if too much time has passed since last input
   if (frameCount - this.lastInputFrame > this.comboWindowFrames) {
@@ -139,6 +141,8 @@ Fighter.prototype.takeDamage = function(dmg, attackData, attackerFacing, bypassB
   if (this.ericthoHidden) return false;
   // Torrena water phase: immune to all damage
   if (this.waterPhase) return false;
+  // Quellic fire phase: immune to all damage
+  if (this.quellicFirePhase) return false;
 
   // Clear queued attacks when hit
   this.queuedAttacks = [];

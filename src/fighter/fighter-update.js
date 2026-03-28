@@ -329,6 +329,31 @@ Fighter.prototype.update = function(opponent, keys) {
     }
   }
 
+  // Quellic fire phase update (runs every frame)
+  if (this.char.isQuellic) {
+    if (this.quellicFireCooldown > 0) this.quellicFireCooldown--;
+    if (this.quellicContactCooldown > 0) this.quellicContactCooldown--;
+
+    if (this.quellicFirePhase) {
+      this.quellicFireTimer--;
+      if (this.quellicFireTimer <= 0) {
+        // Fire phase expired
+        this.quellicFirePhase = false;
+        this.quellicFireCooldown = this.quellicFireCooldownMax;
+      } else {
+        // Contact damage: hurt opponent when overlapping
+        const dist = Math.abs(this.x - opponent.x);
+        if (dist < 45 && this.quellicContactCooldown <= 0) {
+          const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+          opponent.takeDamage(6 * this.char.stats.power * diffMult,
+            { hitstun: 8, blockstun: 4, launch: false, knockbackForce: 2 },
+            this.facing, true, { x: this.x, y: this.centerY }); // bypassBlock = true
+          this.quellicContactCooldown = 20; // damage every 20 frames max
+        }
+      }
+    }
+  }
+
   // Erictho portal state machine (runs every frame)
   if (this.char.isErictho) {
     if (this.ericthoPortalCooldown > 0) this.ericthoPortalCooldown--;

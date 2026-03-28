@@ -3,8 +3,9 @@ Fighter.prototype.handlePlayerInput = function(keys, opponent) {
   if (this.dancing) return;
   if (this.exploding) return;
 
-  const bojdoMaxScale = bojdobojdoUnlocked ? 3.5 : 2.0;
-  const bojdoSpeedMult = this.char.isBojdo ? Math.max(bojdobojdoUnlocked ? 0 : 0.25, (bojdoMaxScale - this.bojdoScale) / (bojdoMaxScale - 1.0)) : 1; // smaller = faster, bigger = slower
+  const isBBojdo = this.char.name === 'BOJDOBOJDO' || this.char.isBojdo3;
+  const bojdoMaxScale = isBBojdo ? 3.5 : 2.0;
+  const bojdoSpeedMult = this.char.isBojdo ? Math.max(isBBojdo ? 0 : 0.25, (bojdoMaxScale - this.bojdoScale) / (bojdoMaxScale - 1.0)) : 1;
   const tortoiseSpeedMult = this.isTortoise ? 0.5 : 1;
   const bojShrinkSpeedMult = (this.bojShrinkTimer > 0 && !this.char.isBojdo) ? 1.5 : 1; // faster when shrunk
   const stickerMult = this.stickerSlowTimer > 0 ? 0.3 : 1;
@@ -336,8 +337,9 @@ Fighter.prototype.handlePlayerInput = function(keys, opponent) {
   }
   // Bojdo size shifting: hold K to grow, hold L to shrink
   if (this.char.isBojdo) {
-    const maxScale = bojdobojdoUnlocked ? 3.5 : 2.0;
-    const minScale = bojdobojdoUnlocked ? 0.2 : 0.5;
+    const isBB = this.char.name === 'BOJDOBOJDO' || this.char.isBojdo3;
+    const maxScale = isBB ? 3.5 : 2.0;
+    const minScale = isBB ? 0.2 : 0.5;
     const wasShifting = this.bojdoShifting;
     if (keys['k'] || keys['K']) {
       this.bojdoScale = Math.min(this.bojdoScale + 0.02, maxScale);

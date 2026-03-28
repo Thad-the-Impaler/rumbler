@@ -179,6 +179,19 @@ function drawVersusScreen() {
       ctx.shadowBlur = 0;
       ctx.restore();
     }
+    // "Bonus Challenge" label for bonus fights
+    if (gameMode === 'campaign' && testYourMightActive) {
+      ctx.save();
+      ctx.globalAlpha = vsEase;
+      ctx.font = 'bold 20px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#ffcc00';
+      ctx.shadowColor = '#ff6600';
+      ctx.shadowBlur = 10;
+      ctx.fillText('BONUS CHALLENGE: TEST YOUR MIGHT', splitX, H / 2 + 50);
+      ctx.shadowBlur = 0;
+      ctx.restore();
+    }
   }
 
   // --- Flash transition at the end ---

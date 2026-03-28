@@ -24,6 +24,55 @@ const ericthoChar = {
   isBoss: true
 };
 
+// Boss: Campaigner Quellic (non-playable)
+const quellicChar = {
+  name: 'QUELLIC',
+  color: '#cc3300',
+  accent: '#ff6600',
+  outline: '#661100',
+  stats: { speed: 4.5, power: 1.2, defense: 1.0 },
+  desc: 'Fire Phaser',
+  isQuellic: true,
+  isBoss: true
+};
+
+// Boss: Campaigner Bojdobojdobojdo (non-playable)
+const bojdo3Char = {
+  name: 'BOJDOBOJDOBOJDO',
+  color: '#1a1a1a',
+  accent: '#9944cc',
+  outline: '#444',
+  stats: { speed: 4, power: 1.0, defense: 1.2 },
+  desc: 'Ultimate Size Shifter',
+  isBojdo: true,
+  isBojdo3: true,
+  isBoss: true,
+  maxHealth: 250
+};
+
+// Campaign-only Bojdo: a standalone copy that never gets mutated by Bojdobojdo unlock
+const campaignBojdoChar = {
+  name: 'BOJDO',
+  color: '#1a1a1a',
+  accent: '#ffcc00',
+  outline: '#444',
+  stats: { speed: 4, power: 1.0, defense: 1.0 },
+  desc: '???',
+  isBojdo: true,
+  isCampaignBojdo: true
+};
+
+// Bonus: Printer (non-playable, doesn't fight back)
+const printerChar = {
+  name: 'PRINTER',
+  color: '#cccccc',
+  accent: '#eeeeee',
+  outline: '#888888',
+  stats: { speed: 0, power: 0, defense: 0.6 },
+  desc: 'Office Printer',
+  isPrinter: true
+};
+
 const campaigns = {
   'brawler': {
     name: "BRAWLER'S CAMPAIGN",
@@ -39,9 +88,17 @@ const campaigns = {
       { opponent: 'SURGE', difficulty: 'Normal', level: 'THE VOID' },
       { opponent: 'HAYSTACK', difficulty: 'Normal', level: 'THE DEN' },
       { opponent: ericthoChar, difficulty: 'Normal', level: 'THE TEMPLE', isBoss: true },
-      // Fights 11-20: placeholder
-      null, null, null, null, null,
-      null, null, null, null, null
+      { opponent: campaignBojdoChar, difficulty: 'Hard', level: 'FOGGY CITY' },
+      { opponent: 'BOZOLLOK', difficulty: 'Hard', level: 'SUNNY CITY' },
+      { opponent: 'MATADOR', difficulty: 'Hard', level: 'SNOWY CITY' },
+      { opponent: 'SHADE', difficulty: 'Hard', level: 'RAINY CITY' },
+      { opponent: quellicChar, difficulty: 'Hard', level: 'GLOWING CITY', isBoss: true },
+      { opponent: 'CORVIDA', difficulty: 'Brutal', level: 'RAINY CITY' },
+      { opponent: 'BUCK', difficulty: 'Brutal', level: 'SNOWY CITY' },
+      { opponent: 'PALETAP', difficulty: 'Brutal', level: 'FOGGY CITY' },
+      { opponent: 'GOLGAR', difficulty: 'Brutal', level: 'GLOWING CITY' },
+      { opponent: bojdo3Char, difficulty: 'Brutal', level: 'SUNNY CITY', isBoss: true },
+      { opponent: printerChar, difficulty: 'Easy', level: 'CLASSIC', isBonus: true, bonusType: 'testYourMight', bonusTime: 30 }
     ]
   }
 };

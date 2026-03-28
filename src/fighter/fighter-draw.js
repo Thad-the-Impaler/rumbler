@@ -9,6 +9,12 @@ Fighter.prototype.draw = function(ctx) {
     return;
   }
 
+  // Draw as printer in campaign bonus
+  if (this.char.isPrinter) {
+    this.drawPrinter(ctx);
+    return;
+  }
+
   // Buck: draw fireworks and explosions (world space)
   if (this.char.isBuck) {
     ctx.save();
@@ -346,9 +352,10 @@ Fighter.prototype.draw = function(ctx) {
   const flash = this.flashTimer > 0 && this.flashTimer % 2 === 0;
   const frozen = this.frozenTimer > 0;
   const inWater = this.waterPhase;
-  const color = flash ? '#fff' : frozen ? '#88ccff' : inWater ? '#44bbee' : this.char.color;
-  const accent = flash ? '#fff' : frozen ? '#bbddff' : inWater ? '#88eeff' : this.char.accent;
-  const outline = flash ? '#ccc' : frozen ? '#4488aa' : inWater ? '#2299bb' : this.char.outline;
+  const inFire = this.quellicFirePhase;
+  const color = flash ? '#fff' : frozen ? '#88ccff' : inWater ? '#44bbee' : inFire ? '#ff6600' : this.char.color;
+  const accent = flash ? '#fff' : frozen ? '#bbddff' : inWater ? '#88eeff' : inFire ? '#ffaa00' : this.char.accent;
+  const outline = flash ? '#ccc' : frozen ? '#4488aa' : inWater ? '#2299bb' : inFire ? '#cc3300' : this.char.outline;
 
   ctx.save();
   // Duplaire clone alpha
@@ -357,6 +364,7 @@ Fighter.prototype.draw = function(ctx) {
   }
   if (this.phaseTimer > 0) ctx.globalAlpha = 0.4;
   if (this.waterPhase) ctx.globalAlpha = 0.35;
+  if (inFire) ctx.globalAlpha = 0.55 + Math.sin(Date.now() * 0.02) * 0.15;
   // Rumble alpha override (used by Torrena evaporation/reappear)
   if (this._rumbleAlpha !== undefined) {
     ctx.globalAlpha = Math.min(ctx.globalAlpha, this._rumbleAlpha);
@@ -1669,6 +1677,30 @@ Fighter.prototype.draw = function(ctx) {
     ctx.arc(0, 0, gpSize * 0.5, 0, Math.PI * 2);
     ctx.fill();
     ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  // Quellic fire phase particles
+  if (this.quellicFirePhase) {
+    ctx.save();
+    ctx.resetTransform();
+    const scaleX = canvas.width / 960;
+    const scaleY = canvas.height / 540;
+    ctx.scale(scaleX, scaleY);
+    const time = Date.now() * 0.01;
+    for (let i = 0; i < 10; i++) {
+      const angle = time + (i / 10) * Math.PI * 2;
+      const r = 20 + Math.sin(time * 0.5 + i * 1.3) * 10;
+      const px = this.x + Math.cos(angle) * r;
+      const py = (this.y - 45) + Math.sin(angle * 0.7 + i) * 25 - Math.abs(Math.sin(time + i)) * 15;
+      const flicker = 0.3 + Math.sin(time * 2 + i * 0.8) * 0.3;
+      ctx.globalAlpha = flicker;
+      ctx.fillStyle = i % 3 === 0 ? '#ffcc00' : i % 3 === 1 ? '#ff6600' : '#ff2200';
+      ctx.beginPath();
+      ctx.arc(px, py, 3 + Math.sin(time + i) * 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
     ctx.globalAlpha = 1;
     ctx.restore();
   }

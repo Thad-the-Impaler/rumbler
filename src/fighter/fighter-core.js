@@ -189,6 +189,18 @@ class Fighter {
     this.aiReactTime = 20 + Math.random() * 20;
     this.aiComboQueue = [];
 
+    // Quellic boss state
+    if (this.char.isQuellic) {
+      this.quellicFirePhase = false;     // currently in fire phase
+      this.quellicFireTimer = 0;         // frames remaining in fire phase (max 390 = 6.5s)
+      this.quellicFireCooldown = 0;      // cooldown frames before next fire phase
+      this.quellicFireMaxDuration = 390; // 6.5 seconds at 60fps
+      this.quellicFireCooldownMax = 540; // 9 seconds at 60fps
+      this.quellicContactCooldown = 0;   // prevent damage every single frame
+      this.health = 190;
+      this.maxHealth = 190;
+    }
+
     // Erictho boss state
     if (this.char.isErictho) {
       this.ericthoPortal = null;       // active portal { x, y, timer, phase } phase: 'enter','hidden','exit'
@@ -198,6 +210,12 @@ class Fighter {
       this.ericthoExitChosen = false;  // whether exit location has been picked
       this.health = 180;
       this.maxHealth = 180;
+    }
+
+    // Bojdobojdobojdo boss state
+    if (this.char.isBojdo3) {
+      this.health = 250;
+      this.maxHealth = 250;
     }
 
     // Borgus boss state

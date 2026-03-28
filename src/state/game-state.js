@@ -45,5 +45,11 @@ let campaignFightIndex = 0;   // current fight (0-19)
 let campaignSelectCursor = 0; // cursor on campaign select screen
 let campaignSkipBuffer = '';  // buffer for IMPAL24 skip code
 
+// Test Your Might bonus state
+let testYourMightActive = false;
+let testYourMightTimer = 0;     // frames remaining
+let testYourMightMaxTime = 0;   // total frames
+let testYourMightDamage = 0;    // total damage dealt
+
 
 let frameCount = 0;

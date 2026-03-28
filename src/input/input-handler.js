@@ -825,6 +825,9 @@ function handleKeyPress(key) {
         if (campaignSkipBuffer.includes('IMPAL24')) {
           campaignSkipBuffer = '';
           resetRumbleState();
+          winner = null;
+          paused = false;
+          rumbleActive = false;
           campaignFightIndex++;
           const campaign = campaigns[campaignId];
           if (campaignFightIndex < campaign.fights.length && campaign.fights[campaignFightIndex] !== null) {
@@ -835,6 +838,7 @@ function handleKeyPress(key) {
             stopFightMusic();
             playTitleMusic();
           }
+          break; // Stop processing this key event
         }
       }
       // Corvida: detect double-tap jump for jay transform
@@ -864,6 +868,30 @@ function handleKeyPress(key) {
         paused = false;
         playTitleMusic();
         resetRumbleState();
+      }
+      // Campaign skip code also works during finishHim
+      if (gameMode === 'campaign' && key.length === 1) {
+        if (!campaignSkipBuffer) campaignSkipBuffer = '';
+        campaignSkipBuffer += key.toUpperCase();
+        if (campaignSkipBuffer.length > 10) campaignSkipBuffer = campaignSkipBuffer.slice(-10);
+        if (campaignSkipBuffer.includes('IMPAL24')) {
+          campaignSkipBuffer = '';
+          resetRumbleState();
+          winner = null;
+          paused = false;
+          rumbleActive = false;
+          campaignFightIndex++;
+          const campaign = campaigns[campaignId];
+          if (campaignFightIndex < campaign.fights.length && campaign.fights[campaignFightIndex] !== null) {
+            setupCampaignFight(campaignFightIndex);
+          } else {
+            gameState = 'title';
+            paused = false;
+            stopFightMusic();
+            playTitleMusic();
+          }
+          break;
+        }
       }
       // Rumble code input (only when not paused and no rumble active)
       if (!paused && !rumbleActive && winner === 'player') {
@@ -910,12 +938,14 @@ function handleKeyPress(key) {
               // Campaign complete or no more fights
               gameState = 'title';
               paused = false;
+              testYourMightActive = false;
               playTitleMusic();
             }
           } else {
             // Player lost — campaign over
             gameState = 'title';
             paused = false;
+            testYourMightActive = false;
             playTitleMusic();
           }
           break;
@@ -928,6 +958,7 @@ function handleKeyPress(key) {
       if ((key === 'Escape' || key === 'Backspace') && (gameMode === 'rumblePractice' || gameMode === 'campaign')) {
         gameState = 'title';
         paused = false;
+        testYourMightActive = false;
         playTitleMusic();
         resetRumbleState();
       }
