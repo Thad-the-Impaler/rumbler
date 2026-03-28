@@ -218,6 +218,72 @@ class Fighter {
       this.maxHealth = 250;
     }
 
+    // The Count boss state
+    if (this.char.isTheCount) {
+      this.countFireworks = [];           // active firework projectiles
+      this.countExplosions = [];          // explosion particles
+      this.countFiring = false;           // firing sweep active
+      this.countFireTimer = 0;
+      this.countFireCooldown = 0;
+      this.countGroundCooldown = 0;       // cooldown between ground firework shots
+      this.countJumpExplosionUsed = false; // one explosion per jump
+      this.health = this.char.maxHealth || 220;
+      this.maxHealth = this.health;
+    }
+
+    // Relapmi boss state
+    if (this.char.isRelapmi) {
+      this.relapmiSpears = [];            // ground spears { x, y, timer, emergeT, hit }
+      this.relapmiSpearCooldown = 0;      // cooldown between ground spear summons
+      this.relapmiShank = null;           // directional spear from body { angle, timer, length, hit }
+      this.relapmiShankCooldown = 0;      // cooldown between shanks
+      this.relapmiSpikeRing = null;       // { spikes: [{x,y,angle,dist}], timer }
+      this.relapmiSpikeRingCooldown = 0;  // cooldown between spike rings
+      this.health = this.char.maxHealth || 250;
+      this.maxHealth = this.health;
+    }
+
+    // Six Iron-Nine Iron boss state
+    if (this.char.isSixIron) {
+      this.sixIronClubSwinging = false;   // club swing attack active
+      this.sixIronClubTimer = 0;          // swing animation timer
+      this.sixIronClubCooldown = 0;       // cooldown between swings
+      this.sixIronGolfBalls = [];         // active golf ball projectiles
+      this.sixIronGolfCooldown = 0;       // cooldown between shots
+      this.sixIronLasso = null;           // active lasso { x, y, vx, timer, pulling }
+      this.sixIronLassoCooldown = 0;      // cooldown between lasso throws
+      this.sixIronLassoPulling = false;   // currently pulling opponent
+      this.sixIronLassoPullTimer = 0;
+      this.health = this.char.maxHealth || 210;
+      this.maxHealth = this.health;
+    }
+
+    // Birdeater boss state
+    if (this.char.isBirdeater) {
+      this.birdeaterLegPhase = 0;          // walk animation phase
+      this.birdeaterTailStriking = false;   // tail attack active
+      this.birdeaterTailTimer = 0;          // tail strike animation timer
+      this.birdeaterTailCooldown = 0;       // cooldown between tail strikes
+      this.birdeaterLegCrushCooldown = 0;   // cooldown between leg crush damage
+      this.birdeaterJumping = false;        // boss jump over player
+      this.birdeaterJumpVy = 0;
+      this.birdeaterJumpCooldown = 0;
+      this.health = this.char.maxHealth || 230;
+      this.maxHealth = this.health;
+    }
+
+    // Scalena boss state
+    if (this.char.isScalena) {
+      this.scalenaNeckExtend = 0;       // 0-1, how far neck is extended
+      this.scalenaBiting = false;        // true during bite attack
+      this.scalenaBiteTimer = 0;         // frames of bite animation
+      this.scalenaBiteCooldown = 0;      // cooldown between bites
+      this.scalenaSnakes = [];           // array of active snakes { x, y, vx, vy, timer, biteCooldown }
+      this.scalenaSnakeCooldown = 0;     // cooldown between snake summons
+      this.health = this.char.maxHealth || 200;
+      this.maxHealth = this.health;
+    }
+
     // Borgus boss state
     if (this.char.isBorgus) {
       this.borgusLaser = null;        // active laser projectile { x, y, vx, timer, hit }

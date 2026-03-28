@@ -496,6 +496,22 @@ function drawFighterIcon(charName, x, y, size, color) {
       ctx.strokeRect(-4 * s, -18 * s, 8 * s, 6 * s);
       break;
     }
+    case 'BIRDEATER': {
+      // Spider with legs
+      ctx.lineWidth = 1.5 * s;
+      ctx.beginPath();
+      ctx.ellipse(0, -2 * s, 6 * s, 4 * s, 0, 0, Math.PI * 2);
+      ctx.fill();
+      for (let side = -1; side <= 1; side += 2) {
+        for (let i = 0; i < 4; i++) {
+          ctx.beginPath();
+          ctx.moveTo(side * 5 * s, (-3 + i * 2) * s);
+          ctx.lineTo(side * (10 + i) * s, (-8 + i * 4) * s);
+          ctx.stroke();
+        }
+      }
+      break;
+    }
     default: {
       // Fallback: circle with first letter
       ctx.beginPath();

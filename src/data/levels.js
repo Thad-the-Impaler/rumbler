@@ -24,6 +24,11 @@ const secretLevels = [
   { name: 'SUNNY CITY', desc: 'The skyline of LA under golden sun', color: '#FF8C00', accent: '#FFD700', unlocked: () => sunnyCityUnlocked }
 ];
 
+// Campaign-only levels (not selectable in other modes)
+const campaignLevels = [
+  { name: 'THE DUST', desc: 'A forgotten realm of ancient kings', color: '#1a0a2e', accent: '#ff6b35' }
+];
+
 function getLevels() {
   const lvls = [...defaultLevels];
   for (const sl of secretLevels) {

@@ -415,3 +415,146 @@ Fighter.prototype.drawPrinter = function(ctx) {
 
   ctx.restore();
 };
+
+Fighter.prototype.drawBirdeaterLegs = function(ctx) {
+  const flash = this.flashTimer > 0 && this.flashTimer % 2 === 0;
+  const legColor = flash ? '#fff' : this.char.accent;
+  const legDark = flash ? '#ddd' : this.char.outline;
+  const facing = this.facing;
+  const phase = this.birdeaterLegPhase;
+
+  ctx.save();
+  ctx.translate(this.x, this.y);
+
+  // Wide shadow for legs
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.beginPath();
+  ctx.ellipse(0, 2, 60, 14, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  const bodyY = -75; // where body sits (matches birdeaterOffset)
+
+  // 4 thick jointed crab legs — knees go UP, feet come DOWN sharp
+  for (let side = -1; side <= 1; side += 2) {
+    for (let pair = 0; pair < 2; pair++) {
+      const hipX = side * (8 + pair * 14);
+      const hipY = bodyY + 10;
+      const walkOff = Math.sin(phase + pair * Math.PI + (side > 0 ? 0 : Math.PI * 0.5)) * 6;
+
+      // Knee goes up and outward
+      const kneeX = hipX + side * (35 + pair * 10);
+      const kneeY = bodyY - 15 + walkOff;
+
+      // Foot comes down to ground, sharp tip
+      const footX = hipX + side * (50 + pair * 8);
+      const footY = -2 + walkOff * 0.2;
+
+      // Thick upper segment (hip to knee)
+      ctx.strokeStyle = legColor;
+      ctx.lineWidth = 10;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(hipX, hipY);
+      ctx.lineTo(kneeX, kneeY);
+      ctx.stroke();
+      // Dark outline on upper
+      ctx.strokeStyle = legDark;
+      ctx.lineWidth = 12;
+      ctx.globalAlpha = 0.3;
+      ctx.beginPath();
+      ctx.moveTo(hipX, hipY);
+      ctx.lineTo(kneeX, kneeY);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+
+      // Thick lower segment (knee to foot) — tapers to sharp point
+      ctx.fillStyle = legColor;
+      ctx.beginPath();
+      ctx.moveTo(kneeX - 5, kneeY);
+      ctx.lineTo(kneeX + 5, kneeY);
+      ctx.lineTo(footX + 1, footY);
+      ctx.lineTo(footX - 1, footY);
+      ctx.closePath();
+      ctx.fill();
+      // Outline
+      ctx.strokeStyle = legDark;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Knee joint circle
+      ctx.fillStyle = legDark;
+      ctx.beginPath();
+      ctx.arc(kneeX, kneeY, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = legColor;
+      ctx.beginPath();
+      ctx.arc(kneeX, kneeY, 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Scorpion tail — thick, curling over the body from behind
+  ctx.save();
+  const tailBaseX = -facing * 10;
+  const tailBaseY = bodyY + 5;
+
+  // Tail animation
+  let curlAngle = -1.3; // default: curled up and over
+  let tailLength = 60;
+  if (this.birdeaterTailStriking) {
+    const t = 1 - this.birdeaterTailTimer / 35;
+    if (t < 0.35) {
+      curlAngle = -1.3 - t * 2; // wind up higher
+      tailLength = 65;
+    } else if (t < 0.55) {
+      curlAngle = 0.4; // strike forward and down
+      tailLength = 75;
+    } else {
+      curlAngle = -1.3 * Math.min(1, (t - 0.55) / 0.45); // return
+    }
+  }
+
+  // Draw tail as thick segmented curve
+  const segments = 6;
+  const pts = [];
+  for (let i = 0; i <= segments; i++) {
+    const frac = i / segments;
+    const angle = curlAngle * frac;
+    const r = tailLength * frac;
+    const px = tailBaseX + Math.cos(angle + Math.PI * 0.5) * r * -facing;
+    const py = tailBaseY + Math.sin(angle + Math.PI * 0.5) * r;
+    pts.push({ x: px, y: py });
+  }
+
+  // Thick tail body
+  for (let i = 0; i < pts.length - 1; i++) {
+    const thickness = 8 - i * 0.8; // tapers
+    ctx.strokeStyle = legColor;
+    ctx.lineWidth = thickness;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(pts[i].x, pts[i].y);
+    ctx.lineTo(pts[i + 1].x, pts[i + 1].y);
+    ctx.stroke();
+  }
+
+  // Stinger — sharp triangle at tip
+  const tip = pts[pts.length - 1];
+  const prev = pts[pts.length - 2];
+  const stingerDir = Math.atan2(tip.y - prev.y, tip.x - prev.x);
+  const stingerLen = 14;
+  ctx.fillStyle = '#cc0000';
+  ctx.beginPath();
+  ctx.moveTo(tip.x + Math.cos(stingerDir) * stingerLen, tip.y + Math.sin(stingerDir) * stingerLen);
+  ctx.lineTo(tip.x + Math.cos(stingerDir + 0.5) * 5, tip.y + Math.sin(stingerDir + 0.5) * 5);
+  ctx.lineTo(tip.x + Math.cos(stingerDir - 0.5) * 5, tip.y + Math.sin(stingerDir - 0.5) * 5);
+  ctx.closePath();
+  ctx.fill();
+  // Dark edge on stinger
+  ctx.strokeStyle = '#880000';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  ctx.restore();
+  ctx.restore();
+};

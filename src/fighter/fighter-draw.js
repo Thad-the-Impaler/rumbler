@@ -400,7 +400,12 @@ Fighter.prototype.draw = function(ctx) {
   }
   const kwVibX = this.kwStunTimer > 0 ? (Math.random() - 0.5) * 6 : 0;
   const kwVibY = this.kwStunTimer > 0 ? (Math.random() - 0.5) * 4 : 0;
-  ctx.translate(this.x + kwVibX, this.y + kwVibY);
+  // Birdeater: draw legs BEFORE body translate (in world space at ground level)
+  if (this.char.isBirdeater) {
+    this.drawBirdeaterLegs(ctx);
+  }
+  const birdeaterOffset = this.char.isBirdeater ? -75 : 0;
+  ctx.translate(this.x + kwVibX, this.y + kwVibY + birdeaterOffset);
   if (this._rumbleRotation) ctx.rotate(this._rumbleRotation);
   if (this.char.isBojdo) ctx.scale(this.bojdoScale, this.bojdoScale);
   if (this.char.isBorgus) ctx.scale(1.3, 1.3);
@@ -943,6 +948,47 @@ Fighter.prototype.draw = function(ctx) {
     ctx.translate(0, legLen);
   }
 
+  // The Count: maroon cape (drawn BEFORE body so it renders behind)
+  if (this.char.isTheCount) {
+    ctx.save();
+    const capeBodyH = (40 - crouch) * ptScale;
+    const capeShoulderY = -legLen - capeBodyH + 5;
+    const capeWave = Math.sin(Date.now() * 0.004) * 4;
+    const capeWave2 = Math.sin(Date.now() * 0.003 + 1) * 3;
+    // Cape flows behind (opposite of facing direction)
+    const bx = -f;
+    ctx.fillStyle = '#5A0A0A';
+    ctx.beginPath();
+    // Anchored at both shoulders
+    ctx.moveTo(-12, capeShoulderY);
+    ctx.lineTo(12, capeShoulderY);
+    // Right side flows back and down
+    ctx.quadraticCurveTo(bx * 20 + 10 + capeWave, capeShoulderY + 20, bx * 28 + 8 + capeWave, capeShoulderY + 45);
+    // Bottom edge — wide
+    ctx.quadraticCurveTo(bx * 25 + capeWave2, capeShoulderY + 68, bx * 15 + capeWave2 * 0.5, capeShoulderY + 72);
+    ctx.lineTo(bx * 15 - 8 + capeWave2 * 0.3, capeShoulderY + 72);
+    // Left side back up
+    ctx.quadraticCurveTo(bx * 20 - 10 + capeWave, capeShoulderY + 45, bx * 15 - 12 + capeWave, capeShoulderY + 20);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#3A0505';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    // Inner lining
+    ctx.fillStyle = '#8B1A1A';
+    ctx.globalAlpha = 0.3;
+    ctx.beginPath();
+    ctx.moveTo(-8, capeShoulderY + 5);
+    ctx.lineTo(8, capeShoulderY + 5);
+    ctx.quadraticCurveTo(bx * 16 + 6 + capeWave * 0.5, capeShoulderY + 30, bx * 20 + 4 + capeWave * 0.5, capeShoulderY + 50);
+    ctx.lineTo(bx * 20 - 4 + capeWave2 * 0.3, capeShoulderY + 50);
+    ctx.quadraticCurveTo(bx * 16 - 6 + capeWave * 0.5, capeShoulderY + 30, -8, capeShoulderY + 5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
   // Body
   ctx.fillStyle = color;
   ctx.strokeStyle = outline;
@@ -1131,7 +1177,7 @@ Fighter.prototype.draw = function(ctx) {
 
   // Eyes
   const eyeBaseY = isPaletap ? 0 : headY;
-  ctx.fillStyle = this.char.isErictho ? '#9944dd' : outline;
+  ctx.fillStyle = this.char.isErictho ? '#9944dd' : this.char.isRelapmi ? '#ff2222' : outline;
   ctx.beginPath();
   ctx.arc(f * 5, eyeBaseY - 2, 3, 0, Math.PI * 2);
   ctx.fill();
@@ -1152,6 +1198,121 @@ Fighter.prototype.draw = function(ctx) {
 
   if (isPaletap) ctx.restore(); // end tilted head transform
   if (isPaletap) ctx.restore(); // end forward lean
+
+  // Relapmi: pharaoh headpiece
+  if (this.char.isRelapmi) {
+    const hatY = headY - 12;
+    // Nemes cloth (sides draping down from behind head, not covering face)
+    ctx.fillStyle = '#1a1a55';
+    ctx.beginPath();
+    ctx.moveTo(-16, hatY + 14);
+    ctx.lineTo(-18, hatY + 35);
+    ctx.lineTo(-10, hatY + 35);
+    ctx.lineTo(-10, hatY + 14);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(16, hatY + 14);
+    ctx.lineTo(18, hatY + 35);
+    ctx.lineTo(10, hatY + 35);
+    ctx.lineTo(10, hatY + 14);
+    ctx.closePath();
+    ctx.fill();
+    // Stripes on cloth
+    ctx.strokeStyle = '#111111';
+    ctx.lineWidth = 1;
+    for (let s = 0; s < 3; s++) {
+      const sy = hatY + 18 + s * 5;
+      ctx.beginPath();
+      ctx.moveTo(-17, sy); ctx.lineTo(-10, sy); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(17, sy); ctx.lineTo(10, sy); ctx.stroke();
+    }
+    // Main crown (sits on top of head)
+    ctx.fillStyle = '#1a1a55';
+    ctx.beginPath();
+    ctx.moveTo(-16, hatY + 10);
+    ctx.lineTo(-14, hatY - 8);
+    ctx.quadraticCurveTo(0, hatY - 12, 14, hatY - 8);
+    ctx.lineTo(16, hatY + 10);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#111111';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    // Gold band at base of crown
+    ctx.strokeStyle = '#D4A04A';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(-15, hatY + 8);
+    ctx.lineTo(15, hatY + 8);
+    ctx.stroke();
+    // Uraeus (cobra at front)
+    ctx.fillStyle = '#33ff66';
+    ctx.beginPath();
+    ctx.moveTo(f * 2, hatY - 8);
+    ctx.lineTo(f * 2 - 3, hatY - 16);
+    ctx.lineTo(f * 2 + 3, hatY - 16);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#ff3333';
+    ctx.beginPath();
+    ctx.arc(f * 2, hatY - 16, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Six Iron-Nine Iron: ten-gallon cowboy hat + golf club in hand
+  if (this.char.isSixIron) {
+    const hatY = headY - 10;
+    // Hat brim (wide, brown)
+    ctx.fillStyle = '#6B4226';
+    ctx.beginPath();
+    ctx.ellipse(0, hatY + 6, 24, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#4A2A10';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    // Hat crown (shorter cowboy style)
+    ctx.fillStyle = '#7B5230';
+    ctx.beginPath();
+    ctx.moveTo(-12, hatY + 3);
+    ctx.lineTo(-10, hatY - 10);
+    ctx.quadraticCurveTo(0, hatY - 14, 10, hatY - 10);
+    ctx.lineTo(12, hatY + 3);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#4A2A10';
+    ctx.stroke();
+    // Hat band
+    ctx.strokeStyle = '#D4A04A';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-11, hatY + 1);
+    ctx.lineTo(11, hatY + 1);
+    ctx.stroke();
+
+    // Golf club in front hand
+    const clubSwing = this.sixIronClubSwinging ? (1 - this.sixIronClubTimer / 30) : 0;
+    const clubAngle = clubSwing < 0.4 ? -0.8 - clubSwing * 2 : // wind up
+                      clubSwing < 0.6 ? 0.6 : // strike
+                      -0.3 * (1 - (clubSwing - 0.6) / 0.4); // return
+    ctx.save();
+    ctx.translate(armEndX || (f * 28), armEndY || (-legLen - bodyH * 0.2));
+    ctx.rotate(clubAngle * f);
+    // Shaft
+    ctx.strokeStyle = '#aaa';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(f * 30, -20);
+    ctx.stroke();
+    // Club head
+    ctx.fillStyle = '#888';
+    ctx.beginPath();
+    ctx.roundRect(f * 27, -28, f * 12, 10, 3);
+    ctx.fill();
+    ctx.restore();
+  }
 
   // Gourmand: fork in front hand, spoon in back hand, open mouth
   if (this.char.isGourmand) {
@@ -1805,6 +1966,308 @@ Fighter.prototype.draw = function(ctx) {
     ctx.arc(this.x + this.facing * 35, this.centerY, 4 + chT * 6, 0, Math.PI * 2);
     ctx.fill();
     ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  // The Count: dark fireworks + explosions
+  if (this.char.isTheCount) {
+    ctx.save();
+    // Firework projectiles with trails
+    for (const fw of this.countFireworks) {
+      for (const t of fw.trail) {
+        ctx.globalAlpha = t.timer / 8 * 0.5;
+        ctx.fillStyle = fw.color;
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = fw.color;
+      ctx.beginPath();
+      ctx.arc(fw.x, fw.y, 4, 0, Math.PI * 2);
+      ctx.fill();
+      // Bright core
+      ctx.fillStyle = '#ffffff';
+      ctx.globalAlpha = 0.5;
+      ctx.beginPath();
+      ctx.arc(fw.x, fw.y, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    // Explosion particles
+    for (const e of this.countExplosions) {
+      ctx.globalAlpha = Math.min(1, e.timer / 12);
+      ctx.fillStyle = e.color;
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, 3 + (1 - e.timer / 20) * 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  // Relapmi: ground spears, body shank, spike ring
+  if (this.char.isRelapmi) {
+    ctx.save();
+    // Ground spears
+    for (const spear of this.relapmiSpears) {
+      const spearH = 80 * spear.emergeT;
+      if (spearH < 2) continue;
+      ctx.fillStyle = '#111111';
+      ctx.strokeStyle = '#33ff66';
+      ctx.lineWidth = 1;
+      // Spear shaft (tapers to sharp point)
+      ctx.beginPath();
+      ctx.moveTo(spear.x - 4, spear.y);
+      ctx.lineTo(spear.x + 4, spear.y);
+      ctx.lineTo(spear.x + 2, spear.y - spearH + 8);
+      ctx.lineTo(spear.x, spear.y - spearH); // sharp tip
+      ctx.lineTo(spear.x - 2, spear.y - spearH + 8);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      // Ground disturbance at base
+      ctx.fillStyle = 'rgba(51,255,102,0.2)';
+      ctx.beginPath();
+      ctx.ellipse(spear.x, spear.y, 12, 4, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Body shank
+    if (this.relapmiShank && this.relapmiShank.length > 0) {
+      const shank = this.relapmiShank;
+      const tipX = this.x + Math.cos(shank.angle) * shank.length;
+      const tipY = this.centerY + Math.sin(shank.angle) * shank.length;
+      // Shaft
+      ctx.strokeStyle = '#111111';
+      ctx.lineWidth = 6;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(this.x, this.centerY);
+      ctx.lineTo(tipX, tipY);
+      ctx.stroke();
+      // Neon outline
+      ctx.strokeStyle = '#33ff66';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(this.x, this.centerY);
+      ctx.lineTo(tipX, tipY);
+      ctx.stroke();
+      // Sharp tip
+      const dir = shank.angle;
+      ctx.fillStyle = '#33ff66';
+      ctx.beginPath();
+      ctx.moveTo(tipX + Math.cos(dir) * 12, tipY + Math.sin(dir) * 12);
+      ctx.lineTo(tipX + Math.cos(dir + 0.6) * 6, tipY + Math.sin(dir + 0.6) * 6);
+      ctx.lineTo(tipX + Math.cos(dir - 0.6) * 6, tipY + Math.sin(dir - 0.6) * 6);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // Spike ring
+    if (this.relapmiSpikeRing) {
+      const ring = this.relapmiSpikeRing;
+      for (let i = 0; i < ring.spikes.length; i++) {
+        const spike = ring.spikes[i];
+        const sx = this.x + Math.cos(spike.angle) * spike.dist;
+        const sy = this.centerY + Math.sin(spike.angle) * spike.dist;
+        const alpha = ring.hit[i] ? 0.3 : 0.9;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.translate(sx, sy);
+        ctx.rotate(spike.angle);
+        // Diamond/spike shape
+        ctx.fillStyle = '#111111';
+        ctx.strokeStyle = '#33ff66';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(8, 0);
+        ctx.lineTo(0, -4);
+        ctx.lineTo(-5, 0);
+        ctx.lineTo(0, 4);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+        ctx.restore();
+      }
+    }
+    ctx.restore();
+  }
+
+  // Six Iron-Nine Iron: golf balls + lasso
+  if (this.char.isSixIron) {
+    // Golf balls
+    for (const ball of this.sixIronGolfBalls) {
+      ctx.save();
+      ctx.fillStyle = '#ffffff';
+      ctx.strokeStyle = '#cccccc';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(ball.x, ball.y, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      // Dimple pattern
+      ctx.fillStyle = '#ddd';
+      ctx.beginPath();
+      ctx.arc(ball.x - 1, ball.y - 1, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(ball.x + 2, ball.y + 1, 1, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Lasso
+    if (this.sixIronLasso) {
+      const lasso = this.sixIronLasso;
+      ctx.save();
+      ctx.strokeStyle = '#C4A35A';
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      // Rope from hand to lasso
+      ctx.beginPath();
+      ctx.moveTo(this.x + this.facing * 20, this.centerY - 10);
+      // Wavy rope
+      const midX = (this.x + lasso.x) / 2;
+      const sag = 15 + Math.sin(Date.now() * 0.01) * 3;
+      ctx.quadraticCurveTo(midX, this.centerY + sag, lasso.x, lasso.y);
+      ctx.stroke();
+      // Lasso loop at end
+      ctx.strokeStyle = '#D4A04A';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.ellipse(lasso.x, lasso.y, 15, 10, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Club swing impact effect
+    if (this.sixIronClubSwinging && this.sixIronClubTimer >= 12 && this.sixIronClubTimer <= 15) {
+      ctx.save();
+      ctx.globalAlpha = 0.6;
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      const impactX = this.x + this.facing * 65;
+      const impactY = this.centerY;
+      for (let i = 0; i < 5; i++) {
+        const a = (i / 5) * Math.PI * 2;
+        const r = 20;
+        ctx.beginPath();
+        ctx.moveTo(impactX + Math.cos(a) * 5, impactY + Math.sin(a) * 5);
+        ctx.lineTo(impactX + Math.cos(a) * r, impactY + Math.sin(a) * r);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    }
+  }
+
+  // Scalena extended neck + head
+  if (this.char.isScalena && this.scalenaNeckExtend > 0) {
+    ctx.save();
+    const neckLen = 120 * this.scalenaNeckExtend;
+    const bodyX = this.x;
+    const bodyY = this.centerY - 5;
+    const headX = bodyX + this.facing * (30 + neckLen);
+    const headY = bodyY;
+    // Neck (wavy body segment)
+    ctx.strokeStyle = this.char.color;
+    ctx.lineWidth = 10;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(bodyX + this.facing * 15, bodyY);
+    const midX = bodyX + this.facing * (15 + neckLen * 0.5);
+    const wave = Math.sin(Date.now() * 0.008) * 6 * this.scalenaNeckExtend;
+    ctx.quadraticCurveTo(midX, bodyY + wave, headX, headY);
+    ctx.stroke();
+    // Neck underside lighter color
+    ctx.strokeStyle = this.char.accent;
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.moveTo(bodyX + this.facing * 15, bodyY + 3);
+    ctx.quadraticCurveTo(midX, bodyY + wave + 3, headX, headY + 3);
+    ctx.stroke();
+    // Head (diamond/snake head shape)
+    ctx.fillStyle = this.char.color;
+    ctx.beginPath();
+    ctx.moveTo(headX + this.facing * 14, headY);
+    ctx.lineTo(headX, headY - 9);
+    ctx.lineTo(headX - this.facing * 8, headY);
+    ctx.lineTo(headX, headY + 9);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = this.char.outline;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    // Eyes
+    ctx.fillStyle = '#ffcc00';
+    ctx.beginPath();
+    ctx.arc(headX + this.facing * 4, headY - 4, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.arc(headX + this.facing * 4, headY - 4, 1, 0, Math.PI * 2);
+    ctx.fill();
+    // Bite flash
+    if (this.scalenaBiting && this.scalenaNeckExtend > 0.9) {
+      ctx.globalAlpha = 0.5;
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(headX + this.facing * 10, headY, 12, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+  }
+
+  // Scalena summoned snakes
+  if (this.char.isScalena && this.scalenaSnakes.length > 0) {
+    ctx.save();
+    for (const snake of this.scalenaSnakes) {
+      if (snake.emergeTimer > 0) {
+        // Rising from ground: draw partial snake emerging
+        const emergeT = 1 - snake.emergeTimer / 20;
+        ctx.globalAlpha = emergeT;
+        ctx.fillStyle = '#44aa44';
+        ctx.beginPath();
+        ctx.arc(snake.x, snake.y - emergeT * 8, 4, 0, Math.PI * 2);
+        ctx.fill();
+        // Ground disturb particles
+        ctx.fillStyle = '#8B7355';
+        for (let p = 0; p < 3; p++) {
+          const px = snake.x + (Math.random() - 0.5) * 16;
+          ctx.fillRect(px, snake.y - 2, 3, 3);
+        }
+        ctx.globalAlpha = 1;
+      } else {
+        // Full snake — similar to Serpent assist draw
+        ctx.save();
+        ctx.translate(snake.x, snake.y);
+        ctx.strokeStyle = '#336633';
+        ctx.lineWidth = 4;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        for (let s = 1; s <= 4; s++) {
+          const sx = -snake.vx * s * 2 + Math.sin(Date.now() * 0.01 + s + snake.x) * 3;
+          const sy = -snake.vy * s * 2 + Math.cos(Date.now() * 0.01 + s + snake.x) * 3;
+          ctx.lineTo(sx, sy);
+        }
+        ctx.stroke();
+        // Head
+        ctx.fillStyle = '#44aa44';
+        ctx.beginPath();
+        ctx.arc(0, 0, 4, 0, Math.PI * 2);
+        ctx.fill();
+        // Eye
+        ctx.fillStyle = '#ff0';
+        ctx.beginPath();
+        ctx.arc(snake.vx > 0 ? 2 : -2, -1.5, 1, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
     ctx.restore();
   }
 

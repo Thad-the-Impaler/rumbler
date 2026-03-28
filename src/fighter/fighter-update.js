@@ -329,6 +329,384 @@ Fighter.prototype.update = function(opponent, keys) {
     }
   }
 
+  // The Count update: firework sweep, ground fireworks, explosions
+  if (this.char.isTheCount) {
+    const darkColors = ['#8B0000', '#CC5500', '#B8860B', '#006400', '#00008B', '#4B0082'];
+
+    // Firing sweep: one pass up and down
+    if (this.countFiring) {
+      this.countFireTimer--;
+      const progress = 1 - (this.countFireTimer / 90);
+      // Single sweep: 0→PI (up then down)
+      const aimAngle = Math.sin(progress * Math.PI) * (Math.PI / 2);
+      if (this.countFireTimer % 4 === 0) {
+        const spd = 7 + Math.random() * 3;
+        const spread = (Math.random() - 0.5) * 0.25;
+        const angle = aimAngle + spread;
+        this.countFireworks.push({
+          x: this.x + this.facing * 15,
+          y: this.centerY - 15,
+          vx: this.facing * Math.cos(angle) * spd,
+          vy: -Math.sin(angle) * spd,
+          color: darkColors[Math.floor(Math.random() * darkColors.length)],
+          timer: 28 + Math.floor(Math.random() * 12),
+          trail: []
+        });
+      }
+      if (this.countFireTimer <= 0) this.countFiring = false;
+    }
+
+    // Update firework projectiles
+    for (let i = this.countFireworks.length - 1; i >= 0; i--) {
+      const fw = this.countFireworks[i];
+      fw.trail.push({ x: fw.x, y: fw.y, timer: 8 });
+      fw.x += fw.vx;
+      fw.vy += 0.15;
+      fw.y += fw.vy;
+      fw.timer--;
+      for (let t = fw.trail.length - 1; t >= 0; t--) {
+        fw.trail[t].timer--;
+        if (fw.trail[t].timer <= 0) fw.trail.splice(t, 1);
+      }
+      // Hit check
+      if (opponent && opponent.isHitAt(fw.x, fw.y, 22, 32)) {
+        // Explode on hit (no text)
+        for (let e = 0; e < 10; e++) {
+          const ea = Math.random() * Math.PI * 2;
+          const es = 2 + Math.random() * 3;
+          this.countExplosions.push({
+            x: fw.x, y: fw.y,
+            vx: Math.cos(ea) * es, vy: Math.sin(ea) * es,
+            color: darkColors[Math.floor(Math.random() * darkColors.length)],
+            timer: 12 + Math.floor(Math.random() * 8)
+          });
+        }
+        const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+        opponent.takeDamage(3 * this.char.stats.power * diffMult,
+          { hitstun: 5, blockstun: 3, launch: false }, this.facing, false, { x: fw.x, y: fw.y });
+        this.countFireworks.splice(i, 1);
+        continue;
+      }
+      // Expire
+      if (fw.timer <= 0 || fw.x < 0 || fw.x > 960 || fw.y > 540) {
+        for (let e = 0; e < 6; e++) {
+          const ea = Math.random() * Math.PI * 2;
+          const es = 1 + Math.random() * 2;
+          this.countExplosions.push({
+            x: fw.x, y: fw.y,
+            vx: Math.cos(ea) * es, vy: Math.sin(ea) * es,
+            color: darkColors[Math.floor(Math.random() * darkColors.length)],
+            timer: 10 + Math.floor(Math.random() * 8)
+          });
+        }
+        this.countFireworks.splice(i, 1);
+      }
+    }
+
+    // Update explosion particles
+    for (let i = this.countExplosions.length - 1; i >= 0; i--) {
+      const e = this.countExplosions[i];
+      e.x += e.vx;
+      e.y += e.vy;
+      e.vy += 0.1;
+      e.timer--;
+      if (e.timer <= 0) this.countExplosions.splice(i, 1);
+    }
+  }
+
+  // Relapmi update: ground spears, body shank, spike ring
+  if (this.char.isRelapmi) {
+    // Ground spears: rise, hold, retract
+    for (let i = this.relapmiSpears.length - 1; i >= 0; i--) {
+      const spear = this.relapmiSpears[i];
+      spear.timer--;
+      if (spear.timer > 35) {
+        // Emerging (0 to 1 over 15 frames)
+        spear.emergeT = Math.min(1, spear.emergeT + 1 / 12);
+      } else if (spear.timer > 10) {
+        spear.emergeT = 1; // fully up
+      } else {
+        // Retracting
+        spear.emergeT = spear.timer / 10;
+      }
+      // Damage when fully emerged
+      if (spear.emergeT > 0.7 && !spear.hit) {
+        const spearTipY = spear.y - 80 * spear.emergeT;
+        if (opponent.isHitAt(spear.x, spearTipY, 20, 40)) {
+          const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+          opponent.takeDamage(10 * this.char.stats.power * diffMult,
+            { hitstun: 18, blockstun: 10, launch: true, knockbackForce: 2 },
+            this.facing, false, { x: spear.x, y: spearTipY });
+          spear.hit = true;
+        }
+      }
+      if (spear.timer <= 0) this.relapmiSpears.splice(i, 1);
+    }
+
+    // Body shank: spear extends from body in a direction
+    if (this.relapmiShank) {
+      const shank = this.relapmiShank;
+      shank.timer--;
+      if (shank.timer > 15) {
+        // Extending
+        shank.length = Math.min(shank.maxLen, shank.length + shank.maxLen / 8);
+      } else if (shank.timer > 5) {
+        // Holding
+        shank.length = shank.maxLen;
+      } else {
+        // Retracting
+        shank.length = shank.maxLen * (shank.timer / 5);
+      }
+      // Hit check at tip
+      if (!shank.hit && shank.length > 40) {
+        const tipX = this.x + Math.cos(shank.angle) * shank.length;
+        const tipY = this.centerY + Math.sin(shank.angle) * shank.length;
+        if (opponent.isHitAt(tipX, tipY, 30, 30)) {
+          const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+          opponent.takeDamage(14 * this.char.stats.power * diffMult,
+            { hitstun: 20, blockstun: 12, launch: false, knockbackForce: 5 },
+            this.facing, false, { x: tipX, y: tipY });
+          shank.hit = true;
+        }
+      }
+      if (shank.timer <= 0) this.relapmiShank = null;
+    }
+
+    // Spike ring: expand outward with spiral
+    if (this.relapmiSpikeRing) {
+      const ring = this.relapmiSpikeRing;
+      ring.timer--;
+      for (let i = 0; i < ring.spikes.length; i++) {
+        const spike = ring.spikes[i];
+        spike.dist += spike.speed;
+        spike.angle += 0.03; // spiral rotation
+        const sx = this.x + Math.cos(spike.angle) * spike.dist;
+        const sy = this.centerY + Math.sin(spike.angle) * spike.dist;
+        // Hit check
+        if (!ring.hit[i] && opponent.isHitAt(sx, sy, 18, 18)) {
+          const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+          opponent.takeDamage(7 * this.char.stats.power * diffMult,
+            { hitstun: 12, blockstun: 8, launch: false, knockbackForce: 3 },
+            sx < opponent.x ? -1 : 1, false, { x: sx, y: sy });
+          ring.hit[i] = true;
+        }
+      }
+      if (ring.timer <= 0) this.relapmiSpikeRing = null;
+    }
+  }
+
+  // Six Iron-Nine Iron update: club swing, golf balls, lasso
+  if (this.char.isSixIron) {
+    // Club swing animation
+    if (this.sixIronClubSwinging) {
+      this.sixIronClubTimer--;
+      // Hit check at peak of swing (frame 12-15)
+      if (this.sixIronClubTimer === 15) {
+        const hitX = this.x + this.facing * 70;
+        const hitY = this.centerY;
+        if (opponent.isHitAt(hitX, hitY, 45, 50)) {
+          const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+          opponent.takeDamage(15 * this.char.stats.power * diffMult,
+            { hitstun: 22, blockstun: 14, launch: false, knockbackForce: 7 },
+            this.facing, false, { x: hitX, y: hitY });
+          shakeTimer = 4;
+          shakeIntensity = 5;
+        }
+      }
+      if (this.sixIronClubTimer <= 0) this.sixIronClubSwinging = false;
+    }
+
+    // Golf ball projectiles
+    for (let i = this.sixIronGolfBalls.length - 1; i >= 0; i--) {
+      const ball = this.sixIronGolfBalls[i];
+      ball.x += ball.vx;
+      ball.vy += 0.15; // gravity arc
+      ball.y += ball.vy;
+      ball.timer--;
+      // Bounce off ground
+      if (ball.y > this.groundY) {
+        ball.y = this.groundY;
+        ball.vy = -Math.abs(ball.vy) * 0.5;
+        if (Math.abs(ball.vy) < 1) ball.timer = 0; // stop bouncing
+      }
+      if (!ball.hit && opponent.isHitAt(ball.x, ball.y, 20, 30)) {
+        ball.hit = true;
+        const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+        opponent.takeDamage(8 * this.char.stats.power * diffMult,
+          { hitstun: 14, blockstun: 8, launch: false, knockbackForce: 3 },
+          ball.vx > 0 ? 1 : -1, false, { x: ball.x, y: ball.y });
+      }
+      if (ball.timer <= 0 || ball.hit || ball.x < -20 || ball.x > 980) {
+        this.sixIronGolfBalls.splice(i, 1);
+      }
+    }
+
+    // Lasso
+    if (this.sixIronLasso) {
+      const lasso = this.sixIronLasso;
+      if (!lasso.hit) {
+        lasso.x += lasso.vx;
+        lasso.timer--;
+        // Check if lasso reaches opponent
+        if (opponent.isHitAt(lasso.x, lasso.y, 30, 40)) {
+          lasso.hit = true;
+          this.sixIronLassoPulling = true;
+          this.sixIronLassoPullTimer = 30;
+        }
+        if (lasso.timer <= 0) this.sixIronLasso = null;
+      }
+    }
+
+    // Pulling opponent closer with lasso
+    if (this.sixIronLassoPulling) {
+      this.sixIronLassoPullTimer--;
+      const pullDir = this.x > opponent.x ? 1 : -1;
+      opponent.x += pullDir * 6;
+      opponent.vx = pullDir * 3;
+      // Keep opponent from going past Six Iron
+      if (Math.abs(opponent.x - this.x) < 50) {
+        this.sixIronLassoPulling = false;
+        this.sixIronLasso = null;
+      }
+      if (this.sixIronLassoPullTimer <= 0) {
+        this.sixIronLassoPulling = false;
+        this.sixIronLasso = null;
+      }
+    }
+  }
+
+  // Birdeater update: leg crush, tail strike, jump
+  if (this.char.isBirdeater) {
+    // Walk animation phase
+    this.birdeaterLegPhase += 0.04;
+
+    // Jump physics
+    if (this.birdeaterJumping) {
+      this.y += this.birdeaterJumpVy;
+      this.birdeaterJumpVy += 0.5; // gravity
+      this.x += this.vx;
+      if (this.y >= this.groundY) {
+        this.y = this.groundY;
+        this.grounded = true;
+        this.birdeaterJumping = false;
+        this.birdeaterJumpVy = 0;
+        this.vx = 0;
+        // Landing crush damage
+        if (Math.abs(this.x - opponent.x) < 60) {
+          const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+          opponent.takeDamage(18 * this.char.stats.power * diffMult,
+            { hitstun: 25, blockstun: 15, launch: true, knockbackForce: 5 },
+            this.facing, false, { x: this.x, y: this.groundY });
+          shakeTimer = 8;
+          shakeIntensity = 10;
+        }
+      }
+    }
+
+    // Tail strike animation
+    if (this.birdeaterTailStriking) {
+      this.birdeaterTailTimer--;
+      // Hit check at the peak of the strike (frame 15-20)
+      if (this.birdeaterTailTimer === 18) {
+        const tailX = this.x - this.facing * 60; // tail strikes behind/above
+        const tailY = this.centerY - 50;
+        // Check wide area in front since tail swings over
+        const hitX = this.x + this.facing * 80;
+        const hitY = this.centerY - 30;
+        if (opponent.isHitAt(hitX, hitY, 50, 50)) {
+          const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+          opponent.takeDamage(16 * this.char.stats.power * diffMult,
+            { hitstun: 22, blockstun: 12, launch: false, knockbackForce: 6 },
+            this.facing, false, { x: hitX, y: hitY });
+          shakeTimer = 5;
+          shakeIntensity = 6;
+        }
+      }
+      if (this.birdeaterTailTimer <= 0) {
+        this.birdeaterTailStriking = false;
+      }
+    }
+
+    // Passive leg crush damage — when opponent is directly underneath
+    if (this.grounded && !this.birdeaterJumping && this.birdeaterLegCrushCooldown <= 0) {
+      const dist = Math.abs(this.x - opponent.x);
+      if (dist < 45 && opponent.grounded) {
+        const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+        opponent.takeDamage(6 * this.char.stats.power * diffMult,
+          { hitstun: 10, blockstun: 6, launch: false, knockbackForce: 2 },
+          this.facing, false, { x: this.x, y: opponent.y });
+        this.birdeaterLegCrushCooldown = 30; // 0.5s between crushes
+      }
+    }
+  }
+
+  // Scalena bite + snake update
+  if (this.char.isScalena) {
+    // Bite animation: extend neck forward, check hit at head, retract
+    if (this.scalenaBiting) {
+      this.scalenaBiteTimer--;
+      const totalFrames = 40;
+      const t = 1 - this.scalenaBiteTimer / totalFrames;
+      if (t < 0.3) {
+        // Extending: 0 to 1 over first 30%
+        this.scalenaNeckExtend = t / 0.3;
+      } else if (t < 0.5) {
+        // Holding at full extension
+        this.scalenaNeckExtend = 1;
+        // Check hit at the head position
+        if (this.scalenaBiteTimer === Math.floor(totalFrames * 0.5)) {
+          const headX = this.x + this.facing * (30 + 120 * this.scalenaNeckExtend);
+          const headY = this.centerY - 5;
+          if (opponent.isHitAt(headX, headY, 40, 40)) {
+            const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+            opponent.takeDamage(14 * this.char.stats.power * diffMult,
+              { hitstun: 20, blockstun: 12, launch: false, knockbackForce: 4 },
+              this.facing, false, { x: headX, y: headY });
+          }
+        }
+      } else {
+        // Retracting: 1 to 0 over last 50%
+        this.scalenaNeckExtend = Math.max(0, 1 - (t - 0.5) / 0.5);
+      }
+      if (this.scalenaBiteTimer <= 0) {
+        this.scalenaBiting = false;
+        this.scalenaNeckExtend = 0;
+      }
+    }
+
+    // Snake update: homing toward opponent, biting
+    for (let i = this.scalenaSnakes.length - 1; i >= 0; i--) {
+      const snake = this.scalenaSnakes[i];
+      snake.timer--;
+      if (snake.emergeTimer > 0) {
+        snake.emergeTimer--;
+        continue; // still rising from ground
+      }
+      if (snake.biteCooldown > 0) snake.biteCooldown--;
+      // Homing toward opponent
+      const dx = opponent.x - snake.x;
+      const dy = (opponent.y - 25) - snake.y;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      snake.vx += (dx / dist) * 0.25;
+      snake.vy += (dy / dist) * 0.25;
+      const spd = Math.sqrt(snake.vx * snake.vx + snake.vy * snake.vy);
+      if (spd > 3) { snake.vx *= 3 / spd; snake.vy *= 3 / spd; }
+      snake.x += snake.vx;
+      snake.y += snake.vy;
+      // Bite
+      if (snake.biteCooldown <= 0 && opponent.isHitAt(snake.x, snake.y, 25, 25)) {
+        const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+        opponent.takeDamage(5 * this.char.stats.power * diffMult,
+          { hitstun: 14, blockstun: 8, launch: false, knockbackForce: 1 },
+          snake.x < opponent.x ? 1 : -1, false, { x: snake.x, y: snake.y });
+        snake.biteCooldown = 70;
+      }
+      if (snake.timer <= 0) {
+        this.scalenaSnakes.splice(i, 1);
+      }
+    }
+  }
+
   // Quellic fire phase update (runs every frame)
   if (this.char.isQuellic) {
     if (this.quellicFireCooldown > 0) this.quellicFireCooldown--;

@@ -68,7 +68,18 @@ function update() {
         (cpu.char.isPaletap && player.crouching && player.grounded) ||
         (player.char.isPaletap && cpu.crouching && cpu.grounded)
       );
-      const jumpingOver = (!player.grounded && player.y < cpu.y - 50) || (!cpu.grounded && cpu.y < player.y - 50);
+      // Birdeater: too tall to jump over, but he can jump over the player
+      const birdeaterInvolved = player.char.isBirdeater || cpu.char.isBirdeater;
+      let jumpingOver;
+      if (birdeaterInvolved) {
+        // Only the Birdeater himself can jump over (during his jump)
+        const beIsPlayer = player.char.isBirdeater;
+        const be = beIsPlayer ? player : cpu;
+        const other = beIsPlayer ? cpu : player;
+        jumpingOver = be.birdeaterJumping && !be.grounded && be.y < other.y - 30;
+      } else {
+        jumpingOver = (!player.grounded && player.y < cpu.y - 50) || (!cpu.grounded && cpu.y < player.y - 50);
+      }
       if (!jumpingOver && !crouchingUnder) {
         const overlap = 40 - Math.abs(player.x - cpu.x);
         if (overlap > 0) {

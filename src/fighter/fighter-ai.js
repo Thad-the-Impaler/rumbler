@@ -99,6 +99,245 @@ Fighter.prototype.handleAI = function(opponent) {
     // Otherwise fall through to normal AI
   }
 
+  // The Count boss: dark fireworks sweep, ground fireworks, jump explosion
+  if (this.char.isTheCount) {
+    if (this.countFireCooldown > 0) this.countFireCooldown--;
+    if (this.countGroundCooldown > 0) this.countGroundCooldown--;
+
+    if (this.countFiring) return; // firing sweep in progress
+
+    const cDist = Math.abs(this.x - opponent.x);
+
+    // Firework sweep (one pass up and down) at medium range
+    if (cDist > 100 && this.countFireCooldown <= 0 && Math.random() < 0.03) {
+      this.countFiring = true;
+      this.countFireTimer = 90; // 1.5 second sweep (one pass up-down)
+      this.countFireCooldown = 200;
+      return;
+    }
+
+    // Ground firework burst toward opponent
+    if (cDist > 80 && this.countGroundCooldown <= 0 && Math.random() < 0.04) {
+      const darkColors = ['#8B0000', '#CC5500', '#B8860B', '#006400', '#00008B', '#4B0082'];
+      for (let i = 0; i < 3; i++) {
+        const spd = 5 + Math.random() * 3;
+        this.countFireworks.push({
+          x: this.x + (Math.random() - 0.5) * 40,
+          y: this.groundY,
+          vx: this.facing * (2 + Math.random() * 3),
+          vy: -spd - Math.random() * 4,
+          color: darkColors[Math.floor(Math.random() * darkColors.length)],
+          timer: 25 + Math.floor(Math.random() * 15),
+          trail: [],
+          fromGround: true
+        });
+      }
+      this.countGroundCooldown = 100;
+    }
+
+    // Jump explosion — when in air and close to opponent
+    if (!this.grounded && !this.countJumpExplosionUsed && cDist < 150) {
+      this.countJumpExplosionUsed = true;
+      const darkColors = ['#8B0000', '#CC5500', '#B8860B', '#006400', '#00008B', '#4B0082'];
+      for (let e = 0; e < 20; e++) {
+        const ea = (e / 20) * Math.PI * 2;
+        const es = 3 + Math.random() * 5;
+        this.countExplosions.push({
+          x: this.x, y: this.y - 25,
+          vx: Math.cos(ea) * es, vy: Math.sin(ea) * es,
+          color: darkColors[Math.floor(Math.random() * darkColors.length)],
+          timer: 20 + Math.floor(Math.random() * 10)
+        });
+      }
+      // Damage nearby opponent
+      if (cDist < 80) {
+        const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+        opponent.takeDamage(12 * this.char.stats.power * diffMult,
+          { hitstun: 16, blockstun: 10, launch: false, knockbackForce: 5 },
+          this.facing, false, { x: this.x, y: this.y - 25 });
+      }
+      shakeTimer = 6;
+      shakeIntensity = 7;
+    }
+    if (this.grounded) this.countJumpExplosionUsed = false;
+    // Fall through to normal AI
+  }
+
+  // Relapmi boss: ground spears, body shank, spike ring
+  if (this.char.isRelapmi) {
+    if (this.relapmiSpearCooldown > 0) this.relapmiSpearCooldown--;
+    if (this.relapmiShankCooldown > 0) this.relapmiShankCooldown--;
+    if (this.relapmiSpikeRingCooldown > 0) this.relapmiSpikeRingCooldown--;
+
+    const rDist = Math.abs(this.x - opponent.x);
+
+    // Shank — close range, spear grows from body toward opponent
+    if (rDist < 130 && this.relapmiShankCooldown <= 0 && !this.relapmiShank && Math.random() < 0.06) {
+      const dx = opponent.x - this.x;
+      const dy = (opponent.y - 25) - this.centerY;
+      this.relapmiShank = {
+        angle: Math.atan2(dy, dx),
+        timer: 25,
+        maxLen: 100,
+        length: 0,
+        hit: false
+      };
+      this.relapmiShankCooldown = 80;
+    }
+
+    // Ground spears — summon 2-4 spears rising near opponent at medium+ range
+    if (rDist > 100 && this.relapmiSpearCooldown <= 0 && this.relapmiSpears.length < 5 && Math.random() < 0.035) {
+      const count = 2 + Math.floor(Math.random() * 3);
+      for (let i = 0; i < count; i++) {
+        this.relapmiSpears.push({
+          x: opponent.x + (Math.random() - 0.5) * 150,
+          y: this.groundY,
+          timer: 50,
+          emergeT: 0,
+          hit: false
+        });
+      }
+      this.relapmiSpearCooldown = 150;
+    }
+
+    // Spike ring — fire outward ring at any range, less frequent
+    if (this.relapmiSpikeRingCooldown <= 0 && !this.relapmiSpikeRing && Math.random() < 0.015) {
+      const numSpikes = 12;
+      const spikes = [];
+      for (let i = 0; i < numSpikes; i++) {
+        spikes.push({
+          angle: (i / numSpikes) * Math.PI * 2,
+          dist: 10,
+          speed: 4
+        });
+      }
+      this.relapmiSpikeRing = { spikes, timer: 60, hit: [] };
+      this.relapmiSpikeRingCooldown = 240;
+    }
+    // Fall through to normal AI
+  }
+
+  // Six Iron-Nine Iron boss: club swing, golf ball, lasso
+  if (this.char.isSixIron) {
+    if (this.sixIronClubCooldown > 0) this.sixIronClubCooldown--;
+    if (this.sixIronGolfCooldown > 0) this.sixIronGolfCooldown--;
+    if (this.sixIronLassoCooldown > 0) this.sixIronLassoCooldown--;
+
+    if (this.sixIronClubSwinging || this.sixIronLassoPulling) return;
+
+    const siDist = Math.abs(this.x - opponent.x);
+
+    // Club swing at close range
+    if (siDist < 90 && this.sixIronClubCooldown <= 0 && this.state !== 'attack' && Math.random() < 0.07) {
+      this.sixIronClubSwinging = true;
+      this.sixIronClubTimer = 30;
+      this.sixIronClubCooldown = 70;
+      return;
+    }
+
+    // Shoot golf ball at medium-long range
+    if (siDist > 150 && this.sixIronGolfCooldown <= 0 && this.sixIronGolfBalls.length < 3 && Math.random() < 0.04) {
+      this.sixIronGolfBalls.push({
+        x: this.x + this.facing * 25,
+        y: this.centerY - 5,
+        vx: this.facing * 11,
+        vy: -3 - Math.random() * 2,
+        timer: 90,
+        hit: false
+      });
+      this.sixIronGolfCooldown = 80;
+      return;
+    }
+
+    // Lasso at medium range to pull player closer
+    if (siDist > 120 && siDist < 350 && this.sixIronLassoCooldown <= 0 && !this.sixIronLasso && Math.random() < 0.03) {
+      this.sixIronLasso = {
+        x: this.x + this.facing * 20,
+        y: this.centerY - 10,
+        vx: this.facing * 10,
+        timer: 45,
+        hit: false
+      };
+      this.sixIronLassoCooldown = 240;
+      return;
+    }
+    // Fall through to normal AI
+  }
+
+  // Birdeater boss: leg crush + tail strike + jump over player
+  if (this.char.isBirdeater) {
+    if (this.birdeaterTailCooldown > 0) this.birdeaterTailCooldown--;
+    if (this.birdeaterLegCrushCooldown > 0) this.birdeaterLegCrushCooldown--;
+    if (this.birdeaterJumpCooldown > 0) this.birdeaterJumpCooldown--;
+
+    // During tail strike or jump, skip other AI
+    if (this.birdeaterTailStriking || this.birdeaterJumping) return;
+
+    const beDist = Math.abs(this.x - opponent.x);
+
+    // Jump over player when they're very close and in front
+    if (beDist < 80 && this.birdeaterJumpCooldown <= 0 && this.grounded && Math.random() < 0.03) {
+      this.birdeaterJumping = true;
+      this.birdeaterJumpVy = -14;
+      this.grounded = false;
+      this.birdeaterJumpCooldown = 180;
+      // Jump toward opponent's side to land behind them
+      this.vx = this.facing * 6;
+      return;
+    }
+
+    // Tail strike at medium range
+    if (beDist < 160 && beDist > 30 && this.birdeaterTailCooldown <= 0 && Math.random() < 0.05) {
+      this.birdeaterTailStriking = true;
+      this.birdeaterTailTimer = 35;
+      this.birdeaterTailCooldown = 100;
+      return;
+    }
+
+    // Walk toward player for leg crush (passive damage at close range is in update)
+    // Fall through to normal AI for movement, jabs, kicks, blocking
+  }
+
+  // Scalena boss: neck bite + snake summon
+  if (this.char.isScalena) {
+    if (this.scalenaBiteCooldown > 0) this.scalenaBiteCooldown--;
+    if (this.scalenaSnakeCooldown > 0) this.scalenaSnakeCooldown--;
+
+    // Bite attack — extend neck when close
+    if (this.scalenaBiting) {
+      // Bite animation handled in update; skip other actions
+      return;
+    }
+
+    const sDist = Math.abs(this.x - opponent.x);
+
+    // Neck bite at medium range
+    if (sDist < 200 && sDist > 40 && this.scalenaBiteCooldown <= 0 && this.state !== 'attack' && Math.random() < 0.06) {
+      this.scalenaBiting = true;
+      this.scalenaBiteTimer = 40; // extend, hold, retract
+      this.scalenaBiteCooldown = 120;
+      return;
+    }
+
+    // Summon snakes at long range
+    if (sDist > 150 && this.scalenaSnakeCooldown <= 0 && this.scalenaSnakes.length < 4 && Math.random() < 0.04) {
+      // Summon 2-3 snakes from ground near opponent
+      const count = 2 + Math.floor(Math.random() * 2);
+      for (let i = 0; i < count; i++) {
+        this.scalenaSnakes.push({
+          x: opponent.x + (Math.random() - 0.5) * 120,
+          y: this.groundY,
+          vx: 0, vy: 0,
+          timer: 480, // 8 seconds
+          biteCooldown: 30, // short initial delay
+          emergeTimer: 20 // rise from ground
+        });
+      }
+      this.scalenaSnakeCooldown = 300; // 5 second cooldown
+    }
+    // Fall through to normal AI for movement, jabs, kicks, blocking
+  }
+
   // Borgus boss: special move cooldowns + laser charging (runs every frame)
   if (this.char.isBorgus) {
     if (this.borgusLaserCooldown > 0) this.borgusLaserCooldown--;

@@ -1272,6 +1272,57 @@ function drawBackground() {
       ctx.stroke();
       break;
     }
+    case 'THE DUST': {
+      // Title screen background — dark gradient with floating particles
+      const grad = ctx.createLinearGradient(0, 0, 0, 540);
+      grad.addColorStop(0, '#0a0a1a');
+      grad.addColorStop(0.5, '#1a0a2e');
+      grad.addColorStop(1, '#0a1a2e');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 960, 540);
+      // Animated particles (same as title screen)
+      for (let i = 0; i < 30; i++) {
+        const px = (i * 137 + t * 0.02 * (i % 3 + 1)) % 960;
+        const py = (i * 89 + t * 0.01 * (i % 2 + 1)) % 540;
+        ctx.fillStyle = `rgba(255,100,50,${0.1 + Math.sin(i + t * 0.003) * 0.05})`;
+        ctx.beginPath();
+        ctx.arc(px, py, 2 + Math.sin(i) * 1, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      // Subtle ancient ruin silhouettes in the background
+      ctx.fillStyle = 'rgba(20,10,35,0.6)';
+      // Broken pillars
+      ctx.fillRect(80, 280, 25, 110);
+      ctx.fillRect(80, 260, 35, 25);
+      ctx.fillRect(200, 310, 20, 80);
+      ctx.fillRect(700, 290, 22, 100);
+      ctx.fillRect(700, 270, 32, 25);
+      ctx.fillRect(850, 320, 18, 70);
+      // Crumbled blocks
+      ctx.fillRect(130, 370, 30, 20);
+      ctx.fillRect(750, 365, 25, 25);
+      ctx.fillRect(440, 375, 35, 15);
+      // Floor
+      ctx.fillStyle = '#151025';
+      ctx.fillRect(0, 385, 960, 155);
+      ctx.strokeStyle = '#2a1a3e';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, 387);
+      ctx.lineTo(960, 387);
+      ctx.stroke();
+      // Floor cracks
+      ctx.strokeStyle = 'rgba(100,50,150,0.15)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < 8; i++) {
+        ctx.beginPath();
+        ctx.moveTo(i * 130, 387);
+        ctx.lineTo(i * 130 + 40, 420);
+        ctx.lineTo(i * 130 + 15, 460);
+        ctx.stroke();
+      }
+      break;
+    }
   }
 }
 

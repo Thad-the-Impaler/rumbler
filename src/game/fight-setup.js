@@ -1,9 +1,12 @@
+let campaignMusicOverride = null;
+
 function startVersusScreen() {
   versusTimer = 0;
   gameState = 'versus';
   stopTitleMusic();
-  const level = selectedLevel ? selectedLevel.name : 'CLASSIC';
-  playFightMusic(level);
+  const musicKey = campaignMusicOverride || (selectedLevel ? selectedLevel.name : 'CLASSIC');
+  playFightMusic(musicKey);
+  campaignMusicOverride = null;
 }
 
 function setupCampaignFight(index) {
@@ -25,6 +28,7 @@ function setupCampaignFight(index) {
   // Resolve level
   selectedLevel = defaultLevels.find(l => l.name === fight.level)
     || secretLevels.find(l => l.name === fight.level)
+    || campaignLevels.find(l => l.name === fight.level)
     || defaultLevels[0];
 
   // Random CPU assist
@@ -39,6 +43,9 @@ function setupCampaignFight(index) {
   } else {
     testYourMightActive = false;
   }
+
+  // Music override for specific fights
+  campaignMusicOverride = fight.music || null;
 
   startVersusScreen();
 }

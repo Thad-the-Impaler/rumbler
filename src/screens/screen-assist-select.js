@@ -25,7 +25,7 @@ function drawAssistSelectScreen() {
   ctx.textAlign = 'left';
   ctx.fillStyle = selectedPlayer.accent;
   ctx.fillText(selectedPlayer.name, 48, 34);
-  if (selectedCPU) {
+  if (selectedCPU && gameMode !== 'campaign') {
     drawPortraitIcon(selectedCPU.name, 930, 30, 22);
     ctx.font = '11px Arial';
     ctx.textAlign = 'right';

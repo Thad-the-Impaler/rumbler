@@ -9,18 +9,24 @@ function drawDifficultySelectScreen() {
 
   ctx.font = '16px Arial';
   ctx.fillStyle = '#888';
-  ctx.fillText(`${selectedPlayer.name} vs ${selectedCPU.name}`, 480, 80);
+  if (gameMode === 'campaign') {
+    ctx.fillText('CAMPAIGN', 480, 80);
+  } else {
+    ctx.fillText(`${selectedPlayer.name} vs ${selectedCPU.name}`, 480, 80);
+  }
   // Player & CPU icons
   drawPortraitIcon(selectedPlayer.name, 30, 30, 22);
   ctx.font = '11px Arial';
   ctx.textAlign = 'left';
   ctx.fillStyle = selectedPlayer.accent;
   ctx.fillText(selectedPlayer.name, 48, 34);
-  drawPortraitIcon(selectedCPU.name, 930, 30, 22);
-  ctx.font = '11px Arial';
-  ctx.textAlign = 'right';
-  ctx.fillStyle = selectedCPU.accent;
-  ctx.fillText(selectedCPU.name, 912, 34);
+  if (gameMode !== 'campaign') {
+    drawPortraitIcon(selectedCPU.name, 930, 30, 22);
+    ctx.font = '11px Arial';
+    ctx.textAlign = 'right';
+    ctx.fillStyle = selectedCPU.accent;
+    ctx.fillText(selectedCPU.name, 912, 34);
+  }
 
   // Difficulty cards
   const startX = 480 - ((difficulties.length - 1) * 200) / 2;
