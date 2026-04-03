@@ -33,6 +33,7 @@ SOURCE_FILES = [
     'screens/screen-title.js',
     'screens/screen-char-select.js',
     'screens/screen-practice-select.js',
+    'screens/screen-boss-select.js',
     'screens/screen-assist-select.js',
     'screens/screen-difficulty.js',
     'screens/screen-pause.js',

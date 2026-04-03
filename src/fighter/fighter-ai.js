@@ -59,7 +59,7 @@ Fighter.prototype.handleAI = function(opponent) {
   }
 
   // Printer: just stands there
-  if (this.char.isPrinter) return;
+  if (this.char.isPrinter && !this.char.isPrinterBoss) return;
 
   // Matador: locked into dash
   if (this.matadorDashing) return;
@@ -339,31 +339,51 @@ Fighter.prototype.handleAI = function(opponent) {
     if (this.sixIronClubCooldown > 0) this.sixIronClubCooldown--;
     if (this.sixIronGolfCooldown > 0) this.sixIronGolfCooldown--;
     if (this.sixIronLassoCooldown > 0) this.sixIronLassoCooldown--;
+    if (this.char.isSixDriver && this.sixDriverHoleCooldown > 0) this.sixDriverHoleCooldown--;
 
     if (this.sixIronClubSwinging || this.sixIronLassoPulling) return;
 
     const siDist = Math.abs(this.x - opponent.x);
+    const isDriver = this.char.isSixDriver;
 
-    // Club swing at close range
+    // Club swing at close range (Six Driver: massive knockback)
     if (siDist < 90 && this.sixIronClubCooldown <= 0 && this.state !== 'attack' && Math.random() < 0.07) {
       this.sixIronClubSwinging = true;
       this.sixIronClubTimer = 30;
-      this.sixIronClubCooldown = 70;
+      this.sixIronClubCooldown = isDriver ? 50 : 70;
       return;
     }
 
-    // Shoot golf ball at medium-long range
-    if (siDist > 150 && this.sixIronGolfCooldown <= 0 && this.sixIronGolfBalls.length < 3 && Math.random() < 0.04) {
-      this.sixIronGolfBalls.push({
-        x: this.x + this.facing * 25,
-        y: this.centerY - 5,
-        vx: this.facing * 11,
-        vy: -3 - Math.random() * 2,
-        timer: 90,
-        hit: false
-      });
-      this.sixIronGolfCooldown = 80;
+    // Shoot golf ball(s) — Six Driver shoots 3 in a spread
+    if (siDist > 150 && this.sixIronGolfCooldown <= 0 && this.sixIronGolfBalls.length < (isDriver ? 6 : 3) && Math.random() < 0.04) {
+      const ballCount = isDriver ? 3 : 1;
+      for (let b = 0; b < ballCount; b++) {
+        const spread = isDriver ? (b - 1) * 2.5 : 0; // -2.5, 0, +2.5 vertical spread
+        this.sixIronGolfBalls.push({
+          x: this.x + this.facing * 25,
+          y: this.centerY - 5,
+          vx: this.facing * (isDriver ? 13 : 11),
+          vy: -3 - Math.random() * 2 + spread,
+          timer: 90,
+          hit: false
+        });
+      }
+      this.sixIronGolfCooldown = isDriver ? 60 : 80;
       return;
+    }
+
+    // Six Driver: ground holes that pop up golf balls
+    if (isDriver && this.sixDriverHoleCooldown <= 0 && this.sixDriverGroundHoles.length < 3 && Math.random() < 0.025) {
+      // Create 2-3 holes near opponent
+      const holeCount = 2 + Math.floor(Math.random() * 2);
+      for (let h = 0; h < holeCount; h++) {
+        this.sixDriverGroundHoles.push({
+          x: opponent.x + (Math.random() - 0.5) * 150,
+          timer: 50 + Math.floor(Math.random() * 20), // delay before firing
+          fired: false
+        });
+      }
+      this.sixDriverHoleCooldown = 200;
     }
 
     // Lasso at medium range to pull player closer
@@ -375,39 +395,46 @@ Fighter.prototype.handleAI = function(opponent) {
         timer: 45,
         hit: false
       };
-      this.sixIronLassoCooldown = 240;
+      this.sixIronLassoCooldown = isDriver ? 180 : 240;
       return;
     }
     // Fall through to normal AI
   }
 
-  // Birdeater boss: leg crush + tail strike + jump over player
+  // Birdeater/Maneater boss: leg crush + tail strike + jump over player
   if (this.char.isBirdeater) {
     if (this.birdeaterTailCooldown > 0) this.birdeaterTailCooldown--;
     if (this.birdeaterLegCrushCooldown > 0) this.birdeaterLegCrushCooldown--;
     if (this.birdeaterJumpCooldown > 0) this.birdeaterJumpCooldown--;
 
-    // During tail strike or jump, skip other AI
+    const isManeater = this.char.isManeater;
+
+    // During tail strike or jump (or hover), skip other AI
     if (this.birdeaterTailStriking || this.birdeaterJumping) return;
+    if (isManeater && this.maneaterHovering) return;
 
     const beDist = Math.abs(this.x - opponent.x);
 
     // Jump over player when they're very close and in front
-    if (beDist < 80 && this.birdeaterJumpCooldown <= 0 && this.grounded && Math.random() < 0.03) {
+    // Maneater: hover after jumping
+    if (beDist < (isManeater ? 120 : 80) && this.birdeaterJumpCooldown <= 0 && this.grounded && Math.random() < (isManeater ? 0.04 : 0.03)) {
       this.birdeaterJumping = true;
-      this.birdeaterJumpVy = -14;
+      this.birdeaterJumpVy = isManeater ? -16 : -14;
       this.grounded = false;
-      this.birdeaterJumpCooldown = 180;
-      // Jump toward opponent's side to land behind them
-      this.vx = this.facing * 6;
+      this.birdeaterJumpCooldown = isManeater ? 150 : 180;
+      this.vx = this.facing * (isManeater ? 7 : 6);
+      if (isManeater) {
+        this.maneaterHovering = true;
+        this.maneaterHoverTimer = 90; // hover for 1.5 seconds
+      }
       return;
     }
 
-    // Tail strike at medium range
-    if (beDist < 160 && beDist > 30 && this.birdeaterTailCooldown <= 0 && Math.random() < 0.05) {
+    // Tail strike at medium range (Maneater: longer range, more frequent)
+    if (beDist < (isManeater ? 200 : 160) && beDist > 30 && this.birdeaterTailCooldown <= 0 && Math.random() < (isManeater ? 0.07 : 0.05)) {
       this.birdeaterTailStriking = true;
-      this.birdeaterTailTimer = 35;
-      this.birdeaterTailCooldown = 100;
+      this.birdeaterTailTimer = isManeater ? 30 : 35;
+      this.birdeaterTailCooldown = isManeater ? 70 : 100;
       return;
     }
 
@@ -663,9 +690,10 @@ Fighter.prototype.handleAI = function(opponent) {
   // Bojdo AI size shifting: shrink when far away for speed, grow when close for power
   if (this.char.isBojdo) {
     const isBojdo3 = this.char.isBojdo3;
+    const isDarkB = this.char.isDarkBojdo;
     const isUpgraded = this.char.name === 'BOJDOBOJDO' || isBojdo3;
-    const maxScale = isBojdo3 ? 5.0 : (isUpgraded ? 3.5 : 2.0);
-    const minScale = isBojdo3 ? 1.0 : (isUpgraded ? 0.2 : 0.5);
+    const maxScale = isDarkB ? 3.0 : (isBojdo3 ? 5.0 : (isUpgraded ? 3.5 : 2.0));
+    const minScale = isDarkB ? 0.25 : (isBojdo3 ? 1.0 : (isUpgraded ? 0.2 : 0.5));
     const shiftSpeed = isBojdo3 ? 0.05 : 0.03;
     if (dist > 200 || this.aiAction === 'retreat') {
       // Shrink for speed when far away or retreating (Bojdo3: only return to default, never shrink)

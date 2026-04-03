@@ -11,6 +11,8 @@ function drawAssistSelectScreen() {
   ctx.fillStyle = '#888';
   if (gameMode === 'practice') {
     ctx.fillText(`${selectedPlayer.name} - Practice Mode`, 480, 80);
+  } else if (gameMode === 'bossPractice') {
+    ctx.fillText(`${selectedPlayer.name} vs ${selectedCPU.name} - Boss Practice`, 480, 80);
   } else if (gameMode === 'campaign') {
     ctx.fillText('CAMPAIGN', 480, 80);
   } else if (selectingCPUAssist) {

@@ -218,6 +218,62 @@ const headChar = {
   maxHealth: 300
 };
 
+// Boss: Dark Bojdo (non-playable)
+const darkBojdoChar = {
+  name: 'DARK BOJDO',
+  color: '#ffcc00',
+  accent: '#1a1a1a',
+  outline: '#aa8800',
+  stats: { speed: 4, power: 1.0, defense: 1.0 },
+  desc: 'Reverse Size Shifter',
+  isDarkBojdo: true,
+  isBojdo: true, // uses Bojdo size-shifting system
+  isBoss: true,
+  maxHealth: 220
+};
+
+// Boss: Six Driver-Nine Iron (enhanced Six Iron)
+const sixDriverChar = {
+  name: 'SIX DRIVER-NINE IRON',
+  color: '#5a3a1a',
+  accent: '#cc8844',
+  outline: '#3a2010',
+  stats: { speed: 4.5, power: 1.3, defense: 1.1 },
+  desc: 'Enhanced Cowboy Golfer',
+  isSixIron: true, // reuse Six Iron mechanics
+  isSixDriver: true,
+  isBoss: true,
+  maxHealth: 230
+};
+
+// Boss: Maneater (enhanced Birdeater)
+const maneaterChar = {
+  name: 'MANEATER',
+  color: '#3a1a0a',
+  accent: '#cc6622',
+  outline: '#1a0a00',
+  stats: { speed: 4.0, power: 1.4, defense: 1.3 },
+  desc: 'Giant Arachnid',
+  isBirdeater: true,
+  isManeater: true,
+  isBoss: true,
+  scale: 1.5,
+  maxHealth: 280
+};
+
+// Printer Boss (for practice mode — the actual fight creates this dynamically)
+const printerBossChar = {
+  name: 'PRINTER',
+  color: '#999999',
+  accent: '#cccccc',
+  outline: '#666666',
+  stats: { speed: 3.5, power: 1.2, defense: 1.1 },
+  desc: 'The Awakened Printer',
+  isPrinterBoss: true,
+  isBoss: true,
+  maxHealth: 250
+};
+
 const campaigns = {
   'brawler': {
     name: "BRAWLER'S CAMPAIGN",
@@ -308,7 +364,19 @@ const campaigns = {
       { opponent: 'SHADE', difficulty: 'Hard', level: 'CLASSIC' },
       { opponent: 'HAYSTACK', difficulty: 'Hard', level: 'SUNNY CITY' },
       { opponent: 'GOURMAND', difficulty: 'Hard', level: 'FOGGY CITY' },
-      { opponent: headChar, difficulty: 'Hard', level: 'THE DUST', isBoss: true }
+      { opponent: headChar, difficulty: 'Hard', level: 'THE DUST', isBoss: true },
+      { opponent: 'X-HAUST', difficulty: 'Hard', level: 'CLASSIC' },
+      { opponent: 'BACKTRACK', difficulty: 'Hard', level: 'GLOWING CITY' },
+      { opponent: 'BUCK', difficulty: 'Hard', level: 'SNOWY CITY' },
+      { opponent: 'PALETAP', difficulty: 'Hard', level: 'THE VOID' },
+      { opponent: darkBojdoChar, difficulty: 'Hard', level: 'THE DUST', isBoss: true },
+      { opponent: 'GOLGAR', difficulty: 'Brutal', level: 'THE TEMPLE' },
+      { opponent: 'RUBBERMAN', difficulty: 'Brutal', level: 'RAINY CITY' },
+      { opponent: campaignBojdobojdoChar, difficulty: 'Brutal', level: 'SUNNY CITY' },
+      { opponent: 'MATADOR', difficulty: 'Brutal', level: 'THE DEN' },
+      { opponent: sixDriverChar, difficulty: 'Brutal', level: 'FOGGY CITY', isBoss: true },
+      { opponent: printerChar, difficulty: 'Easy', level: 'CLASSIC', isBonus: true, bonusType: 'testYourMight', bonusTime: 30, isPrinterBoss: true },
+      { opponent: maneaterChar, difficulty: 'Brutal', level: 'THE DEN', isBoss: true }
     ]
   }
 };

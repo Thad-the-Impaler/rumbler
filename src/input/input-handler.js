@@ -15,13 +15,13 @@ window.addEventListener('keydown', e => {
 window.addEventListener('keyup', e => { keys[e.key] = false; });
 // Start title music on any user interaction (click or key)
 window.addEventListener('click', () => {
-  const menuState = gameState === 'title' || gameState === 'charSelect' || gameState === 'practiceTargetSelect' || gameState === 'assistSelect' || gameState === 'difficultySelect' || gameState === 'levelSelect';
+  const menuState = gameState === 'title' || gameState === 'charSelect' || gameState === 'practiceTargetSelect' || gameState === 'bossSelect' || gameState === 'assistSelect' || gameState === 'difficultySelect' || gameState === 'levelSelect';
   if (menuState && titleMusic.paused) playTitleMusic();
 });
 
 function handleKeyPress(key) {
   // Keep title music playing during menu screens
-  const menuState = gameState === 'title' || gameState === 'charSelect' || gameState === 'practiceTargetSelect' || gameState === 'assistSelect' || gameState === 'difficultySelect' || gameState === 'levelSelect';
+  const menuState = gameState === 'title' || gameState === 'charSelect' || gameState === 'practiceTargetSelect' || gameState === 'bossSelect' || gameState === 'assistSelect' || gameState === 'difficultySelect' || gameState === 'levelSelect';
   if (menuState && titleMusic.paused) {
     playTitleMusic();
   }
@@ -444,20 +444,61 @@ function handleKeyPress(key) {
     }
 
     case 'practiceTargetSelect': {
-      const numTargets = 3;
+      const numTargets = 4;
       if (key === 'ArrowLeft' || key === 'a' || key === 'ArrowUp' || key === 'w') practiceTargetCursor = (practiceTargetCursor - 1 + numTargets) % numTargets;
       if (key === 'ArrowRight' || key === 'd' || key === 'ArrowDown' || key === 's') practiceTargetCursor = (practiceTargetCursor + 1) % numTargets;
       if (key === 'Enter' || key === ' ') {
-        selectedCPU = [punchingBag, mannequin, drone][practiceTargetCursor];
-        gameState = 'assistSelect';
-        assistCursor = 0;
-        selectingCPUAssist = false;
+        if (practiceTargetCursor === 3) {
+          // Practice Boss — go to boss select
+          gameMode = 'bossPractice';
+          bossSelectCursor = 0;
+          bossSelectScroll = 0;
+          gameState = 'bossSelect';
+        } else {
+          selectedCPU = [punchingBag, mannequin, drone][practiceTargetCursor];
+          gameState = 'assistSelect';
+          assistCursor = 0;
+          selectingCPUAssist = false;
+        }
       }
       if (key === 'Escape' || key === 'Backspace') {
         gameState = 'charSelect';
         charSelectScroll = 0;
       }
       // Master passkey: type imp11 to unlock all secrets
+      if (isMasterPasskeyNeeded()) {
+        masterCodeBuffer += key.toLowerCase();
+        if (masterCodeBuffer.length > 20) masterCodeBuffer = masterCodeBuffer.slice(-20);
+        if (masterCodeBuffer.includes('imp11')) {
+          masterCodeBuffer = '';
+          activateMasterPasskey();
+        }
+      }
+      break;
+    }
+
+    case 'bossSelect': {
+      const numBosses = practiceBossList.length;
+      const bossPerRow = 8;
+      if (key === 'ArrowLeft' || key === 'a') bossSelectCursor = (bossSelectCursor - 1 + numBosses) % numBosses;
+      if (key === 'ArrowRight' || key === 'd') bossSelectCursor = (bossSelectCursor + 1) % numBosses;
+      if (key === 'ArrowUp' || key === 'w') bossSelectCursor = (bossSelectCursor - bossPerRow + numBosses) % numBosses;
+      if (key === 'ArrowDown' || key === 's') bossSelectCursor = (bossSelectCursor + bossPerRow) % numBosses;
+      if (key === 'Enter' || key === ' ') {
+        const boss = practiceBossList[bossSelectCursor];
+        if (defeatedBosses[boss.name]) {
+          selectedCPU = boss.char;
+          // Go to difficulty select
+          difficultyCursor = 1; // default Normal
+          gameState = 'difficultySelect';
+        }
+      }
+      if (key === 'Escape' || key === 'Backspace') {
+        gameMode = 'practice';
+        gameState = 'practiceTargetSelect';
+        practiceTargetCursor = 3;
+      }
+      // Master passkey: type imp11 to unlock all bosses
       if (isMasterPasskeyNeeded()) {
         masterCodeBuffer += key.toLowerCase();
         if (masterCodeBuffer.length > 20) masterCodeBuffer = masterCodeBuffer.slice(-20);
@@ -484,7 +525,7 @@ function handleKeyPress(key) {
             lotteryActive = true;
             lotteryCallback = () => {
               selectedAssist = assists[lotteryFinal];
-              if (gameMode === 'practice') {
+              if (gameMode === 'practice' || gameMode === 'bossPractice') {
                 cpuAssistIndex = Math.floor(Math.random() * assists.length);
                 levelSelectCursor = 0;
                 gameState = 'levelSelect';
@@ -498,7 +539,7 @@ function handleKeyPress(key) {
             };
           } else {
             selectedAssist = assists[assistCursor];
-            if (gameMode === 'practice') {
+            if (gameMode === 'practice' || gameMode === 'bossPractice') {
               cpuAssistIndex = Math.floor(Math.random() * assists.length);
               levelSelectCursor = 0;
               gameState = 'levelSelect';
@@ -512,7 +553,9 @@ function handleKeyPress(key) {
           }
         }
         if (key === 'Escape' || key === 'Backspace') {
-          if (gameMode === 'practice') {
+          if (gameMode === 'bossPractice') {
+            gameState = 'difficultySelect';
+          } else if (gameMode === 'practice') {
             gameState = 'practiceTargetSelect';
             practiceTargetCursor = 0;
           } else {
@@ -663,11 +706,22 @@ function handleKeyPress(key) {
       if (key === 'ArrowRight' || key === 'd') difficultyCursor = (difficultyCursor + 1) % difficulties.length;
       if (key === 'Enter' || key === ' ') {
         cpuDifficulty = difficulties[difficultyCursor];
-        levelSelectCursor = 0;
-        gameState = 'levelSelect';
+        if (gameMode === 'bossPractice') {
+          // Boss practice: difficulty → assist → level
+          assistCursor = 0;
+          selectingCPUAssist = false;
+          gameState = 'assistSelect';
+        } else {
+          levelSelectCursor = 0;
+          gameState = 'levelSelect';
+        }
       }
       if (key === 'Escape' || key === 'Backspace') {
-        gameState = 'assistSelect';
+        if (gameMode === 'bossPractice') {
+          gameState = 'bossSelect';
+        } else {
+          gameState = 'assistSelect';
+        }
       }
       // Master passkey: type imp11 to unlock all secrets
       if (isMasterPasskeyNeeded()) {
@@ -720,7 +774,7 @@ function handleKeyPress(key) {
           gameState = 'charSelect';
           selectingCPU = false;
           charSelectScroll = 0;
-        } else if (gameMode === 'practice') {
+        } else if (gameMode === 'practice' || gameMode === 'bossPractice') {
           gameState = 'assistSelect';
         } else {
           gameState = 'difficultySelect';
@@ -885,6 +939,8 @@ function handleKeyPress(key) {
           if (campaignFightIndex < campaign.fights.length && campaign.fights[campaignFightIndex] !== null) {
             setupCampaignFight(campaignFightIndex);
           } else {
+            // Campaign complete — unlock rewards
+            if (campaignId === 'warrior') dustUnlocked = true;
             gameState = 'title';
             paused = false;
             stopFightMusic();
@@ -929,13 +985,19 @@ function handleKeyPress(key) {
         if (gameMode === 'campaign') {
           resetRumbleState();
           if (winner === 'player') {
+            // Track defeated boss
+            const campaign = campaigns[campaignId];
+            const justBeat = campaign.fights[campaignFightIndex];
+            if (justBeat && justBeat.isBoss && typeof justBeat.opponent === 'object') {
+              defeatedBosses[justBeat.opponent.name] = true;
+            }
             // Advance to next fight
             campaignFightIndex++;
-            const campaign = campaigns[campaignId];
             if (campaignFightIndex < campaign.fights.length && campaign.fights[campaignFightIndex] !== null) {
               setupCampaignFight(campaignFightIndex);
             } else {
-              // Campaign complete or no more fights
+              // Campaign complete or no more fights — unlock rewards
+              if (campaignId === 'warrior') dustUnlocked = true;
               gameState = 'title';
               paused = false;
               testYourMightActive = false;

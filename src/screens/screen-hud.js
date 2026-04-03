@@ -531,6 +531,15 @@ function drawFighterIcon(charName, x, y, size, color) {
 }
 
 function drawHUD() {
+  // Dark Bojdo HUD distortion
+  const darkBojdoHud = cpu && cpu.char && cpu.char.isDarkBojdo && cpu.darkBojdoHudScale !== undefined;
+  if (darkBojdoHud) {
+    ctx.save();
+    const hs = cpu.darkBojdoHudScale;
+    ctx.translate(480 * (1 - hs), 30 * (1 - hs));
+    ctx.scale(hs, hs);
+  }
+
   const barWidth = 350;
   const barHeight = 24;
   const barY = 25;
@@ -761,10 +770,14 @@ function drawHUD() {
     ctx.fillText('SIZE [K+/L-]', scaleBarX, scaleBarY + 22);
   }
 
-  // Test Your Might bonus HUD
-  if (testYourMightActive) {
+  // Test Your Might bonus HUD (fades out during Printer Boss transition)
+  if (testYourMightActive && (printerBossPhase <= 0)) {
     const secondsLeft = Math.ceil(testYourMightTimer / 60);
     const timePct = testYourMightTimer / testYourMightMaxTime;
+
+    // Fade out if printer boss phase 1 is starting
+    const tymFade = printerBossPhase === 0 ? 1 : 0;
+    ctx.globalAlpha = tymFade;
 
     // "TEST YOUR MIGHT" banner
     ctx.font = 'bold 28px Arial';
@@ -794,7 +807,11 @@ function drawHUD() {
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'right';
     ctx.fillText('DAMAGE: ' + Math.floor(testYourMightDamage), 930, 80);
+    ctx.globalAlpha = 1;
   }
+
+  // Close Dark Bojdo HUD distortion
+  if (darkBojdoHud) ctx.restore();
 }
 
 function drawFinishHimScreen() {

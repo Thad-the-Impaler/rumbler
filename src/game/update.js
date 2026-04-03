@@ -29,27 +29,186 @@ function update() {
 
     // Test Your Might bonus: countdown timer and track damage
     if (testYourMightActive) {
-      testYourMightTimer--;
-      // Track damage dealt to the printer
-      if (cpu._lastHP === undefined) cpu._lastHP = cpu.health;
-      if (cpu.health < cpu._lastHP) {
-        testYourMightDamage += (cpu._lastHP - cpu.health);
-      }
-      cpu._lastHP = cpu.health;
-      // If printer HP hits 0, refill it so the fight continues
-      if (cpu.health <= 0) {
-        cpu.health = cpu.maxHealth;
-        cpu._lastHP = cpu.maxHealth;
-        cpu.state = 'idle';
-        cpu.stateTimer = 0;
+      // Printer Boss: detect first hit and trigger transition
+      if (printerBossPhase === 0) {
+        if (cpu._lastHP === undefined) cpu._lastHP = cpu.health;
+        if (cpu.health < cpu._lastHP) {
+          // First hit landed! Begin transition
+          printerBossPhase = 1;
+          printerBossTimer = 90; // "ENOUGH" duration
+          cpu.health = cpu.maxHealth;
+          cpu._lastHP = cpu.maxHealth;
+          cpu.state = 'idle';
+          cpu.stateTimer = 0;
+          // Freeze player
+          player.state = 'idle';
+          player.vx = 0;
+          player.stateTimer = 0;
+        }
       }
 
-      if (testYourMightTimer <= 0) {
-        winner = 'player';
-        gameState = 'victory';
-        stopFightMusic();
-        return;
+      // Printer Boss cutscene phases
+      if (printerBossPhase >= 1 && printerBossPhase <= 4) {
+        printerBossTimer--;
+
+        if (printerBossPhase === 1 && printerBossTimer <= 0) {
+          printerBossPhase = 2;
+          printerBossTimer = 120; // "FOR EONS I HAVE SUFFERED"
+        } else if (printerBossPhase === 2 && printerBossTimer <= 0) {
+          printerBossPhase = 3;
+          printerBossTimer = 120; // "NOW YOU SHALL KNOW MY AGONY"
+        } else if (printerBossPhase === 3 && printerBossTimer <= 0) {
+          printerBossPhase = 4;
+          printerBossTimer = 60; // Growth animation
+          shakeTimer = 30;
+          shakeIntensity = 6;
+        } else if (printerBossPhase === 4 && printerBossTimer <= 0) {
+          // Transition to real boss fight!
+          printerBossPhase = 5;
+          testYourMightActive = false; // disable TYM mode
+          // Give printer boss stats
+          cpu.char = {
+            ...cpu.char,
+            isPrinterBoss: true,
+            isBoss: true,
+            stats: { speed: 3.5, power: 1.2, defense: 1.1 }
+          };
+          cpu.health = 250;
+          cpu.maxHealth = 250;
+          cpu.state = 'idle';
+        }
+
+        // During cutscene, freeze both fighters
+        player.state = 'idle';
+        player.vx = 0;
+        cpu.state = 'idle';
+        cpu.vx = 0;
+        return; // skip normal update during cutscene
       }
+
+      // Normal TYM behavior (phase 0 only, or non-printer-boss)
+      if (printerBossPhase === 0 || printerBossPhase === -1) {
+        testYourMightTimer--;
+        // Track damage dealt to the printer
+        if (cpu._lastHP === undefined) cpu._lastHP = cpu.health;
+        if (cpu.health < cpu._lastHP) {
+          testYourMightDamage += (cpu._lastHP - cpu.health);
+        }
+        cpu._lastHP = cpu.health;
+        // If printer HP hits 0, refill it so the fight continues
+        if (cpu.health <= 0) {
+          cpu.health = cpu.maxHealth;
+          cpu._lastHP = cpu.maxHealth;
+          cpu.state = 'idle';
+          cpu.stateTimer = 0;
+        }
+
+        if (testYourMightTimer <= 0) {
+          winner = 'player';
+          gameState = 'victory';
+          stopFightMusic();
+          return;
+        }
+      }
+    }
+
+    // Printer Boss fight update (phase 5)
+    if (printerBossPhase === 5 && cpu.char.isPrinterBoss) {
+      // Paper projectiles
+      if (!cpu._printerPaperCooldown) cpu._printerPaperCooldown = 0;
+      if (!cpu._printerInkCooldown) cpu._printerInkCooldown = 0;
+      if (!cpu._printerHeadbuttCooldown) cpu._printerHeadbuttCooldown = 0;
+      if (!cpu._printerHeadbutting) cpu._printerHeadbutting = false;
+      if (cpu._printerPaperCooldown > 0) cpu._printerPaperCooldown--;
+      if (cpu._printerInkCooldown > 0) cpu._printerInkCooldown--;
+      if (cpu._printerHeadbuttCooldown > 0) cpu._printerHeadbuttCooldown--;
+
+      const pDist = Math.abs(cpu.x - player.x);
+      const diffMult = cpuDifficulty ? cpuDifficulty.damageMult : 1;
+
+      // Headbutt at close range
+      if (cpu._printerHeadbutting) {
+        cpu._printerHeadbuttTimer--;
+        if (cpu._printerHeadbuttTimer === 8) {
+          // Hit check
+          const hitX = cpu.x + cpu.facing * 50;
+          if (player.isHitAt(hitX, cpu.centerY, 45, 50)) {
+            player.takeDamage(28 * cpu.char.stats.power * diffMult,
+              { hitstun: 24, blockstun: 16, launch: true, knockbackForce: 8 },
+              cpu.facing, false, { x: hitX, y: cpu.centerY });
+            shakeTimer = 8;
+            shakeIntensity = 8;
+          }
+        }
+        if (cpu._printerHeadbuttTimer <= 0) cpu._printerHeadbutting = false;
+      } else if (pDist < 100 && cpu._printerHeadbuttCooldown <= 0 && cpu.state !== 'attack' && Math.random() < 0.06) {
+        cpu._printerHeadbutting = true;
+        cpu._printerHeadbuttTimer = 20;
+        cpu._printerHeadbuttCooldown = 120;
+      }
+
+      // Paper spray at medium-long range
+      if (cpu._printerPaperCooldown <= 0 && pDist > 80 && !cpu._printerHeadbutting && Math.random() < 0.05) {
+        const count = 3 + Math.floor(Math.random() * 3);
+        for (let i = 0; i < count; i++) {
+          printerBossPapers.push({
+            x: cpu.x + cpu.facing * 30,
+            y: cpu.centerY - 10 + (Math.random() - 0.5) * 20,
+            vx: cpu.facing * (8 + Math.random() * 4),
+            vy: (Math.random() - 0.5) * 4,
+            rot: Math.random() * Math.PI * 2,
+            timer: 60,
+            hit: false
+          });
+        }
+        cpu._printerPaperCooldown = 40 + Math.floor(Math.random() * 30);
+      }
+
+      // Ink spray
+      if (cpu._printerInkCooldown <= 0 && !cpu._printerHeadbutting && Math.random() < 0.02) {
+        const inkCount = 2 + Math.floor(Math.random() * 2);
+        for (let i = 0; i < inkCount; i++) {
+          printerBossInkSplats.push({
+            x: Math.random() * 960,
+            y: Math.random() * 540,
+            w: 80 + Math.random() * 120,
+            h: 60 + Math.random() * 80,
+            alpha: 0.85,
+            timer: 180 + Math.floor(Math.random() * 120)
+          });
+        }
+        cpu._printerInkCooldown = 300 + Math.floor(Math.random() * 120);
+      }
+
+      // Update papers
+      for (let i = printerBossPapers.length - 1; i >= 0; i--) {
+        const p = printerBossPapers[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.1;
+        p.rot += 0.1;
+        p.timer--;
+        if (!p.hit && player.isHitAt(p.x, p.y, 18, 18)) {
+          p.hit = true;
+          player.takeDamage(8 * cpu.char.stats.power * diffMult,
+            { hitstun: 8, blockstun: 4, launch: false, knockbackForce: 1 },
+            p.vx > 0 ? 1 : -1, false, { x: p.x, y: p.y });
+        }
+        if (p.timer <= 0 || p.hit || p.x < -30 || p.x > 990 || p.y > 560) {
+          printerBossPapers.splice(i, 1);
+        }
+      }
+
+      // Update ink splats (fade out)
+      for (let i = printerBossInkSplats.length - 1; i >= 0; i--) {
+        const ink = printerBossInkSplats[i];
+        ink.timer--;
+        if (ink.timer < 60) ink.alpha = ink.timer / 60 * 0.85;
+        if (ink.timer <= 0) printerBossInkSplats.splice(i, 1);
+      }
+
+      // Progressive printer damage visual (based on health %)
+      cpu._printerDamageLevel = Math.floor((1 - cpu.health / cpu.maxHealth) * 5);
     }
 
     // Screen shake
@@ -96,13 +255,12 @@ function update() {
     }
 
 
-    // Check victory (not in practice mode)
-    if (gameMode !== 'practice') {
+    // Check victory (not in practice mode, not in Test Your Might bonus)
+    if (gameMode !== 'practice' && !testYourMightActive) {
       if (player.health <= 0 || cpu.health <= 0) {
         winner = player.health <= 0 ? 'cpu' : 'player';
         finishHimTimer = 0;
         gameState = 'finishHim';
-        stopFightMusic();
         // Clear hit effects, projectiles, and particles on both fighters
         for (const f of [player, cpu]) {
           f.hitEffect = null;

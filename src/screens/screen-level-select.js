@@ -89,9 +89,11 @@ function drawLevelSelectScreen() {
         ctx.shadowBlur = 15;
       }
 
-      // Card background with level color tint
+      // Card background with level color tint (use accent for very dark base colors)
+      const lr = parseInt(lvl.color.slice(1,3), 16), lg = parseInt(lvl.color.slice(3,5), 16), lb = parseInt(lvl.color.slice(5,7), 16);
+      const tooD = (lr + lg + lb) < 120;
       const cardGrad = ctx.createLinearGradient(0, -cardH/2, 0, cardH/2);
-      cardGrad.addColorStop(0, selected ? lvl.color : '#1a1a2a');
+      cardGrad.addColorStop(0, selected ? (tooD ? lvl.accent : lvl.color) : '#1a1a2a');
       cardGrad.addColorStop(1, selected ? '#1a1a2a' : '#0f0f1f');
       ctx.fillStyle = cardGrad;
       ctx.strokeStyle = selected ? lvl.accent : '#333';
@@ -392,6 +394,27 @@ function drawLevelIcon(name, x, y, selected) {
       ctx.beginPath();
       ctx.ellipse(-6, -10, 8, 3, -0.3, 0, Math.PI * 2);
       ctx.fill();
+      break;
+    case 'THE DUST':
+      // Ancient ruins icon — crumbling pillars + particles
+      ctx.fillStyle = '#4a3a5a';
+      ctx.fillRect(-12, -5, 5, 15);
+      ctx.fillRect(7, -8, 5, 18);
+      // Broken tops
+      ctx.fillRect(-14, -7, 9, 3);
+      ctx.fillRect(5, -10, 9, 3);
+      // Floating particles
+      ctx.fillStyle = '#ff6b35';
+      const t = Date.now() * 0.003;
+      for (let i = 0; i < 4; i++) {
+        const px = -8 + i * 5 + Math.sin(t + i * 2) * 3;
+        const py = -12 + Math.cos(t + i * 1.5) * 4;
+        ctx.globalAlpha = alpha * (0.4 + Math.sin(t + i) * 0.3);
+        ctx.beginPath();
+        ctx.arc(px, py, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = alpha;
       break;
   }
 

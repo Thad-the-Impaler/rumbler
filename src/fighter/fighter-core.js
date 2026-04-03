@@ -254,6 +254,9 @@ class Fighter {
       this.sixIronLassoCooldown = 0;      // cooldown between lasso throws
       this.sixIronLassoPulling = false;   // currently pulling opponent
       this.sixIronLassoPullTimer = 0;
+      // Six Driver enhancements
+      this.sixDriverGroundHoles = [];     // { x, timer, fired }
+      this.sixDriverHoleCooldown = 0;
       this.health = this.char.maxHealth || 210;
       this.maxHealth = this.health;
     }
@@ -268,6 +271,9 @@ class Fighter {
       this.birdeaterJumping = false;        // boss jump over player
       this.birdeaterJumpVy = 0;
       this.birdeaterJumpCooldown = 0;
+      // Maneater enhancements
+      this.maneaterHovering = false;
+      this.maneaterHoverTimer = 0;
       this.health = this.char.maxHealth || 230;
       this.maxHealth = this.health;
     }
@@ -309,6 +315,17 @@ class Fighter {
       this.hangmanLaunchTimer = 0;        // frames between piece launches
       this.hangmanHidden = false;         // true while body is disassembled
       this.health = this.char.maxHealth || 200;
+      this.maxHealth = this.health;
+    }
+
+    // Dark Bojdo boss state
+    if (this.char.isDarkBojdo) {
+      this.bojdoScale = 1.0;
+      this.bojdoShifting = false;
+      this.darkBojdoHudScale = 1.0;    // current HUD distortion scale
+      this.darkBojdoHudTarget = 1.0;   // target HUD scale
+      this.darkBojdoHudTimer = 0;      // timer for HUD distortion
+      this.health = this.char.maxHealth || 220;
       this.maxHealth = this.health;
     }
 

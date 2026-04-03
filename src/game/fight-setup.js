@@ -4,6 +4,10 @@ function startVersusScreen() {
   versusTimer = 0;
   gameState = 'versus';
   stopTitleMusic();
+  // The Count always gets his theme, regardless of level
+  if (selectedCPU && selectedCPU.isTheCount && !campaignMusicOverride) {
+    campaignMusicOverride = 'THE COUNT';
+  }
   const musicKey = campaignMusicOverride || (selectedLevel ? selectedLevel.name : 'CLASSIC');
   playFightMusic(musicKey);
   campaignMusicOverride = null;
@@ -42,6 +46,16 @@ function setupCampaignFight(index) {
     testYourMightDamage = 0;
   } else {
     testYourMightActive = false;
+  }
+
+  // Printer Boss secret phase
+  if (fight.isPrinterBoss) {
+    printerBossPhase = 0; // starts as TYM fake
+    printerBossTimer = 0;
+    printerBossInkSplats = [];
+    printerBossPapers = [];
+  } else {
+    printerBossPhase = -1; // not a printer boss fight
   }
 
   // Music override for specific fights

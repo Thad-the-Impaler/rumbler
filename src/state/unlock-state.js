@@ -116,3 +116,4 @@ let glowingCityUnlockFlash = 0;
 let sunnyCityUnlocked = false;
 let sunnyCityCodeBuffer = '';
 let sunnyCityUnlockFlash = 0;
+let dustUnlocked = false;

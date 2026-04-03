@@ -14,6 +14,10 @@ function draw() {
       drawPracticeTargetScreen();
       break;
 
+    case 'bossSelect':
+      drawBossSelectScreen();
+      break;
+
     case 'assistSelect':
       drawAssistSelectScreen();
       break;
@@ -55,6 +59,86 @@ function draw() {
       player.draw(ctx);
       cpu.draw(ctx);
       drawHUD();
+      // Printer Boss: paper projectiles
+      if (printerBossPhase === 5) {
+        for (const p of printerBossPapers) {
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.rot);
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(-8, -6, 16, 12);
+          ctx.strokeStyle = '#cccccc';
+          ctx.lineWidth = 0.5;
+          ctx.strokeRect(-8, -6, 16, 12);
+          // Fake text lines
+          ctx.fillStyle = '#aaa';
+          ctx.fillRect(-5, -3, 8, 1);
+          ctx.fillRect(-5, 0, 6, 1);
+          ctx.fillRect(-5, 3, 9, 1);
+          ctx.restore();
+        }
+      }
+
+      // Printer Boss: ink splats (drawn over everything)
+      for (const ink of printerBossInkSplats) {
+        ctx.save();
+        ctx.globalAlpha = ink.alpha;
+        ctx.fillStyle = '#111';
+        ctx.beginPath();
+        ctx.ellipse(ink.x, ink.y, ink.w / 2, ink.h / 2, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // Irregular edges
+        for (let s = 0; s < 5; s++) {
+          const sx = ink.x + (Math.random() - 0.5) * ink.w * 0.8;
+          const sy = ink.y + (Math.random() - 0.5) * ink.h * 0.8;
+          ctx.beginPath();
+          ctx.ellipse(sx, sy, 15 + Math.random() * 20, 10 + Math.random() * 15, Math.random() * Math.PI, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+        ctx.restore();
+      }
+
+      // Printer Boss: cutscene text
+      if (printerBossPhase >= 1 && printerBossPhase <= 4) {
+        ctx.save();
+        // Darken screen slightly
+        ctx.fillStyle = 'rgba(0,0,0,0.3)';
+        ctx.fillRect(0, 0, 960, 540);
+
+        // Fade TYM text/timer out in phase 1
+        if (printerBossPhase === 1) {
+          const fadeT = printerBossTimer / 90;
+          // The TYM HUD fades based on this — handled by the HUD check
+        }
+
+        // Text above printer
+        ctx.font = 'bold 28px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#ffffff';
+        const textY = cpu.y - 100;
+        let text = '';
+        let textAlpha = 1;
+        if (printerBossPhase === 1) {
+          text = 'ENOUGH.';
+          textAlpha = Math.min(1, (90 - printerBossTimer) / 20) * Math.min(1, printerBossTimer / 15);
+        } else if (printerBossPhase === 2) {
+          text = 'FOR EONS I HAVE SUFFERED.';
+          textAlpha = Math.min(1, (120 - printerBossTimer) / 20) * Math.min(1, printerBossTimer / 15);
+        } else if (printerBossPhase === 3) {
+          text = 'NOW YOU SHALL KNOW MY AGONY.';
+          textAlpha = Math.min(1, (120 - printerBossTimer) / 20) * Math.min(1, printerBossTimer / 15);
+        } else if (printerBossPhase === 4) {
+          // Growth animation — no text, just shake
+        }
+        if (text) {
+          ctx.globalAlpha = textAlpha;
+          ctx.fillText(text, cpu.x, textY);
+          ctx.globalAlpha = 1;
+        }
+        ctx.restore();
+      }
+
       // Backtrack rewind screen flash
       const btEffect = player.btRewindEffect || cpu.btRewindEffect || 0;
       if (btEffect > 0) {
@@ -118,6 +202,7 @@ function draw() {
       break;
 
     case 'victory':
+      stopFightMusic();
       ctx.save();
       if (rumbleType === 'DUPLAIRE' && rumbleDuplaireZoom >= 1) {
         // Show clone-covered Earth as victory background

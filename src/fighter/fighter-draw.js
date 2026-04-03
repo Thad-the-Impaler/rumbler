@@ -9,10 +9,40 @@ Fighter.prototype.draw = function(ctx) {
     return;
   }
 
-  // Draw as printer in campaign bonus
-  if (this.char.isPrinter) {
+  // Draw as printer in campaign bonus (or printer boss with body)
+  if (this.char.isPrinter && !this.char.isPrinterBoss) {
+    // Growth animation: scale up during phase 4
+    if (printerBossPhase === 4) {
+      const growT = 1 - printerBossTimer / 60;
+      const bodyScale = growT * 1.3;
+      // Draw a growing body beneath the printer
+      ctx.save();
+      ctx.translate(this.x, this.y);
+      ctx.globalAlpha = growT;
+      ctx.fillStyle = '#999';
+      ctx.strokeStyle = '#666';
+      ctx.lineWidth = 2;
+      // Body growing
+      ctx.beginPath();
+      ctx.roundRect(-16 * bodyScale, -10 - 40 * bodyScale, 32 * bodyScale, 40 * bodyScale, 6);
+      ctx.fill(); ctx.stroke();
+      // Legs growing
+      ctx.strokeStyle = '#999';
+      ctx.lineWidth = 6 * bodyScale;
+      ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(-6 * bodyScale, -10); ctx.lineTo(-10 * bodyScale, 0); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(6 * bodyScale, -10); ctx.lineTo(10 * bodyScale, 0); ctx.stroke();
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    }
     this.drawPrinter(ctx);
     return;
+  }
+  // Printer Boss (with body) — draw as normal fighter but with printer head
+  if (this.char.isPrinterBoss) {
+    // Let the normal fighter draw handle the body — we'll override the head
+    // Set a flag so the head draw section uses the printer instead
+    this._drawPrinterHead = true;
   }
 
   // Draw as giant head
@@ -416,12 +446,16 @@ Fighter.prototype.draw = function(ctx) {
   if (this.char.isBirdeater) {
     this.drawBirdeaterLegs(ctx);
   }
-  const birdeaterOffset = this.char.isBirdeater ? -75 : 0;
+  const birdeaterOffset = this.char.isManeater ? -95 : (this.char.isBirdeater ? -75 : 0);
   ctx.translate(this.x + kwVibX, this.y + kwVibY + birdeaterOffset);
   if (this._rumbleRotation) ctx.rotate(this._rumbleRotation);
   if (this.char.isBojdo) ctx.scale(this.bojdoScale, this.bojdoScale);
   if (this.char.isBorgus) ctx.scale(1.3, 1.3);
+  if (this.char.isPrinterBoss) ctx.scale(1.3, 1.3);
   if (this.char.isTubeWarden) ctx.scale(1.2, 1.2);
+  if (this.char.isManeater) ctx.scale(1.5, 1.5);
+  // Dark Bojdo proximity shrink effect on player
+  if (this._darkBojdoScale && this._darkBojdoScale !== 1.0) ctx.scale(this._darkBojdoScale, this._darkBojdoScale);
   if (this.isJay) ctx.scale(this.jayScale, this.jayScale);
   if (this.bojShrinkTimer > 0 && !this.char.isBojdo) ctx.scale(0.3, 0.3);
 
@@ -1176,7 +1210,67 @@ Fighter.prototype.draw = function(ctx) {
   const headY = -legLen - bodyH - 16;
   const headSize = isPaletap ? 18 : 16;
 
-  if (this.char.isTubeWarden) {
+  if (this._drawPrinterHead || this.char.isPrinterBoss) {
+    // Printer Boss: printer as head
+    this._drawPrinterHead = false;
+    ctx.save();
+    ctx.translate(0, headY - 5);
+    const dmgLevel = this._printerDamageLevel || 0;
+    const flash = this.flashTimer > 0 && this.flashTimer % 2 === 0;
+    const pColor = flash ? '#fff' : '#dddddd';
+    const pDark = flash ? '#eee' : '#aaaaaa';
+    const pOut = flash ? '#ccc' : '#777777';
+    // Main body
+    ctx.fillStyle = pColor;
+    ctx.strokeStyle = pOut;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(-22, -18, 44, 32, 3);
+    ctx.fill(); ctx.stroke();
+    // Paper tray top
+    ctx.fillStyle = pDark;
+    ctx.beginPath();
+    ctx.roundRect(-18, -24, 36, 8, 2);
+    ctx.fill(); ctx.stroke();
+    // Output slot
+    ctx.fillStyle = '#555';
+    ctx.fillRect(-17, 12, 34, 3);
+    // Buttons
+    ctx.fillStyle = '#44aa44';
+    ctx.beginPath(); ctx.arc(12, -5, 3, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#aa4444';
+    ctx.beginPath(); ctx.arc(17, -5, 2, 0, Math.PI * 2); ctx.fill();
+    // LCD
+    ctx.fillStyle = '#113311';
+    ctx.fillRect(5, -14, 14, 5);
+    ctx.fillStyle = '#44ff44';
+    ctx.font = '4px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(dmgLevel >= 4 ? 'ERROR' : dmgLevel >= 2 ? 'HELP' : 'FIGHT', 6, -10);
+    // Damage cracks
+    if (dmgLevel >= 1) {
+      ctx.strokeStyle = '#555';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(-10, -10); ctx.lineTo(-5, 5); ctx.stroke();
+    }
+    if (dmgLevel >= 2) {
+      ctx.beginPath(); ctx.moveTo(8, -15); ctx.lineTo(15, 0); ctx.stroke();
+    }
+    if (dmgLevel >= 3) {
+      ctx.beginPath(); ctx.moveTo(-15, 5); ctx.lineTo(0, 10); ctx.stroke();
+      ctx.fillStyle = '#333';
+      ctx.fillRect(-20, 8, 6, 4);
+    }
+    if (dmgLevel >= 4) {
+      // Smoke
+      ctx.fillStyle = '#666';
+      ctx.globalAlpha = 0.4 + Math.sin(Date.now() * 0.01) * 0.2;
+      ctx.beginPath(); ctx.arc(-5, -28, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(3, -32, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+  } else if (this.char.isTubeWarden) {
     // Tube Warden: glass vial head instead of normal head
     ctx.save();
     ctx.translate(0, headY);
@@ -1232,7 +1326,7 @@ Fighter.prototype.draw = function(ctx) {
 
     // Eyes
     const eyeBaseY = isPaletap ? 0 : headY;
-    ctx.fillStyle = this.char.isErictho ? '#9944dd' : this.char.isRelapmi ? '#ff2222' : outline;
+    ctx.fillStyle = this.char.isErictho ? '#9944dd' : this.char.isRelapmi ? '#ff2222' : this.char.isDarkBojdo ? '#ffcc00' : outline;
     ctx.beginPath();
     ctx.arc(f * 5, eyeBaseY - 2, 3, 0, Math.PI * 2);
     ctx.fill();
@@ -2217,6 +2311,41 @@ Fighter.prototype.draw = function(ctx) {
       ctx.globalAlpha = 1;
       ctx.restore();
     }
+
+    // Six Driver: ground holes
+    if (this.char.isSixDriver && this.sixDriverGroundHoles) {
+      for (const hole of this.sixDriverGroundHoles) {
+        ctx.save();
+        ctx.translate(hole.x, this.groundY);
+        // Dark hole
+        ctx.fillStyle = '#111';
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 12, 5, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#4a3520';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        // Warning glow before firing
+        if (!hole.fired && hole.timer < 15) {
+          ctx.fillStyle = '#ffffff';
+          ctx.globalAlpha = (1 - hole.timer / 15) * 0.6;
+          ctx.beginPath();
+          ctx.ellipse(0, -2, 8, 3, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = 1;
+        }
+        // Smoke puff after firing
+        if (hole.fired && hole.timer > -15) {
+          ctx.fillStyle = '#aaa';
+          ctx.globalAlpha = Math.max(0, (15 + hole.timer) / 30) * 0.4;
+          ctx.beginPath();
+          ctx.arc(0, -8, 6, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = 1;
+        }
+        ctx.restore();
+      }
+    }
   }
 
   // Twins: draw Selene using real fighter draw, bows on both, arrows
@@ -2343,6 +2472,53 @@ Fighter.prototype.draw = function(ctx) {
       ctx.stroke();
       ctx.restore();
     }
+  }
+
+  // Maneater: wings during hover
+  if (this.char.isManeater && this.maneaterHovering && this.maneaterHoverTimer > 0) {
+    ctx.save();
+    const wingFlap = Math.sin(Date.now() * 0.015) * 0.4;
+    const wingY = bodyOffsetY - 40;
+    // Left wing
+    ctx.save();
+    ctx.translate(-18, wingY);
+    ctx.rotate(-0.6 + wingFlap);
+    ctx.fillStyle = 'rgba(100, 70, 40, 0.6)';
+    ctx.strokeStyle = this.char.outline;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.quadraticCurveTo(-35, -20, -55, -5);
+    ctx.quadraticCurveTo(-40, 8, -20, 12);
+    ctx.quadraticCurveTo(-8, 8, 0, 0);
+    ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    // Wing veins
+    ctx.strokeStyle = 'rgba(60, 40, 20, 0.5)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(-5, 2); ctx.lineTo(-35, -8); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-5, 4); ctx.lineTo(-30, 6); ctx.stroke();
+    ctx.restore();
+    // Right wing
+    ctx.save();
+    ctx.translate(18, wingY);
+    ctx.rotate(0.6 - wingFlap);
+    ctx.fillStyle = 'rgba(100, 70, 40, 0.6)';
+    ctx.strokeStyle = this.char.outline;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.quadraticCurveTo(35, -20, 55, -5);
+    ctx.quadraticCurveTo(40, 8, 20, 12);
+    ctx.quadraticCurveTo(8, 8, 0, 0);
+    ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = 'rgba(60, 40, 20, 0.5)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(5, 2); ctx.lineTo(35, -8); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(5, 4); ctx.lineTo(30, 6); ctx.stroke();
+    ctx.restore();
+    ctx.restore();
   }
 
   // Orcus: crown, skull face, lightning, spirits, soul drain

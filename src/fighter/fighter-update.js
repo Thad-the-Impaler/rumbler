@@ -504,13 +504,16 @@ Fighter.prototype.update = function(opponent, keys) {
       if (this.sixIronClubTimer === 15) {
         const hitX = this.x + this.facing * 70;
         const hitY = this.centerY;
+        const isDriver = this.char.isSixDriver;
         if (opponent.isHitAt(hitX, hitY, 45, 50)) {
           const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
-          opponent.takeDamage(15 * this.char.stats.power * diffMult,
-            { hitstun: 22, blockstun: 14, launch: false, knockbackForce: 7 },
+          const kb = isDriver ? 14 : 7;
+          const dmg = isDriver ? 20 : 15;
+          opponent.takeDamage(dmg * this.char.stats.power * diffMult,
+            { hitstun: isDriver ? 28 : 22, blockstun: isDriver ? 18 : 14, launch: isDriver, knockbackForce: kb },
             this.facing, false, { x: hitX, y: hitY });
-          shakeTimer = 4;
-          shakeIntensity = 5;
+          shakeTimer = isDriver ? 8 : 4;
+          shakeIntensity = isDriver ? 10 : 5;
         }
       }
       if (this.sixIronClubTimer <= 0) this.sixIronClubSwinging = false;
@@ -573,6 +576,32 @@ Fighter.prototype.update = function(opponent, keys) {
         this.sixIronLasso = null;
       }
     }
+
+    // Six Driver: ground holes
+    if (this.char.isSixDriver) {
+      for (let i = this.sixDriverGroundHoles.length - 1; i >= 0; i--) {
+        const hole = this.sixDriverGroundHoles[i];
+        hole.timer--;
+        if (hole.timer <= 0 && !hole.fired) {
+          hole.fired = true;
+          // Pop a golf ball straight up from the hole
+          this.sixIronGolfBalls.push({
+            x: hole.x,
+            y: this.groundY,
+            vx: (Math.random() - 0.5) * 3,
+            vy: -10 - Math.random() * 4,
+            timer: 90,
+            hit: false
+          });
+        }
+        if (hole.fired) {
+          hole.timer--;
+          if (hole.timer < -30) {
+            this.sixDriverGroundHoles.splice(i, 1);
+          }
+        }
+      }
+    }
   }
 
   // Birdeater update: leg crush, tail strike, jump
@@ -582,23 +611,54 @@ Fighter.prototype.update = function(opponent, keys) {
 
     // Jump physics
     if (this.birdeaterJumping) {
+      const isManeater = this.char.isManeater;
+
+      // Maneater hover: pause at apex and hover with wings
+      if (isManeater && this.maneaterHovering && this.maneaterHoverTimer > 0) {
+        if (this.birdeaterJumpVy >= -2) {
+          // At apex — hover
+          this.birdeaterJumpVy *= 0.7; // dampen vertical
+          this.maneaterHoverTimer--;
+          // Drift toward player horizontally during hover
+          const hoverDir = opponent.x > this.x ? 1 : -1;
+          this.vx = hoverDir * 2;
+          // Hover complete — fall
+          if (this.maneaterHoverTimer <= 0) {
+            this.maneaterHovering = false;
+          }
+        } else {
+          // Still ascending — light gravity
+          this.birdeaterJumpVy += 0.2;
+        }
+      } else {
+        // Normal gravity (or Maneater done hovering)
+        this.birdeaterJumpVy += 0.5;
+        if (isManeater && this.maneaterHovering) this.maneaterHovering = false;
+      }
+
       this.y += this.birdeaterJumpVy;
-      this.birdeaterJumpVy += 0.5; // gravity
       this.x += this.vx;
+      // Ceiling clamp
+      if (this.y < 60) { this.y = 60; this.birdeaterJumpVy = 0; }
+
       if (this.y >= this.groundY) {
         this.y = this.groundY;
         this.grounded = true;
         this.birdeaterJumping = false;
         this.birdeaterJumpVy = 0;
+        this.maneaterHovering = false;
+        this.maneaterHoverTimer = 0;
         this.vx = 0;
-        // Landing crush damage
-        if (Math.abs(this.x - opponent.x) < 60) {
+        // Landing crush damage (Maneater: heavier)
+        const crushRange = isManeater ? 80 : 60;
+        if (Math.abs(this.x - opponent.x) < crushRange) {
           const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
-          opponent.takeDamage(18 * this.char.stats.power * diffMult,
-            { hitstun: 25, blockstun: 15, launch: true, knockbackForce: 5 },
+          const crushDmg = isManeater ? 25 : 18;
+          opponent.takeDamage(crushDmg * this.char.stats.power * diffMult,
+            { hitstun: 25, blockstun: 15, launch: true, knockbackForce: isManeater ? 7 : 5 },
             this.facing, false, { x: this.x, y: this.groundY });
-          shakeTimer = 8;
-          shakeIntensity = 10;
+          shakeTimer = isManeater ? 12 : 8;
+          shakeIntensity = isManeater ? 14 : 10;
         }
       }
     }
@@ -611,15 +671,17 @@ Fighter.prototype.update = function(opponent, keys) {
         const tailX = this.x - this.facing * 60; // tail strikes behind/above
         const tailY = this.centerY - 50;
         // Check wide area in front since tail swings over
-        const hitX = this.x + this.facing * 80;
+        const isME = this.char.isManeater;
+        const hitX = this.x + this.facing * (isME ? 110 : 80);
         const hitY = this.centerY - 30;
-        if (opponent.isHitAt(hitX, hitY, 50, 50)) {
+        if (opponent.isHitAt(hitX, hitY, isME ? 60 : 50, 50)) {
           const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
-          opponent.takeDamage(16 * this.char.stats.power * diffMult,
-            { hitstun: 22, blockstun: 12, launch: false, knockbackForce: 6 },
+          const tailDmg = isME ? 24 : 16;
+          opponent.takeDamage(tailDmg * this.char.stats.power * diffMult,
+            { hitstun: isME ? 26 : 22, blockstun: isME ? 16 : 12, launch: isME, knockbackForce: isME ? 8 : 6 },
             this.facing, false, { x: hitX, y: hitY });
-          shakeTimer = 5;
-          shakeIntensity = 6;
+          shakeTimer = isME ? 8 : 5;
+          shakeIntensity = isME ? 9 : 6;
         }
       }
       if (this.birdeaterTailTimer <= 0) {
@@ -804,6 +866,30 @@ Fighter.prototype.update = function(opponent, keys) {
       this.hangmanPieces = [];
       this.facing = opponent.x > this.x ? 1 : -1;
     }
+  }
+
+  // Dark Bojdo: proximity shrink effect on opponent + HUD distortion
+  if (this.char.isDarkBojdo) {
+    // Proximity shrink: closer = smaller player, farther = bigger
+    const dist = Math.abs(this.x - opponent.x);
+    const maxDist = 400;
+    const proxT = Math.min(1, dist / maxDist); // 0 = touching, 1 = far away
+    // Player scale: 0.4 when touching, 1.3 when far
+    const targetPlayerScale = 0.4 + proxT * 0.9;
+    // Smoothly interpolate
+    if (!opponent._darkBojdoScale) opponent._darkBojdoScale = 1.0;
+    opponent._darkBojdoScale += (targetPlayerScale - opponent._darkBojdoScale) * 0.05;
+
+    // HUD distortion: randomly shift HUD scale every few seconds
+    if (this.darkBojdoHudTimer > 0) {
+      this.darkBojdoHudTimer--;
+      this.darkBojdoHudScale += (this.darkBojdoHudTarget - this.darkBojdoHudScale) * 0.05;
+    } else {
+      // Pick a new random distortion every 2-4 seconds
+      this.darkBojdoHudTimer = 120 + Math.floor(Math.random() * 120);
+      this.darkBojdoHudTarget = 0.6 + Math.random() * 0.8; // 0.6 to 1.4
+    }
+    this.darkBojdoHudScale += (this.darkBojdoHudTarget - this.darkBojdoHudScale) * 0.03;
   }
 
   // Head boss: charge roll, spit projectiles, rotation
