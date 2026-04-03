@@ -558,3 +558,263 @@ Fighter.prototype.drawBirdeaterLegs = function(ctx) {
   ctx.restore();
   ctx.restore();
 };
+
+
+Fighter.prototype.drawHangmanPieces = function(ctx) {
+  const color = this.char.color;
+  const accent = this.char.accent;
+  const outline = this.char.outline;
+
+  // Draw trails first (behind pieces)
+  for (const piece of this.hangmanPieces) {
+    if (piece.landed) continue;
+    ctx.save();
+    ctx.globalAlpha = 0.25;
+    ctx.fillStyle = accent;
+    ctx.beginPath();
+    ctx.arc(piece.x - piece.vx * 0.5, piece.y - piece.vy * 0.5, piece.type === 'head' ? 10 : 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 0.1;
+    ctx.beginPath();
+    ctx.arc(piece.x - piece.vx, piece.y - piece.vy, piece.type === 'head' ? 7 : 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  for (const piece of this.hangmanPieces) {
+    ctx.save();
+    ctx.translate(piece.x, piece.y);
+
+    // Spin while flying
+    if (!piece.landed) {
+      const spin = Date.now() * 0.012 + (piece.type === 'head' ? 0 : piece.type === 'torso' ? 1.5 : piece.type === 'leftArm' ? 3 : 4.5);
+      ctx.rotate(Math.sin(spin) * 0.6);
+    }
+
+    const flash = piece.hitCooldown > 25;
+    const c = flash ? '#fff' : color;
+    const a = flash ? '#fff' : accent;
+    const o = flash ? '#ccc' : outline;
+
+    switch (piece.type) {
+      case 'head':
+        // Round head matching fighter style
+        ctx.fillStyle = a;
+        ctx.strokeStyle = o;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, 16, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        // Eyes
+        if (!piece.landed) {
+          // Spiral dizzy eyes while flying
+          ctx.strokeStyle = o;
+          ctx.lineWidth = 2;
+          const t = Date.now() * 0.015;
+          for (let eye = -1; eye <= 1; eye += 2) {
+            ctx.beginPath();
+            for (let i = 0; i < 8; i++) {
+              const a2 = t + i * 0.8;
+              const r = 1 + i * 0.4;
+              const px = eye * 5 + Math.cos(a2) * r;
+              const py = -2 + Math.sin(a2) * r;
+              i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+            }
+            ctx.stroke();
+          }
+        } else {
+          ctx.fillStyle = o;
+          ctx.beginPath(); ctx.arc(-5, -2, 3, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(5, -2, 3, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#fff';
+          ctx.beginPath(); ctx.arc(-4, -3, 1.5, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(6, -3, 1.5, 0, Math.PI * 2); ctx.fill();
+        }
+        break;
+      case 'torso':
+        // Rectangular torso with chest accent
+        ctx.fillStyle = c;
+        ctx.strokeStyle = o;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(-16, -20, 32, 40, 6);
+        ctx.fill();
+        ctx.stroke();
+        // Chest detail
+        ctx.fillStyle = a;
+        ctx.beginPath();
+        ctx.roundRect(-10, -12, 20, 20, 3);
+        ctx.fill();
+        break;
+      case 'leftArm':
+      case 'rightArm':
+        // Arm segments (upper + lower with joint)
+        ctx.strokeStyle = c;
+        ctx.lineWidth = 7;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(0, -12);
+        ctx.lineTo(0, 0);
+        ctx.lineTo(0, 12);
+        ctx.stroke();
+        // Joint
+        ctx.fillStyle = a;
+        ctx.beginPath();
+        ctx.arc(0, 0, 4, 0, Math.PI * 2);
+        ctx.fill();
+        // Fist
+        ctx.fillStyle = c;
+        ctx.beginPath();
+        ctx.arc(0, 14, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = o;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        break;
+      case 'leftLeg':
+      case 'rightLeg':
+        // Leg segments
+        ctx.strokeStyle = c;
+        ctx.lineWidth = 8;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(0, -15);
+        ctx.lineTo(0, 0);
+        ctx.lineTo(0, 15);
+        ctx.stroke();
+        // Knee joint
+        ctx.fillStyle = a;
+        ctx.beginPath();
+        ctx.arc(0, 0, 4, 0, Math.PI * 2);
+        ctx.fill();
+        // Foot
+        ctx.fillStyle = c;
+        ctx.strokeStyle = o;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.ellipse(0, 17, 6, 4, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        break;
+    }
+    ctx.restore();
+  }
+};
+
+
+Fighter.prototype.drawHead = function(ctx) {
+  const flash = this.flashTimer > 0 && this.flashTimer % 2 === 0;
+  const color = flash ? '#fff' : this.char.accent;
+  const outline = flash ? '#ccc' : this.char.outline;
+  const f = this.facing;
+  const radius = 40; // big head
+
+  ctx.save();
+  ctx.translate(this.x, this.y - radius);
+
+  // Shadow on ground
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.beginPath();
+  ctx.ellipse(0, radius, radius * 0.8, 10, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Rotation for rolling
+  ctx.save();
+  ctx.rotate(this.headRotation || 0);
+
+  // Main head circle
+  ctx.fillStyle = color;
+  ctx.strokeStyle = outline;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(0, 0, radius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // Eyes (positioned relative to facing, but rotate with head)
+  ctx.fillStyle = outline;
+  ctx.beginPath(); ctx.arc(f * 8, -6, 8, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(f * 24, -6, 8, 0, Math.PI * 2); ctx.fill();
+  // Eye whites/glint
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(f * 9, -8, 3.5, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(f * 25, -8, 3.5, 0, Math.PI * 2); ctx.fill();
+
+  // Mouth
+  ctx.strokeStyle = outline;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(f * 16, 12, 8, 0.2, Math.PI - 0.2);
+  ctx.stroke();
+
+  ctx.restore(); // undo rotation
+
+  // Charge-up effect
+  if (this.headCharging) {
+    const chargeT = 1 - (this.headChargeTimer || 0) / 40;
+    ctx.globalAlpha = chargeT * 0.6;
+    ctx.strokeStyle = '#ff4400';
+    ctx.lineWidth = 3 + chargeT * 4;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius + 5 + chargeT * 8, 0, Math.PI * 2);
+    ctx.stroke();
+    // Shake
+    ctx.globalAlpha = 1;
+  }
+
+  // Rolling trail
+  if (this.headRolling) {
+    ctx.globalAlpha = 0.3;
+    ctx.fillStyle = this.char.accent;
+    for (let t = 1; t <= 3; t++) {
+      ctx.beginPath();
+      ctx.arc(-this.headRollSpeed * t * 2, 0, radius * (1 - t * 0.15), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  ctx.restore();
+
+  // Spit projectiles
+  for (const sp of this.headSpitProjectiles) {
+    ctx.save();
+    ctx.translate(sp.x, sp.y);
+    ctx.fillStyle = '#88cc44';
+    ctx.globalAlpha = 0.8;
+    ctx.beginPath();
+    ctx.arc(0, 0, 6, 0, Math.PI * 2);
+    ctx.fill();
+    // Spit trail
+    ctx.fillStyle = '#aaee66';
+    ctx.globalAlpha = 0.4;
+    ctx.beginPath();
+    ctx.arc(-sp.vx * 0.5, -sp.vy * 0.5, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(-sp.vx, -sp.vy, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  // Hit effect
+  if (this.hitEffect && this.hitEffect.timer > 0) {
+    const t = this.hitEffect.timer / 10;
+    ctx.save();
+    ctx.globalAlpha = t;
+    ctx.strokeStyle = '#ffff00';
+    ctx.lineWidth = 3;
+    const r = 20 + (1 - t) * 25;
+    for (let i = 0; i < 6; i++) {
+      const angle = (i / 6) * Math.PI * 2 + (1 - t) * 2;
+      ctx.beginPath();
+      ctx.moveTo(this.hitEffect.x + Math.cos(angle) * r * 0.3, this.hitEffect.y + Math.sin(angle) * r * 0.3);
+      ctx.lineTo(this.hitEffect.x + Math.cos(angle) * r, this.hitEffect.y + Math.sin(angle) * r);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+};

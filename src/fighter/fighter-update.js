@@ -640,6 +640,448 @@ Fighter.prototype.update = function(opponent, keys) {
     }
   }
 
+  // Twins update: Selene movement, arrows for both, facing override
+  if (this.char.isTwins) {
+    const tw = this.twin;
+
+    // Move Selene
+    tw.x += tw.vx;
+    tw.vx *= 0.85;
+    if (tw.x < 40) tw.x = 40;
+    if (tw.x > 920) tw.x = 920;
+
+    // Selene gravity + jumping
+    if (!tw.grounded) {
+      tw.vy += 0.5;
+      tw.y += tw.vy;
+      if (tw.y >= this.groundY) {
+        tw.y = this.groundY;
+        tw.vy = 0;
+        tw.grounded = true;
+      }
+    }
+
+    // Animation
+    if (Math.abs(tw.vx) > 0.5 || !tw.grounded) {
+      tw.animTimer++;
+      if (tw.animTimer > 8) { tw.animTimer = 0; tw.animFrame = (tw.animFrame + 1) % 4; }
+    } else {
+      tw.animFrame = 0; tw.animTimer = 0;
+    }
+
+    if (tw.flashTimer > 0) tw.flashTimer--;
+
+    // Update Helios arrows
+    for (let i = this.twinsArrows.length - 1; i >= 0; i--) {
+      const arr = this.twinsArrows[i];
+      arr.x += arr.vx;
+      arr.timer--;
+      if (!arr.hit && opponent.isHitAt(arr.x, arr.y, 20, 25)) {
+        arr.hit = true;
+        const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+        opponent.takeDamage(8 * this.char.stats.power * diffMult,
+          { hitstun: 14, blockstun: 8, launch: false, knockbackForce: 2 },
+          arr.vx > 0 ? 1 : -1, false, { x: arr.x, y: arr.y });
+      }
+      if (arr.timer <= 0 || arr.hit || arr.x < -20 || arr.x > 980) {
+        this.twinsArrows.splice(i, 1);
+      }
+    }
+
+    // Update Selene arrows
+    for (let i = tw.arrows.length - 1; i >= 0; i--) {
+      const arr = tw.arrows[i];
+      arr.x += arr.vx;
+      arr.timer--;
+      if (!arr.hit && opponent.isHitAt(arr.x, arr.y, 20, 25)) {
+        arr.hit = true;
+        const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+        opponent.takeDamage(8 * this.char.stats.power * diffMult,
+          { hitstun: 14, blockstun: 8, launch: false, knockbackForce: 2 },
+          arr.vx > 0 ? 1 : -1, false, { x: arr.x, y: arr.y });
+      }
+      if (arr.timer <= 0 || arr.hit || arr.x < -20 || arr.x > 980) {
+        tw.arrows.splice(i, 1);
+      }
+    }
+
+    // Player faces the closer twin
+    if (opponent.isPlayer && opponent.state !== 'attack' && opponent.state !== 'hitstun' && opponent.state !== 'blockstun') {
+      const distH = Math.abs(opponent.x - this.x);
+      const distS = Math.abs(opponent.x - tw.x);
+      const closerX = distH <= distS ? this.x : tw.x;
+      opponent.facing = closerX > opponent.x ? 1 : -1;
+    }
+
+    // Selene can also take/deal melee damage — check overlap with player
+    if (tw.state !== 'hitstun') {
+      // Push apart
+      const tOverlap = 40 - Math.abs(opponent.x - tw.x);
+      if (tOverlap > 0 && Math.abs(opponent.y - tw.y) < 50) {
+        const push = tOverlap / 2 + 0.5;
+        if (opponent.x < tw.x) { tw.x += push; } else { tw.x -= push; }
+      }
+    }
+  }
+
+  // Hangman disassembly update
+  if (this.char.isHangman && this.hangmanDisassembled) {
+    const gY = this.groundY;
+    // Target positions for each piece (relative to targetX, at groundY)
+    const targetPositions = {
+      'head':     { x: this.hangmanTargetX,      y: gY - 55 },
+      'torso':    { x: this.hangmanTargetX,      y: gY - 30 },
+      'leftArm':  { x: this.hangmanTargetX - 18, y: gY - 35 },
+      'rightArm': { x: this.hangmanTargetX + 18, y: gY - 35 },
+      'leftLeg':  { x: this.hangmanTargetX - 8,  y: gY - 10 },
+      'rightLeg': { x: this.hangmanTargetX + 8,  y: gY - 10 }
+    };
+    const pieceTypes = ['head', 'torso', 'leftArm', 'rightArm', 'leftLeg', 'rightLeg'];
+    this.hangmanLaunchTimer--;
+
+    // Launch pieces one at a time
+    if (this.hangmanPieceIndex < pieceTypes.length && this.hangmanLaunchTimer <= 0) {
+      const type = pieceTypes[this.hangmanPieceIndex];
+      const target = targetPositions[type];
+      const startX = this.x;
+      const startY = this.y - 50 + this.hangmanPieceIndex * 3;
+      // Calculate velocity to arrive at target in ~25 frames with an arc
+      const flightFrames = 25;
+      const vx = (target.x - startX) / flightFrames;
+      const vy = (target.y - startY) / flightFrames - 3; // arc upward bias
+      this.hangmanPieces.push({
+        type: type,
+        x: startX, y: startY,
+        vx: vx, vy: vy,
+        targetX: target.x, targetY: target.y,
+        flightTimer: flightFrames,
+        landed: false,
+        hitCooldown: 0
+      });
+      this.hangmanPieceIndex++;
+      this.hangmanLaunchTimer = 12;
+    }
+
+    // Update flying pieces
+    let allLanded = true;
+    for (const piece of this.hangmanPieces) {
+      if (piece.landed) continue;
+      allLanded = false;
+      piece.x += piece.vx;
+      piece.y += piece.vy;
+      piece.vy += 0.25; // gentle gravity for arc
+      piece.flightTimer--;
+      if (piece.hitCooldown > 0) piece.hitCooldown--;
+
+      // Land when flight timer expires or close enough to target
+      const distToTarget = Math.sqrt((piece.x - piece.targetX) ** 2 + (piece.y - piece.targetY) ** 2);
+      if (piece.flightTimer <= 0 || distToTarget < 10) {
+        piece.x = piece.targetX;
+        piece.y = piece.targetY;
+        piece.vx = 0; piece.vy = 0;
+        piece.landed = true;
+        continue;
+      }
+
+      // Damage player on contact while flying
+      if (piece.hitCooldown <= 0 && opponent.isHitAt(piece.x, piece.y, 25, 25)) {
+        const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+        const dmg = (piece.type === 'head' ? 12 : 6) * this.char.stats.power * diffMult;
+        opponent.takeDamage(dmg,
+          { hitstun: piece.type === 'head' ? 20 : 12, blockstun: 8, launch: false, knockbackForce: 3 },
+          piece.vx > 0 ? 1 : -1, false, { x: piece.x, y: piece.y });
+        piece.hitCooldown = 30;
+      }
+    }
+
+    // All pieces launched and landed — reassemble
+    if (this.hangmanPieceIndex >= pieceTypes.length && allLanded) {
+      this.hangmanDisassembled = false;
+      this.hangmanHidden = false;
+      this.x = this.hangmanTargetX;
+      this.y = this.groundY;
+      this.grounded = true;
+      this.hangmanPieces = [];
+      this.facing = opponent.x > this.x ? 1 : -1;
+    }
+  }
+
+  // Head boss: charge roll, spit projectiles, rotation
+  if (this.char.isHead) {
+    const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+
+    // Rotate based on movement
+    if (Math.abs(this.vx) > 0.5) {
+      this.headRotation += this.vx * 0.04;
+    }
+
+    // Charge-up
+    if (this.headCharging) {
+      this.headChargeTimer--;
+      this.vx *= 0.9; // slow down while charging
+      if (this.headChargeTimer <= 0) {
+        this.headCharging = false;
+        this.headRolling = true;
+        this.headRollSpeed = this.facing * 16;
+        this.headRollCooldown = 900; // 15 seconds
+      }
+    }
+
+    // Fast roll
+    if (this.headRolling) {
+      this.vx = this.headRollSpeed;
+      this.headRotation += this.headRollSpeed * 0.08;
+
+      // Damage on contact
+      if (Math.abs(this.x - opponent.x) < 50 && Math.abs(this.y - opponent.y) < 50) {
+        opponent.takeDamage(18 * this.char.stats.power * diffMult,
+          { hitstun: 20, blockstun: 14, launch: true, knockbackForce: 8 },
+          this.headRollSpeed > 0 ? 1 : -1, false, { x: this.x, y: this.centerY });
+      }
+
+      // Hit wall — stop rolling
+      if (this.x <= 40 || this.x >= 920) {
+        this.headRolling = false;
+        this.headRollSpeed = 0;
+        this.vx = 0;
+        shakeTimer = 8;
+        shakeIntensity = 8;
+      }
+    }
+
+    // Spit projectiles
+    for (let i = this.headSpitProjectiles.length - 1; i >= 0; i--) {
+      const sp = this.headSpitProjectiles[i];
+      sp.x += sp.vx;
+      sp.y += sp.vy;
+      sp.vy += 0.15; // slight gravity
+      sp.timer--;
+
+      if (!sp.hit && opponent.isHitAt(sp.x, sp.y, 20, 20)) {
+        sp.hit = true;
+        opponent.takeDamage(7 * this.char.stats.power * diffMult,
+          { hitstun: 12, blockstun: 8, launch: false, knockbackForce: 2 },
+          sp.vx > 0 ? 1 : -1, false, { x: sp.x, y: sp.y });
+      }
+
+      if (sp.timer <= 0 || sp.hit || sp.x < -30 || sp.x > 990 || sp.y > this.groundY + 20) {
+        this.headSpitProjectiles.splice(i, 1);
+      }
+    }
+  }
+
+  // Orcus: lightning, spirits, soul drain (drain reuses Exor's existing code path)
+  if (this.char.isOrcus) {
+    const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+
+    // Soul drain update (same as Exor — fields are initialized in core)
+    if (this.exorDrainCooldown > 0) this.exorDrainCooldown--;
+    if (this.exorDraining && this.exorDrainTarget) {
+      this.exorDrainTimer--;
+      const target = this.exorDrainTarget;
+      const dist = Math.abs(this.x - target.x);
+      if (dist > 200) {
+        this.exorDraining = false;
+        this.exorDrainTarget = null;
+        this.exorDrainCooldown = 180;
+      } else {
+        const drainRate = 0.5;
+        target.health -= drainRate;
+        if (target.health <= 0) target.health = 0;
+        this.health = Math.min(this.maxHealth, this.health + drainRate);
+        target.slowTimer = Math.max(target.slowTimer, 10);
+        if (Math.random() < 0.3) {
+          this.exorSoulParticles.push({
+            x: target.x + (Math.random() - 0.5) * 30,
+            y: target.centerY - 10 + (Math.random() - 0.5) * 30,
+            tx: this.x, ty: this.centerY - 10,
+            t: 0, speed: 0.03 + Math.random() * 0.02, life: 1
+          });
+        }
+      }
+      if (this.exorDrainTimer <= 0) {
+        this.exorDraining = false;
+        this.exorDrainTarget = null;
+        this.exorDrainCooldown = 240;
+      }
+    }
+    // Update soul particles
+    for (let i = this.exorSoulParticles.length - 1; i >= 0; i--) {
+      const p = this.exorSoulParticles[i];
+      p.tx = this.x; p.ty = this.centerY - 10;
+      p.t += p.speed;
+      if (p.t >= 1) { this.exorSoulParticles.splice(i, 1); continue; }
+      p.life = 1 - p.t;
+    }
+
+    // Lightning update
+    for (let i = this.orcusLightning.length - 1; i >= 0; i--) {
+      const lt = this.orcusLightning[i];
+      lt.timer--;
+      // Damage on first few frames
+      if (lt.timer > 15) {
+        if (Math.abs(lt.x - opponent.x) < 35 && opponent.y >= opponent.groundY - 10) {
+          opponent.takeDamage(6 * this.char.stats.power * diffMult,
+            { hitstun: 14, blockstun: 8, launch: false, knockbackForce: 2 },
+            lt.x < opponent.x ? 1 : -1, false, { x: lt.x, y: opponent.groundY - 30 });
+          lt.timer = Math.min(lt.timer, 15); // stop damage after first hit
+        }
+      }
+      if (lt.timer <= 0) this.orcusLightning.splice(i, 1);
+    }
+
+    // Spirits update
+    for (let i = this.orcusSpirits.length - 1; i >= 0; i--) {
+      const sp = this.orcusSpirits[i];
+      if (sp.hitCooldown > 0) sp.hitCooldown--;
+
+      if (sp.phase === 'attack') {
+        // Home toward player
+        const dx = opponent.x - sp.x;
+        const dy = (opponent.centerY - 10) - sp.y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        sp.vx += (dx / dist) * 0.4;
+        sp.vy += (dy / dist) * 0.4;
+        const spd = Math.sqrt(sp.vx * sp.vx + sp.vy * sp.vy);
+        if (spd > 5) { sp.vx *= 5 / spd; sp.vy *= 5 / spd; }
+        sp.x += sp.vx;
+        sp.y += sp.vy;
+
+        // Hit player — steal 10 HP
+        if (sp.hitCooldown <= 0 && Math.abs(sp.x - opponent.x) < 30 && Math.abs(sp.y - opponent.centerY) < 30) {
+          const stealAmt = Math.min(10, opponent.health);
+          opponent.health -= stealAmt;
+          if (opponent.health <= 0) opponent.health = 0;
+          opponent.flashTimer = 8;
+          sp.stolenHP += stealAmt;
+          sp.phase = 'return'; // head back to Orcus
+          sp.vx = 0; sp.vy = 0;
+        }
+      } else {
+        // Return to Orcus
+        const dx = this.x - sp.x;
+        const dy = (this.centerY - 10) - sp.y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        sp.vx += (dx / dist) * 0.5;
+        sp.vy += (dy / dist) * 0.5;
+        const spd = Math.sqrt(sp.vx * sp.vx + sp.vy * sp.vy);
+        if (spd > 6) { sp.vx *= 6 / spd; sp.vy *= 6 / spd; }
+        sp.x += sp.vx;
+        sp.y += sp.vy;
+
+        // Deliver HP to Orcus
+        if (dist < 30) {
+          this.health = Math.min(this.maxHealth, this.health + sp.stolenHP);
+          this.orcusSpirits.splice(i, 1);
+          continue;
+        }
+      }
+
+      // Spirits can be killed by player attacks (checked via isHitAt)
+      // We check if player's attack hit position is near this spirit
+      if (player && player.state === 'attack' && player.currentAttack) {
+        const atk = player.currentAttack;
+        const prog = player.attackFrame / (atk.startup + atk.active + atk.recovery);
+        if (player.attackFrame >= atk.startup && player.attackFrame < atk.startup + atk.active) {
+          const hitX = player.x + player.facing * atk.range;
+          if (Math.abs(hitX - sp.x) < 40 && Math.abs(player.centerY - sp.y) < 40) {
+            sp.hp -= 10; // one hit kills
+            if (sp.hp <= 0) {
+              // Spirit dies — player regains stolen HP
+              if (sp.stolenHP > 0) {
+                player.health = Math.min(player.maxHealth, player.health + sp.stolenHP);
+                player.flashTimer = 4;
+              }
+              this.orcusSpirits.splice(i, 1);
+              continue;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Tube Warden: tube projectiles and gas clouds
+  if (this.char.isTubeWarden) {
+    const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+
+    // Update tubes
+    for (let i = this.twTubes.length - 1; i >= 0; i--) {
+      const tube = this.twTubes[i];
+      if (!tube.stuck) {
+        // In flight — apply gravity
+        tube.vy += 0.35;
+        tube.x += tube.vx;
+        tube.y += tube.vy;
+
+        // Hit player while flying
+        if (opponent.isHitAt(tube.x, tube.y, 25, 30)) {
+          opponent.takeDamage(12 * this.char.stats.power * diffMult,
+            { hitstun: 16, blockstun: 10, launch: false, knockbackForce: 4 },
+            tube.vx > 0 ? 1 : -1, false, { x: tube.x, y: tube.y });
+          tube.stuck = true;
+          tube.stuckTimer = 60;
+          tube.y = Math.min(tube.y, this.groundY);
+        }
+
+        // Stick into ground
+        if (tube.y >= this.groundY) {
+          tube.y = this.groundY;
+          tube.stuck = true;
+          tube.stuckTimer = 60; // 1 second fuse before exploding
+        }
+
+        // Off screen
+        if (tube.x < -50 || tube.x > 1010) {
+          this.twTubes.splice(i, 1);
+          continue;
+        }
+      } else {
+        // Stuck — count down to explosion
+        tube.stuckTimer--;
+        if (tube.stuckTimer <= 0 && !tube.exploded) {
+          tube.exploded = true;
+          // Create gas cloud at explosion point
+          this.twGasClouds.push({
+            x: tube.x,
+            y: this.groundY,
+            timer: 180, // 3 seconds of lingering gas
+            radius: 40
+          });
+          shakeTimer = 4;
+          shakeIntensity = 4;
+          // Explosion damage to nearby player
+          if (Math.abs(tube.x - opponent.x) < 60 && Math.abs(this.groundY - opponent.y) < 60) {
+            opponent.takeDamage(8 * this.char.stats.power * diffMult,
+              { hitstun: 12, blockstun: 8, launch: false, knockbackForce: 2 },
+              tube.x < opponent.x ? 1 : -1, false, { x: tube.x, y: this.groundY });
+          }
+          this.twTubes.splice(i, 1);
+          continue;
+        }
+      }
+    }
+
+    // Update gas clouds — damage player standing in them
+    for (let i = this.twGasClouds.length - 1; i >= 0; i--) {
+      const gas = this.twGasClouds[i];
+      gas.timer--;
+      if (gas.timer <= 0) {
+        this.twGasClouds.splice(i, 1);
+        continue;
+      }
+      // Damage player every 30 frames if standing in gas
+      if (gas.timer % 30 === 0) {
+        const gDist = Math.abs(gas.x - opponent.x);
+        if (gDist < gas.radius && opponent.y >= gas.y - 50) {
+          opponent.takeDamage(3 * this.char.stats.power * diffMult,
+            { hitstun: 8, blockstun: 4, launch: false, knockbackForce: 1 },
+            gas.x < opponent.x ? 1 : -1, false, { x: gas.x, y: gas.y - 20 });
+        }
+      }
+    }
+  }
+
   // Scalena bite + snake update
   if (this.char.isScalena) {
     // Bite animation: extend neck forward, check hit at head, retract
@@ -1397,6 +1839,15 @@ Fighter.prototype.update = function(opponent, keys) {
             hitClonePos = { x: hitX, y: this.centerY };
             break;
           }
+        }
+      }
+      // Twins: check if hit lands on Selene (the twin)
+      if (!hitBody && opponent.char.isTwins && opponent.twin) {
+        const tw = opponent.twin;
+        if (Math.abs(hitX - tw.x) < hitRadius && Math.abs(this.centerY - (tw.y - 25)) < 70) {
+          hitBody = true;
+          hitClonePos = { x: hitX, y: this.centerY };
+          tw.flashTimer = 8;
         }
       }
       if (hitBody) {

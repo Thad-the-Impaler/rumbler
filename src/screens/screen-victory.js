@@ -55,7 +55,9 @@ function drawVictoryScreen() {
         const nextIdx = campaignFightIndex + 1;
         // Don't count bonus fights in the progress display
         const realFights = campaign.fights.filter(f => !f.isBonus);
-        const realCount = realFights.length;
+        const trueCount = realFights.length;
+        // Hide true count until reveal threshold is reached
+        const realCount = (campaign.displayFightCount && campaignFightIndex < campaign.revealAtFight) ? campaign.displayFightCount : trueCount;
         const nextFight = campaign.fights[nextIdx];
         if (nextIdx < campaign.fights.length && nextFight) {
           if (nextFight.isBonus) {

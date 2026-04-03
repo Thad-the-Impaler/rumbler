@@ -2009,6 +2009,196 @@ function update() {
         }
       }
 
+      if (rumbleType === 'MATADOR') {
+        // Matador "Ole!": ~300 frames
+        // 0-60: Matador walks to position, holds up red cape
+        // 60-80: Bull enters from offscreen, accelerating
+        // 80-140: Bull charges across, tramples opponent
+        // 140-200: Bull exits other side, dust settles
+        // 200-300: Hold, then end
+        const capeEnd = 60;
+        const bullEnterEnd = 80;
+        const trampleEnd = 140;
+        const exitEnd = 200;
+        const endFrame = 300;
+
+        // Determine bull direction: comes from behind Matador (opposite his facing)
+        const bullDir = winFighter.facing; // bull charges in same direction Matador faces
+        const bullStartX = winFighter.facing === 1 ? -80 : 1040;
+        const bullEndX = winFighter.facing === 1 ? 1040 : -80;
+
+        if (rumbleTimer <= capeEnd) {
+          // Phase 0: Matador walks slightly away from opponent, faces them
+          rumbleMatadorPhase = 0;
+          // Position Matador off to the side of the opponent
+          const capeX = loseFighter.x + winFighter.facing * 80;
+          winFighter.x += (capeX - winFighter.x) * 0.05;
+          winFighter.animTimer++;
+          if (winFighter.animTimer > 8) { winFighter.animTimer = 0; winFighter.animFrame = (winFighter.animFrame + 1) % 4; }
+        } else if (rumbleTimer <= trampleEnd) {
+          // Phase 1-2: Bull rushes across
+          rumbleMatadorPhase = rumbleTimer <= bullEnterEnd ? 1 : 2;
+          if (rumbleTimer === capeEnd + 1) {
+            rumbleMatadorBullX = bullStartX;
+            rumbleMatadorBullSpeed = 0;
+          }
+          // Accelerate bull
+          rumbleMatadorBullSpeed = Math.min(16, rumbleMatadorBullSpeed + 0.4);
+          rumbleMatadorBullX += bullDir * rumbleMatadorBullSpeed;
+
+          // Trample check — when bull passes over opponent
+          if (Math.abs(rumbleMatadorBullX - loseFighter.x) < 40 && !rumbleLoserHidden) {
+            rumbleLoserHidden = true;
+            shakeTimer = 12;
+            shakeIntensity = 12;
+            loseFighter.flashTimer = 15;
+          }
+
+          // Dust trail
+          if (rumbleTimer % 2 === 0 && rumbleMatadorBullSpeed > 5) {
+            rumbleMatadorDust.push({
+              x: rumbleMatadorBullX - bullDir * 30,
+              y: loseFighter.groundY - Math.random() * 10,
+              vx: -bullDir * (1 + Math.random() * 2),
+              vy: -1 - Math.random() * 2,
+              timer: 20 + Math.floor(Math.random() * 10)
+            });
+          }
+
+          // Matador sidesteps as bull passes (ole!)
+          if (Math.abs(rumbleMatadorBullX - winFighter.x) < 60) {
+            winFighter.x -= winFighter.facing * 2; // step aside
+          }
+        } else if (rumbleTimer <= exitEnd) {
+          // Phase 3: Bull exits, dust settles
+          rumbleMatadorPhase = 3;
+          rumbleMatadorBullX += bullDir * rumbleMatadorBullSpeed;
+        } else {
+          rumbleMatadorPhase = 3;
+        }
+
+        // Update dust particles
+        for (let i = rumbleMatadorDust.length - 1; i >= 0; i--) {
+          const d = rumbleMatadorDust[i];
+          d.x += d.vx;
+          d.y += d.vy;
+          d.vy += 0.05;
+          d.timer--;
+          if (d.timer <= 0) rumbleMatadorDust.splice(i, 1);
+        }
+
+        if (rumbleTimer >= endFrame) {
+          gameState = 'victory';
+        }
+      }
+
+      if (rumbleType === 'PALETAP') {
+        // Paletap "Anybody Home?": ~360 frames
+        // 0-60: Paletap walks up to opponent
+        // 60-90: Winds up and slams fist on opponent's head
+        // 90-220: Opponent vibrates violently, shaking and spasming
+        // 220-280: Opponent disassembles — head, torso, limbs fall apart
+        // 280-360: Hold on fallen parts, then end
+        const walkEnd = 60;
+        const slamEnd = 90;
+        const vibrateEnd = 220;
+        const disassembleEnd = 280;
+        const endFrame = 360;
+
+        if (rumbleTimer <= walkEnd) {
+          // Phase 0: Paletap walks toward opponent
+          rumblePaletapPhase = 0;
+          const t = rumbleTimer / walkEnd;
+          const targetX = loseFighter.x - winFighter.facing * 45;
+          winFighter.x += (targetX - winFighter.x) * 0.06;
+          winFighter.animTimer++;
+          if (winFighter.animTimer > 8) { winFighter.animTimer = 0; winFighter.animFrame = (winFighter.animFrame + 1) % 4; }
+        } else if (rumbleTimer <= slamEnd) {
+          // Phase 1: Paletap does his shockwave slam on the opponent
+          rumblePaletapPhase = 1;
+          if (rumbleTimer === walkEnd + 1) {
+            winFighter.paletapSlamming = true;
+            winFighter.paletapSlamFrame = 0;
+          }
+          // When slam completes, trigger the hit (suppress normal shockwave)
+          if (winFighter.paletapShockwave) {
+            winFighter.paletapShockwave = null; // no actual shockwave projectile
+            shakeTimer = 10;
+            shakeIntensity = 10;
+            loseFighter.flashTimer = 12;
+          }
+        } else if (rumbleTimer <= vibrateEnd) {
+          // Phase 2: Opponent vibrates
+          rumblePaletapPhase = 2;
+          const vibProgress = (rumbleTimer - slamEnd) / (vibrateEnd - slamEnd);
+          rumblePaletapVibrate = vibProgress * 15; // ramps from 0 to 15
+          // Screen shake ramps up too
+          if (rumbleTimer % 10 === 0) {
+            shakeTimer = 3;
+            shakeIntensity = vibProgress * 6;
+          }
+        } else if (rumbleTimer <= disassembleEnd) {
+          // Phase 3: Disassemble — parts fall off
+          rumblePaletapPhase = 3;
+          if (rumbleTimer === vibrateEnd + 1) {
+            // Spawn body parts
+            winFighter._hideFrontArm = false;
+            rumbleLoserHidden = true;
+            const lx = loseFighter.x;
+            const ly = loseFighter.y;
+            const loserColor = (winner === 'player' ? selectedCPU : selectedPlayer).color;
+            const loserAccent = (winner === 'player' ? selectedCPU : selectedPlayer).accent;
+            rumblePaletapParts = [
+              { type: 'head', x: lx, y: ly - 55, vy: -4, vx: (Math.random() - 0.5) * 3, rot: 0, rotSpeed: 0.1 + Math.random() * 0.1, size: 16, color: loserAccent },
+              { type: 'torso', x: lx, y: ly - 30, vy: -1, vx: (Math.random() - 0.5) * 2, rot: 0, rotSpeed: 0.05, size: 16, color: loserColor },
+              { type: 'armL', x: lx - 15, y: ly - 35, vy: -3, vx: -2 - Math.random() * 2, rot: 0, rotSpeed: 0.15, size: 8, color: loserColor },
+              { type: 'armR', x: lx + 15, y: ly - 35, vy: -2.5, vx: 2 + Math.random() * 2, rot: 0, rotSpeed: -0.12, size: 8, color: loserColor },
+              { type: 'legL', x: lx - 8, y: ly - 10, vy: -2, vx: -1.5 - Math.random(), rot: 0, rotSpeed: 0.08, size: 10, color: loserColor },
+              { type: 'legR', x: lx + 8, y: ly - 10, vy: -1.5, vx: 1.5 + Math.random(), rot: 0, rotSpeed: -0.09, size: 10, color: loserColor }
+            ];
+            shakeTimer = 10;
+            shakeIntensity = 10;
+          }
+          // Update falling parts
+          for (const part of rumblePaletapParts) {
+            part.vy += 0.35; // gravity
+            part.x += part.vx;
+            part.y += part.vy;
+            part.rot += part.rotSpeed;
+            // Land on ground
+            if (part.y > loseFighter.groundY) {
+              part.y = loseFighter.groundY;
+              part.vy = -Math.abs(part.vy) * 0.3;
+              part.vx *= 0.7;
+              part.rotSpeed *= 0.5;
+              if (Math.abs(part.vy) < 0.5) part.vy = 0;
+            }
+          }
+        } else {
+          // Phase 4: Hold
+          rumblePaletapPhase = 4;
+          // Parts settle
+          for (const part of rumblePaletapParts) {
+            if (part.vy !== 0) {
+              part.vy += 0.35;
+              part.x += part.vx;
+              part.y += part.vy;
+              part.rot += part.rotSpeed;
+              if (part.y > loseFighter.groundY) {
+                part.y = loseFighter.groundY;
+                part.vy = 0;
+                part.vx = 0;
+                part.rotSpeed = 0;
+              }
+            }
+          }
+        }
+
+        if (rumbleTimer >= endFrame) {
+          gameState = 'victory';
+        }
+      }
+
       if (rumbleType === 'CORVIDA') {
         // Corvida "Early Bird": ~480 frames
         // 0-40: Corvida transforms to giant blue jay

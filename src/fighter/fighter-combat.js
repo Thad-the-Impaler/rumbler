@@ -126,7 +126,15 @@ Fighter.prototype.callAssist = function(opponent) {
 
 Fighter.prototype.isHitAt = function(px, py, radiusX, radiusY) {
   if (this.ericthoHidden) return false;
+  if (this.hangmanHidden) return false;
   if (Math.abs(px - this.x) < radiusX && Math.abs(py - this.centerY) < radiusY) return true;
+  // Twins: Selene is also a valid hit target
+  if (this.char.isTwins && this.twin) {
+    if (Math.abs(px - this.twin.x) < radiusX && Math.abs(py - (this.twin.y - 25)) < radiusY) {
+      this.twin.flashTimer = 8;
+      return true;
+    }
+  }
   if (this.char.isDuplaire) {
     for (const clone of this.duplaireClones) {
       if (clone.active && Math.abs(px - clone.x) < radiusX && Math.abs(py - (clone.y - 25)) < radiusY) return true;
@@ -139,6 +147,8 @@ Fighter.prototype.isHitAt = function(px, py, radiusX, radiusY) {
 Fighter.prototype.takeDamage = function(dmg, attackData, attackerFacing, bypassBlock, hitPos) {
   // Erictho: immune while inside portal
   if (this.ericthoHidden) return false;
+  // Hangman: immune while disassembled
+  if (this.hangmanHidden) return false;
   // Torrena water phase: immune to all damage
   if (this.waterPhase) return false;
   // Quellic fire phase: immune to all damage

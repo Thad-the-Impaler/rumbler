@@ -272,6 +272,88 @@ class Fighter {
       this.maxHealth = this.health;
     }
 
+    // Twins boss state
+    if (this.char.isTwins) {
+      this.health = this.char.maxHealth || 220;
+      this.maxHealth = this.health;
+      // Selene (the twin) — independent position and state
+      this.twin = {
+        x: this.x + 100,
+        y: this.y,
+        facing: -1,
+        grounded: true,
+        vy: 0, vx: 0,
+        state: 'idle',
+        stateTimer: 0,
+        animTimer: 0, animFrame: 0,
+        flashTimer: 0,
+        // AI state
+        aiTimer: 0,
+        aiAction: 'idle',
+        // Arrow
+        arrows: [],
+        arrowCooldown: 60
+      };
+      // Helios arrows
+      this.twinsArrows = [];
+      this.twinsArrowCooldown = 60;
+    }
+
+    // Hangman boss state
+    if (this.char.isHangman) {
+      this.hangmanDisassembled = false;   // true when pieces are flying
+      this.hangmanPieces = [];            // flying pieces: { type, x, y, vx, vy, landed }
+      this.hangmanTargetX = 0;            // where to reassemble
+      this.hangmanDisCooldown = 120;      // cooldown between disassembles
+      this.hangmanPieceIndex = 0;         // which piece to launch next
+      this.hangmanLaunchTimer = 0;        // frames between piece launches
+      this.hangmanHidden = false;         // true while body is disassembled
+      this.health = this.char.maxHealth || 200;
+      this.maxHealth = this.health;
+    }
+
+    // Head boss state
+    if (this.char.isHead) {
+      this.headRotation = 0;         // current rotation angle
+      this.headSpitCooldown = 0;     // cooldown between spits
+      this.headSpitProjectiles = []; // { x, y, vx, vy, hit, timer }
+      this.headCharging = false;     // charging up for roll
+      this.headChargeTimer = 0;      // charge-up frames
+      this.headRolling = false;      // fast rolling across screen
+      this.headRollSpeed = 0;        // current roll speed
+      this.headRollCooldown = 0;     // cooldown between charges
+      this.health = this.char.maxHealth || 300;
+      this.maxHealth = this.health;
+    }
+
+    // Orcus boss state
+    if (this.char.isOrcus) {
+      // Soul drain (same system as Exor)
+      this.exorDraining = false;
+      this.exorDrainTimer = 0;
+      this.exorDrainCooldown = 0;
+      this.exorDrainTarget = null;
+      this.exorSoulParticles = [];
+      // Green lightning
+      this.orcusLightning = [];        // active lightning strikes { x, timer, bolts }
+      this.orcusLightningCooldown = 0;
+      // Spirits
+      this.orcusSpirits = [];          // { x, y, vx, vy, hp, stolenHP, phase, returning }
+      this.orcusSpiritCooldown = 0;
+      this.health = this.char.maxHealth || 240;
+      this.maxHealth = this.health;
+    }
+
+    // Tube Warden boss state
+    if (this.char.isTubeWarden) {
+      this.twTubes = [];            // active tube projectiles { x, y, vx, vy, stuck, stuckTimer, exploded }
+      this.twTubeCooldown = 0;      // cooldown between tube shots
+      this.twGasClouds = [];        // gas clouds { x, y, timer, radius }
+      this.twGasCooldown = 0;       // cooldown between gas sprays
+      this.health = this.char.maxHealth || 220;
+      this.maxHealth = this.health;
+    }
+
     // Scalena boss state
     if (this.char.isScalena) {
       this.scalenaNeckExtend = 0;       // 0-1, how far neck is extended

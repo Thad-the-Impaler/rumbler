@@ -149,6 +149,75 @@ const birdeaterChar = {
   maxHealth: 230
 };
 
+// Boss: Campaigner Hangman (non-playable)
+const hangmanChar = {
+  name: 'HANGMAN',
+  color: '#5a4a6a',
+  accent: '#9988bb',
+  outline: '#2a1a3a',
+  stats: { speed: 4.0, power: 1.2, defense: 1.0 },
+  desc: 'The Disassembler',
+  isHangman: true,
+  isBoss: true,
+  maxHealth: 200
+};
+
+// Boss: Campaigner Twins (non-playable, two fighters)
+const twinsChar = {
+  name: 'TWINS',
+  color: '#8B6B3D',       // Helios: brown
+  accent: '#DAA520',       // Helios: yellow/gold
+  outline: '#5C4422',
+  twinColor: '#4466aa',    // Selene: blue
+  twinAccent: '#ccddff',   // Selene: white-blue
+  twinOutline: '#223366',
+  stats: { speed: 4.5, power: 1.0, defense: 0.85 },
+  desc: 'Helios & Selene',
+  isTwins: true,
+  isBoss: true,
+  maxHealth: 220
+};
+
+// Boss: Tube Warden (non-playable)
+const tubeWardenChar = {
+  name: 'TUBE WARDEN',
+  color: '#3a3a3a',
+  accent: '#00ccbb',
+  outline: '#1a1a1a',
+  stats: { speed: 3.5, power: 1.25, defense: 1.3 },
+  desc: 'Vial Launcher',
+  isTubeWarden: true,
+  isBoss: true,
+  scale: 1.2,
+  maxHealth: 220
+};
+
+// Boss: Orcus (non-playable)
+const orcusChar = {
+  name: 'ORCUS',
+  color: '#1a1a2e',
+  accent: '#2a2a3e',
+  outline: '#00ff44',
+  stats: { speed: 4.0, power: 1.2, defense: 1.1 },
+  desc: 'Otherworldly Master',
+  isOrcus: true,
+  isBoss: true,
+  maxHealth: 240
+};
+
+// Boss: Head (non-playable)
+const headChar = {
+  name: 'HEAD',
+  color: '#ddcc66',
+  accent: '#ffee88',
+  outline: '#aa9933',
+  stats: { speed: 3.0, power: 1.0, defense: 1.0 },
+  desc: 'Just A Head',
+  isHead: true,
+  isBoss: true,
+  maxHealth: 300
+};
+
 const campaigns = {
   'brawler': {
     name: "BRAWLER'S CAMPAIGN",
@@ -207,6 +276,39 @@ const campaigns = {
       { opponent: 'RUBBERMAN', difficulty: 'Brutal', level: 'THE PEAK' },
       { opponent: theCountChar, difficulty: 'Easy', level: 'THE DUST', isBoss: true, music: 'THE COUNT' },
       { opponent: printerChar, difficulty: 'Easy', level: 'CLASSIC', isBonus: true, bonusType: 'testYourMight', bonusTime: 30 }
+    ]
+  },
+  'champion': {
+    name: "CHAMPION'S CAMPAIGN",
+    desc: 'The ultimate 45-fight gauntlet',
+    displayFightCount: 35, // show 35 until fight 36 is reached, then reveal true count
+    revealAtFight: 35, // 0-indexed: after completing fight 35 (the 36th), reveal real count
+    fights: [
+      { opponent: 'TITAN', difficulty: 'Easy', level: 'THE TEMPLE' },
+      { opponent: 'ARTIK', difficulty: 'Easy', level: 'THE PEAK' },
+      { opponent: 'SNAZZ MCJAZZ', difficulty: 'Easy', level: 'GLOWING CITY' },
+      { opponent: 'CODEMAX', difficulty: 'Easy', level: 'FOGGY CITY' },
+      { opponent: hangmanChar, difficulty: 'Easy', level: 'THE VOID', isBoss: true },
+      { opponent: 'BLAZE', difficulty: 'Normal', level: 'THE DEN' },
+      { opponent: 'TORRENA', difficulty: 'Normal', level: 'RAINY CITY' },
+      { opponent: 'VENOM', difficulty: 'Normal', level: 'SUNNY CITY' },
+      { opponent: 'TELATRINE', difficulty: 'Normal', level: 'THE VOID' },
+      { opponent: twinsChar, difficulty: 'Normal', level: 'THE TEMPLE', isBoss: true },
+      { opponent: 'DUPLAIRE', difficulty: 'Hard', level: 'SNOWY CITY' },
+      { opponent: 'VORTICE', difficulty: 'Hard', level: 'THE PEAK' },
+      { opponent: campaignBojdoChar, difficulty: 'Hard', level: 'FOGGY CITY' },
+      { opponent: 'BOZOLLOK', difficulty: 'Hard', level: 'CLASSIC' },
+      { opponent: tubeWardenChar, difficulty: 'Hard', level: 'THE DUST', isBoss: true },
+      { opponent: 'CORVIDA', difficulty: 'Hard', level: 'THE TEMPLE' },
+      { opponent: 'SURGE', difficulty: 'Hard', level: 'RAINY CITY' },
+      { opponent: 'KILLA WATT', difficulty: 'Hard', level: 'GLOWING CITY' },
+      { opponent: 'EXOR', difficulty: 'Hard', level: 'THE VOID' },
+      { opponent: orcusChar, difficulty: 'Hard', level: 'THE DUST', isBoss: true },
+      { opponent: 'BATSCH', difficulty: 'Hard', level: 'THE TEMPLE' },
+      { opponent: 'SHADE', difficulty: 'Hard', level: 'CLASSIC' },
+      { opponent: 'HAYSTACK', difficulty: 'Hard', level: 'SUNNY CITY' },
+      { opponent: 'GOURMAND', difficulty: 'Hard', level: 'FOGGY CITY' },
+      { opponent: headChar, difficulty: 'Hard', level: 'THE DUST', isBoss: true }
     ]
   }
 };

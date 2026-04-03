@@ -99,6 +99,123 @@ Fighter.prototype.handleAI = function(opponent) {
     // Otherwise fall through to normal AI
   }
 
+  // Twins boss: Helios (aggressive melee) and Selene (evasive archer)
+  if (this.char.isTwins) {
+    // Helios: aggressive — shoots arrows less often, prefers close range
+    if (this.twinsArrowCooldown > 0) this.twinsArrowCooldown--;
+    const hDist = Math.abs(this.x - opponent.x);
+    // Helios only shoots at long range as a gap closer
+    if (this.twinsArrowCooldown <= 0 && hDist > 200 && this.state !== 'attack' && Math.random() < 0.03) {
+      this.twinsArrows.push({
+        x: this.x + this.facing * 20,
+        y: this.centerY - 5,
+        vx: this.facing * 12,
+        vy: 0,
+        hit: false, timer: 60
+      });
+      this.twinsArrowCooldown = 150 + Math.floor(Math.random() * 60);
+    }
+    // Helios jumps toward player when far away
+    if (hDist > 180 && this.grounded && Math.random() < 0.02) {
+      this.vy = -11;
+      this.grounded = false;
+    }
+
+    // Selene AI: evasive — stays at range, shoots more often, jumps away when close
+    const tw = this.twin;
+    if (tw.arrowCooldown > 0) tw.arrowCooldown--;
+    tw.aiTimer--;
+    tw.facing = opponent.x > tw.x ? 1 : -1;
+
+    const sDist = Math.abs(tw.x - opponent.x);
+
+    // Selene movement decisions
+    if (tw.aiTimer <= 0) {
+      tw.aiTimer = 20 + Math.floor(Math.random() * 30);
+      if (sDist < 120) {
+        tw.aiAction = 'flee'; // run away fast
+      } else if (sDist > 350) {
+        tw.aiAction = 'approach'; // don't let player get too far
+      } else if (sDist > 200) {
+        tw.aiAction = Math.random() < 0.6 ? 'strafe' : 'idle'; // comfortable range, strafe and shoot
+      } else {
+        tw.aiAction = Math.random() < 0.7 ? 'retreat' : 'strafe';
+      }
+    }
+
+    const tSpeed = this.char.stats.speed;
+    if (tw.aiAction === 'flee') {
+      tw.vx = -tw.facing * tSpeed * 1.2; // run away fast
+      // Jump away if player is very close
+      if (sDist < 80 && tw.grounded && Math.random() < 0.15) {
+        tw.vy = -10;
+        tw.grounded = false;
+      }
+    } else if (tw.aiAction === 'approach') {
+      tw.vx = tw.facing * tSpeed * 0.6;
+    } else if (tw.aiAction === 'retreat') {
+      tw.vx = -tw.facing * tSpeed * 0.7;
+    } else if (tw.aiAction === 'strafe') {
+      // Strafe perpendicular — try to get to the opposite side from Helios
+      const heliosDir = this.x > opponent.x ? 1 : -1;
+      tw.vx = -heliosDir * tSpeed * 0.6; // go to the other side
+    } else {
+      tw.vx *= 0.8;
+    }
+
+    // Selene jumps randomly while strafing for unpredictability
+    if (tw.grounded && tw.aiAction === 'strafe' && Math.random() < 0.01) {
+      tw.vy = -9;
+      tw.grounded = false;
+    }
+
+    // Selene arrows: shoots more often than Helios
+    if (tw.arrowCooldown <= 0 && sDist > 60 && Math.random() < 0.06) {
+      // Slight vertical aim toward player
+      const dy = (opponent.y - 25) - (tw.y - 25);
+      const dx = opponent.x - tw.x;
+      const angle = Math.atan2(dy, dx);
+      tw.arrows.push({
+        x: tw.x + tw.facing * 20,
+        y: tw.y - 25,
+        vx: Math.cos(angle) * 10,
+        vy: Math.sin(angle) * 10,
+        hit: false, timer: 60
+      });
+      tw.arrowCooldown = 60 + Math.floor(Math.random() * 40);
+    }
+
+    // Fall through to normal AI for Helios movement/attacks (he's aggressive)
+  }
+
+  // Hangman boss: disassemble and fly pieces across screen
+  if (this.char.isHangman) {
+    if (this.hangmanDisCooldown > 0) this.hangmanDisCooldown--;
+
+    // Don't act while disassembled
+    if (this.hangmanDisassembled) return;
+
+    // Initiate disassembly — teleport to other side of opponent
+    const hDist = Math.abs(this.x - opponent.x);
+    if (this.hangmanDisCooldown <= 0 && this.state !== 'attack' && Math.random() < 0.03) {
+      this.hangmanDisassembled = true;
+      this.hangmanHidden = true;
+      // Pick target: opposite side of opponent from current position
+      if (this.x < opponent.x) {
+        this.hangmanTargetX = Math.min(880, opponent.x + 80 + Math.random() * 80);
+      } else {
+        this.hangmanTargetX = Math.max(80, opponent.x - 80 - Math.random() * 80);
+      }
+      // Set up piece order: head, torso, arm, arm, leg, leg
+      this.hangmanPieces = [];
+      this.hangmanPieceIndex = 0;
+      this.hangmanLaunchTimer = 0;
+      this.hangmanDisCooldown = 240; // 4 second cooldown after reassembly
+      return;
+    }
+    // Fall through to normal AI
+  }
+
   // The Count boss: dark fireworks sweep, ground fireworks, jump explosion
   if (this.char.isTheCount) {
     if (this.countFireCooldown > 0) this.countFireCooldown--;
@@ -296,6 +413,144 @@ Fighter.prototype.handleAI = function(opponent) {
 
     // Walk toward player for leg crush (passive damage at close range is in update)
     // Fall through to normal AI for movement, jabs, kicks, blocking
+  }
+
+  // Head boss: spit + charge roll
+  if (this.char.isHead) {
+    if (this.headSpitCooldown > 0) this.headSpitCooldown--;
+    if (this.headRollCooldown > 0) this.headRollCooldown--;
+
+    // Don't do anything else while charging or rolling
+    if (this.headCharging || this.headRolling) return;
+
+    const hDist = Math.abs(this.x - opponent.x);
+
+    // Spit at medium-long range
+    if (this.headSpitCooldown <= 0 && hDist > 80 && Math.random() < 0.05) {
+      const angle = Math.atan2((opponent.centerY) - (this.y - 35), opponent.x - this.x);
+      this.headSpitProjectiles.push({
+        x: this.x + this.facing * 30,
+        y: this.y - 35,
+        vx: Math.cos(angle) * 8,
+        vy: Math.sin(angle) * 8,
+        hit: false,
+        timer: 60
+      });
+      this.headSpitCooldown = 60 + Math.floor(Math.random() * 40);
+    }
+
+    // Charge roll at any range, less frequent
+    if (this.headRollCooldown <= 0 && Math.random() < 0.015) {
+      this.headCharging = true;
+      this.headChargeTimer = 40; // charge for ~0.67 seconds
+      return;
+    }
+
+    // Basic movement: roll toward player
+    if (hDist > 60) {
+      this.vx = this.facing * this.char.stats.speed;
+    } else if (hDist < 40) {
+      this.vx = -this.facing * this.char.stats.speed * 0.5;
+    }
+    // Occasional jump
+    if (this.grounded && Math.random() < 0.01) {
+      this.vy = -11;
+      this.grounded = false;
+    }
+    return; // skip normal AI entirely
+  }
+
+  // Orcus boss: soul drain, lightning, spirits
+  if (this.char.isOrcus) {
+    if (this.orcusLightningCooldown > 0) this.orcusLightningCooldown--;
+    if (this.orcusSpiritCooldown > 0) this.orcusSpiritCooldown--;
+    if (this.exorDrainCooldown > 0) this.exorDrainCooldown--;
+
+    const oDist = Math.abs(this.x - opponent.x);
+
+    // Soul drain at close range (same as Exor)
+    if (!this.exorDraining && this.exorDrainCooldown <= 0 && oDist < 120 && this.state !== 'attack' && Math.random() < 0.04) {
+      this.exorDraining = true;
+      this.exorDrainTimer = 90;
+      this.exorDrainTarget = opponent;
+      opponent.slowTimer = Math.max(opponent.slowTimer, 90);
+    }
+
+    // Green lightning at medium range
+    if (this.orcusLightningCooldown <= 0 && oDist > 80 && this.state !== 'attack' && Math.random() < 0.03) {
+      // Strike at player's current position
+      const strikeX = opponent.x + (Math.random() - 0.5) * 40;
+      // Generate bolt path
+      const bolts = [];
+      for (let b = 0; b < 2; b++) {
+        const bolt = [];
+        const segs = 8;
+        for (let s = 0; s <= segs; s++) {
+          bolt.push({
+            x: strikeX + (s > 0 && s < segs ? (Math.random() - 0.5) * 30 : 0),
+            y: s * (opponent.groundY / segs) + (s > 0 && s < segs ? (Math.random() - 0.5) * 15 : 0)
+          });
+        }
+        bolts.push(bolt);
+      }
+      this.orcusLightning.push({ x: strikeX, timer: 20, bolts: bolts });
+      this.orcusLightningCooldown = 120 + Math.floor(Math.random() * 60);
+      shakeTimer = 4;
+      shakeIntensity = 5;
+    }
+
+    // Send spirits at long range
+    if (this.orcusSpiritCooldown <= 0 && this.orcusSpirits.length < 3 && oDist > 100 && Math.random() < 0.025) {
+      this.orcusSpirits.push({
+        x: this.x + this.facing * 20,
+        y: this.centerY - 10,
+        vx: this.facing * 3,
+        vy: -1 + Math.random() * 2,
+        hp: 8,
+        stolenHP: 0,
+        phase: 'attack', // 'attack' -> 'return'
+        hitCooldown: 0
+      });
+      this.orcusSpiritCooldown = 150 + Math.floor(Math.random() * 60);
+    }
+
+    // Fall through to normal AI
+  }
+
+  // Tube Warden boss: tube launcher + gas spray
+  if (this.char.isTubeWarden) {
+    if (this.twTubeCooldown > 0) this.twTubeCooldown--;
+    if (this.twGasCooldown > 0) this.twGasCooldown--;
+
+    const twDist = Math.abs(this.x - opponent.x);
+
+    // Shoot tube at medium-long range
+    if (this.twTubeCooldown <= 0 && twDist > 120 && this.state !== 'attack' && Math.random() < 0.05) {
+      const angle = Math.atan2((opponent.y - 30) - this.centerY, opponent.x - this.x);
+      // Heavy arcing shot — add upward velocity
+      this.twTubes.push({
+        x: this.x + this.facing * 30,
+        y: this.centerY - 10,
+        vx: Math.cos(angle) * 10 + this.facing * 2,
+        vy: Math.sin(angle) * 6 - 4, // arc upward
+        stuck: false,
+        stuckTimer: 0,
+        exploded: false
+      });
+      this.twTubeCooldown = 90 + Math.floor(Math.random() * 60);
+    }
+
+    // Spray gas at close-medium range
+    if (this.twGasCooldown <= 0 && twDist < 200 && this.state !== 'attack' && Math.random() < 0.03) {
+      this.twGasClouds.push({
+        x: this.x + this.facing * (60 + Math.random() * 40),
+        y: this.groundY,
+        timer: 240, // 4 seconds
+        radius: 35 + Math.random() * 15
+      });
+      this.twGasCooldown = 180 + Math.floor(Math.random() * 60);
+    }
+    // Fall through to normal AI for movement/attacks
   }
 
   // Scalena boss: neck bite + snake summon

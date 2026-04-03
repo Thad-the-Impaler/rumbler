@@ -15,6 +15,18 @@ Fighter.prototype.draw = function(ctx) {
     return;
   }
 
+  // Draw as giant head
+  if (this.char.isHead) {
+    this.drawHead(ctx);
+    return;
+  }
+
+  // Hangman: draw flying pieces when disassembled, hide body
+  if (this.char.isHangman && this.hangmanDisassembled) {
+    this.drawHangmanPieces(ctx);
+    return; // don't draw normal body
+  }
+
   // Buck: draw fireworks and explosions (world space)
   if (this.char.isBuck) {
     ctx.save();
@@ -409,6 +421,7 @@ Fighter.prototype.draw = function(ctx) {
   if (this._rumbleRotation) ctx.rotate(this._rumbleRotation);
   if (this.char.isBojdo) ctx.scale(this.bojdoScale, this.bojdoScale);
   if (this.char.isBorgus) ctx.scale(1.3, 1.3);
+  if (this.char.isTubeWarden) ctx.scale(1.2, 1.2);
   if (this.isJay) ctx.scale(this.jayScale, this.jayScale);
   if (this.bojShrinkTimer > 0 && !this.char.isBojdo) ctx.scale(0.3, 0.3);
 
@@ -1162,38 +1175,81 @@ Fighter.prototype.draw = function(ctx) {
   // Head
   const headY = -legLen - bodyH - 16;
   const headSize = isPaletap ? 18 : 16;
-  if (isPaletap) {
+
+  if (this.char.isTubeWarden) {
+    // Tube Warden: glass vial head instead of normal head
     ctx.save();
     ctx.translate(0, headY);
-    ctx.rotate(f * 0.35); // tilted head
-  }
-  ctx.fillStyle = accent;
-  ctx.strokeStyle = outline;
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.arc(isPaletap ? 0 : 0, isPaletap ? 0 : headY, headSize, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-
-  // Eyes
-  const eyeBaseY = isPaletap ? 0 : headY;
-  ctx.fillStyle = this.char.isErictho ? '#9944dd' : this.char.isRelapmi ? '#ff2222' : outline;
-  ctx.beginPath();
-  ctx.arc(f * 5, eyeBaseY - 2, 3, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(f * 12, eyeBaseY - 2, 3, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Eye highlights (skip for Paletap and Erictho)
-  if (!isPaletap && !this.char.isErictho) {
-    ctx.fillStyle = '#fff';
+    // Bottom metal cap
+    ctx.fillStyle = '#666666';
+    ctx.strokeStyle = '#444';
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.arc(f * 6, eyeBaseY - 3, 1.5, 0, Math.PI * 2);
+    ctx.roundRect(-14, 6, 28, 8, 3);
+    ctx.fill(); ctx.stroke();
+    // Glass tube body (head-sized)
+    ctx.fillStyle = 'rgba(0, 204, 187, 0.25)';
+    ctx.strokeStyle = 'rgba(200, 255, 250, 0.5)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(-12, -18, 24, 24, 6);
+    ctx.fill(); ctx.stroke();
+    // Turquoise liquid/glow inside
+    ctx.fillStyle = '#00ccbb';
+    ctx.globalAlpha = 0.5 + Math.sin(Date.now() * 0.005) * 0.15;
+    ctx.beginPath();
+    ctx.roundRect(-8, -14, 16, 18, 4);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    // Top metal cap
+    ctx.fillStyle = '#666666';
+    ctx.strokeStyle = '#444';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(-14, -24, 28, 8, 3);
+    ctx.fill(); ctx.stroke();
+    // Highlight streak on glass
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-6, -14);
+    ctx.lineTo(-6, 4);
+    ctx.stroke();
+    ctx.restore();
+  } else {
+    if (isPaletap) {
+      ctx.save();
+      ctx.translate(0, headY);
+      ctx.rotate(f * 0.35); // tilted head
+    }
+    ctx.fillStyle = accent;
+    ctx.strokeStyle = outline;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(isPaletap ? 0 : 0, isPaletap ? 0 : headY, headSize, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Eyes
+    const eyeBaseY = isPaletap ? 0 : headY;
+    ctx.fillStyle = this.char.isErictho ? '#9944dd' : this.char.isRelapmi ? '#ff2222' : outline;
+    ctx.beginPath();
+    ctx.arc(f * 5, eyeBaseY - 2, 3, 0, Math.PI * 2);
     ctx.fill();
     ctx.beginPath();
-    ctx.arc(f * 13, eyeBaseY - 3, 1.5, 0, Math.PI * 2);
+    ctx.arc(f * 12, eyeBaseY - 2, 3, 0, Math.PI * 2);
     ctx.fill();
+
+    // Eye highlights (skip for Paletap and Erictho)
+    if (!isPaletap && !this.char.isErictho) {
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(f * 6, eyeBaseY - 3, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(f * 13, eyeBaseY - 3, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
   if (isPaletap) ctx.restore(); // end tilted head transform
@@ -2158,6 +2214,375 @@ Fighter.prototype.draw = function(ctx) {
         ctx.lineTo(impactX + Math.cos(a) * r, impactY + Math.sin(a) * r);
         ctx.stroke();
       }
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    }
+  }
+
+  // Twins: draw Selene using real fighter draw, bows on both, arrows
+  if (this.char.isTwins && this.twin) {
+    const tw = this.twin;
+
+    // Create a proxy object with Selene's state so we can call the real draw()
+    const seleneProxy = {
+      char: { name: 'SELENE', color: this.char.twinColor, accent: this.char.twinAccent, outline: this.char.twinOutline },
+      x: tw.x, y: tw.y, facing: tw.facing, grounded: tw.grounded,
+      state: Math.abs(tw.vx) > 0.5 ? 'walk' : 'idle',
+      vx: tw.vx, vy: tw.vy || 0,
+      animTimer: tw.animTimer, animFrame: tw.animFrame,
+      flashTimer: tw.flashTimer || 0,
+      health: this.health, maxHealth: this.maxHealth,
+      width: 30, height: 50, groundY: this.groundY,
+      stateTimer: 0, attackFrame: 0, currentAttack: null,
+      crouching: false, blocking: false, isPlayer: false,
+      hitEffect: tw.hitEffect || null,
+      teleportGhost: null, glitchTimer: 0,
+      pendingCombo: null, comboFlash: 0,
+      rubberArmReach: 0, rubberLegReach: 0, rubberStretch: 0,
+      bojdoScale: 1, dancing: false, danceTimer: 0,
+      armorActive: false, phaseTimer: 0, waterPhase: false,
+      isJay: false, isTortoise: false, exploding: false,
+      duplaireClones: [], buckFireworks: [], buckExplosions: [],
+      haystackProjectiles: [], hayParticles: [],
+      borgusLaser: null, borgusLaserCharging: 0,
+      paletapSlamming: false, paletapSlamFrame: 0, paletapShockwave: null,
+      matadorDashing: false, kwZapEffect: null,
+      xhaustOilPuddles: [], xhaustFlames: [], xhaustLeaking: false,
+      assistActive: null, assist: null,
+      _hideFrontArm: false, _hideBackArm: false, _brushArmT: undefined, _rumbleAlpha: undefined, _rumbleRotation: 0,
+      scalenaNeckExtend: 0, scalenaSnakes: [],
+      mouthOpen: false, gourmandEnergy: 0, gourmandMaxEnergy: 100, gourmandProjectile: null,
+      exorDraining: false, exorDrainTarget: null,
+      buckFiring: false,
+      get left() { return this.x - 15; },
+      get right() { return this.x + 15; },
+      get top() { return this.y - 50; },
+      get centerY() { return this.y - 25; }
+    };
+    Fighter.prototype.draw.call(seleneProxy, ctx);
+
+    // Bow on Selene (drawn on top)
+    ctx.save();
+    ctx.translate(tw.x, tw.y);
+    const tf = tw.facing;
+    const bowX = tf * 28;
+    const bowY = -36;
+    ctx.strokeStyle = '#5a3a1a';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(bowX, bowY, 18, -1.2, 1.2);
+    ctx.stroke();
+    ctx.strokeStyle = this.char.twinAccent;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(bowX + Math.cos(-1.2) * 18, bowY + Math.sin(-1.2) * 18);
+    ctx.lineTo(bowX + Math.cos(1.2) * 18, bowY + Math.sin(1.2) * 18);
+    ctx.stroke();
+    ctx.restore();
+
+    // Selene arrows
+    for (const arr of tw.arrows) {
+      ctx.save();
+      ctx.translate(arr.x, arr.y);
+      ctx.fillStyle = this.char.twinAccent;
+      ctx.strokeStyle = this.char.twinOutline;
+      ctx.lineWidth = 2;
+      const dir = arr.vx > 0 ? 1 : -1;
+      ctx.beginPath();
+      ctx.moveTo(dir * 12, 0);
+      ctx.lineTo(-dir * 8, -2);
+      ctx.lineTo(-dir * 8, 2);
+      ctx.closePath();
+      ctx.fill();
+      // Shaft
+      ctx.strokeStyle = '#8B6B3D';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(dir * 10, 0);
+      ctx.lineTo(-dir * 8, 0);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Bow on Helios (main body) — draw in world space
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.scale(this.facing, 1);
+    ctx.strokeStyle = this.char.outline;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(20, -35, 18, -1.2, 1.2);
+    ctx.stroke();
+    ctx.strokeStyle = this.char.accent;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(20 + Math.cos(-1.2) * 18, -35 + Math.sin(-1.2) * 18);
+    ctx.lineTo(20 + Math.cos(1.2) * 18, -35 + Math.sin(1.2) * 18);
+    ctx.stroke();
+    ctx.restore();
+
+    // Helios arrows
+    for (const arr of this.twinsArrows) {
+      ctx.save();
+      ctx.translate(arr.x, arr.y);
+      ctx.fillStyle = this.char.accent;
+      ctx.strokeStyle = this.char.outline;
+      ctx.lineWidth = 2;
+      const dir = arr.vx > 0 ? 1 : -1;
+      ctx.beginPath();
+      ctx.moveTo(dir * 12, 0);
+      ctx.lineTo(-dir * 8, -2);
+      ctx.lineTo(-dir * 8, 2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#8B6B3D';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(dir * 10, 0);
+      ctx.lineTo(-dir * 8, 0);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  // Orcus: crown, skull face, lightning, spirits, soul drain
+  if (this.char.isOrcus) {
+    // Crown on top of head
+    const crownY = this.y + bodyOffsetY - 8 - 40 - 32;
+    const crownX = this.x + bodyOffsetX;
+    ctx.save();
+    ctx.translate(crownX, crownY);
+    ctx.fillStyle = '#ccaa00';
+    ctx.strokeStyle = '#886600';
+    ctx.lineWidth = 1.5;
+    // Crown base
+    ctx.beginPath();
+    ctx.moveTo(-14, 4);
+    ctx.lineTo(-14, -4);
+    ctx.lineTo(-8, 0);
+    ctx.lineTo(-4, -10);
+    ctx.lineTo(0, -2);
+    ctx.lineTo(4, -10);
+    ctx.lineTo(8, 0);
+    ctx.lineTo(14, -4);
+    ctx.lineTo(14, 4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    // Jewels
+    ctx.fillStyle = '#00ff44';
+    ctx.beginPath(); ctx.arc(0, -1, 2.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#ff2222';
+    ctx.beginPath(); ctx.arc(-7, 0, 2, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(7, 0, 2, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+
+    // Skull face design (drawn over the normal face)
+    const skullY = this.y + bodyOffsetY - 8 - 40 - 16;
+    const skullX = this.x + bodyOffsetX;
+    ctx.save();
+    ctx.translate(skullX, skullY);
+    // Dark eye sockets (larger than normal eyes)
+    ctx.fillStyle = '#000';
+    ctx.beginPath(); ctx.arc(f * 5, -2, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(f * 12, -2, 5, 0, Math.PI * 2); ctx.fill();
+    // Green glow in sockets
+    ctx.fillStyle = '#00ff44';
+    ctx.globalAlpha = 0.6 + Math.sin(Date.now() * 0.006) * 0.3;
+    ctx.beginPath(); ctx.arc(f * 5, -2, 3, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(f * 12, -2, 3, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
+    // Nose hole
+    ctx.fillStyle = '#000';
+    ctx.beginPath(); ctx.arc(f * 8, 4, 1.5, 0, Math.PI * 2); ctx.fill();
+    // Teeth/jaw line
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(f * 2, 8);
+    for (let t = 0; t < 5; t++) {
+      const tx = f * (2 + t * 2.5);
+      ctx.lineTo(tx, t % 2 === 0 ? 8 : 11);
+    }
+    ctx.stroke();
+    ctx.restore();
+
+    // Soul drain beam (same visual as Exor)
+    if (this.exorDraining && this.exorDrainTarget) {
+      ctx.save();
+      const target = this.exorDrainTarget;
+      ctx.strokeStyle = '#00ff44';
+      ctx.lineWidth = 3;
+      ctx.globalAlpha = 0.4 + Math.sin(Date.now() * 0.01) * 0.2;
+      ctx.beginPath();
+      ctx.moveTo(this.x, this.centerY - 10);
+      ctx.lineTo(target.x, target.centerY - 10);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      // Soul particles
+      for (const p of this.exorSoulParticles) {
+        const px = p.x + (p.tx - p.x) * p.t;
+        const py = p.y + (p.ty - p.y) * p.t;
+        ctx.globalAlpha = p.life * 0.8;
+        ctx.fillStyle = '#00ff44';
+        ctx.beginPath(); ctx.arc(px, py, 3, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    }
+
+    // Green lightning
+    for (const lt of this.orcusLightning) {
+      ctx.save();
+      const ltAlpha = Math.min(1, lt.timer / 10);
+      ctx.globalAlpha = ltAlpha;
+      for (const bolt of lt.bolts) {
+        ctx.strokeStyle = '#00ff44';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(bolt[0].x, bolt[0].y);
+        for (let s = 1; s < bolt.length; s++) {
+          ctx.lineTo(bolt[s].x, bolt[s].y);
+        }
+        ctx.stroke();
+        // Glow
+        ctx.strokeStyle = '#88ffaa';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(bolt[0].x, bolt[0].y);
+        for (let s = 1; s < bolt.length; s++) {
+          ctx.lineTo(bolt[s].x + (Math.random() - 0.5) * 4, bolt[s].y + (Math.random() - 0.5) * 4);
+        }
+        ctx.stroke();
+      }
+      // Ground flash
+      ctx.fillStyle = '#00ff44';
+      ctx.globalAlpha = ltAlpha * 0.5;
+      ctx.beginPath();
+      ctx.ellipse(lt.x, this.groundY, 20, 6, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    }
+
+    // Spirits
+    for (const sp of this.orcusSpirits) {
+      ctx.save();
+      ctx.translate(sp.x, sp.y);
+      const spGlow = 0.5 + Math.sin(Date.now() * 0.008 + sp.x) * 0.3;
+      // Ghostly body
+      ctx.globalAlpha = 0.7;
+      ctx.fillStyle = sp.phase === 'return' ? '#44ff88' : '#88ffaa';
+      ctx.beginPath();
+      ctx.arc(0, 0, 10, 0, Math.PI * 2);
+      ctx.fill();
+      // Inner glow
+      ctx.fillStyle = '#ffffff';
+      ctx.globalAlpha = spGlow * 0.5;
+      ctx.beginPath();
+      ctx.arc(0, -2, 5, 0, Math.PI * 2);
+      ctx.fill();
+      // Eyes
+      ctx.globalAlpha = 0.9;
+      ctx.fillStyle = '#00ff44';
+      const sf = sp.vx > 0 ? 1 : -1;
+      ctx.beginPath(); ctx.arc(sf * 3, -2, 2, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(sf * 7, -2, 2, 0, Math.PI * 2); ctx.fill();
+      // Wispy tail
+      ctx.strokeStyle = sp.phase === 'return' ? '#44ff88' : '#88ffaa';
+      ctx.lineWidth = 3;
+      ctx.globalAlpha = 0.4;
+      ctx.beginPath();
+      ctx.moveTo(0, 5);
+      ctx.quadraticCurveTo(-sp.vx * 3, 10 + Math.sin(Date.now() * 0.01) * 3, -sp.vx * 5, 15);
+      ctx.stroke();
+      // Show stolen HP glow when returning
+      if (sp.phase === 'return' && sp.stolenHP > 0) {
+        ctx.globalAlpha = 0.6;
+        ctx.fillStyle = '#ff4444';
+        ctx.font = 'bold 10px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('+' + Math.floor(sp.stolenHP), 0, -16);
+      }
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    }
+  }
+
+  // Tube Warden: arm cannons, projectiles, gas clouds
+  if (this.char.isTubeWarden) {
+    // Arm cannons (cylindrical barrels at the fists)
+    const cannonY = this.y + bodyOffsetY - 8 - 30;
+    ctx.save();
+    ctx.fillStyle = '#555';
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 1.5;
+    const cannonX = this.x + bodyOffsetX + f * 28;
+    ctx.beginPath();
+    ctx.roundRect(cannonX - 5, cannonY - 3, f * 16, 8, 2);
+    ctx.fill();
+    ctx.stroke();
+    // Barrel glow
+    ctx.fillStyle = '#00ccbb';
+    ctx.globalAlpha = 0.6;
+    ctx.beginPath();
+    ctx.arc(cannonX + f * 14, cannonY + 1, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.restore();
+
+    // Flying tubes
+    for (const tube of this.twTubes) {
+      ctx.save();
+      ctx.translate(tube.x, tube.y);
+      if (!tube.stuck) {
+        // Rotate to match trajectory
+        ctx.rotate(Math.atan2(tube.vy, tube.vx));
+      } else {
+        // Stuck in ground — angled slightly
+        ctx.rotate(-0.3);
+      }
+      // Metal caps
+      ctx.fillStyle = '#777';
+      ctx.fillRect(-3, -12, 6, 4);
+      ctx.fillRect(-3, 8, 6, 4);
+      // Glass tube body
+      ctx.fillStyle = 'rgba(0, 204, 187, 0.4)';
+      ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(-3, -8, 6, 16, 2);
+      ctx.fill();
+      ctx.stroke();
+      // Inner glow
+      ctx.fillStyle = '#00ccbb';
+      ctx.globalAlpha = 0.7;
+      ctx.fillRect(-1, -6, 2, 12);
+      ctx.globalAlpha = 1;
+      // Fuse warning when about to explode
+      if (tube.stuck && tube.stuckTimer < 20) {
+        ctx.globalAlpha = (tube.stuckTimer % 4 < 2) ? 0.8 : 0.2;
+        ctx.fillStyle = '#ff4400';
+        ctx.beginPath();
+        ctx.arc(0, 0, 8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+      ctx.restore();
+    }
+
+    // Gas clouds
+    for (const gas of this.twGasClouds) {
+      ctx.save();
+      const gAlpha = Math.min(1, gas.timer / 60) * 0.4;
+      ctx.globalAlpha = gAlpha;
+      // Multiple overlapping circles for cloud effect
+      const drift = Math.sin(Date.now() * 0.002 + gas.x) * 5;
+      ctx.fillStyle = '#00ccbb';
+      ctx.beginPath(); ctx.arc(gas.x + drift, gas.y - 15, gas.radius * 0.8, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(gas.x - drift * 0.5 - 10, gas.y - 20, gas.radius * 0.6, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(gas.x + drift * 0.3 + 8, gas.y - 10, gas.radius * 0.5, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(gas.x - 5, gas.y - 25, gas.radius * 0.4, 0, Math.PI * 2); ctx.fill();
       ctx.globalAlpha = 1;
       ctx.restore();
     }

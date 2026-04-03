@@ -81,5 +81,11 @@ function drawRumbleAnimation() {
   if (rumbleType === 'BATSCH') {
     drawBatschRumble(loseFighter, winFighter);
   }
+  if (rumbleType === 'PALETAP') {
+    drawPaletapRumble(loseFighter, winFighter);
+  }
+  if (rumbleType === 'MATADOR') {
+    drawMatadorRumble(loseFighter, winFighter);
+  }
 }
 

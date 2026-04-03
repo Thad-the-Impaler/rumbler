@@ -55,8 +55,9 @@ function drawCampaignSelectScreen() {
     ctx.fillStyle = selected ? '#aaa' : '#555';
     ctx.fillText(campaign.desc, 210, y + 65);
 
-    // Fight count
-    const totalFights = campaign.fights.filter(f => f !== null).length;
+    // Fight count (respect hidden count)
+    const realTotal = campaign.fights.filter(f => !f.isBonus).length;
+    const totalFights = campaign.displayFightCount || realTotal;
     ctx.font = '14px Arial';
     ctx.textAlign = 'right';
     ctx.fillStyle = selected ? '#888' : '#444';
