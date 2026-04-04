@@ -1,9 +1,67 @@
+let campaignMusicOverride = null;
+
 function startVersusScreen() {
   versusTimer = 0;
   gameState = 'versus';
   stopTitleMusic();
-  const level = selectedLevel ? selectedLevel.name : 'CLASSIC';
-  playFightMusic(level);
+  // The Count always gets his theme, regardless of level
+  if (selectedCPU && selectedCPU.isTheCount && !campaignMusicOverride) {
+    campaignMusicOverride = 'THE COUNT';
+  }
+  const musicKey = campaignMusicOverride || (selectedLevel ? selectedLevel.name : 'CLASSIC');
+  playFightMusic(musicKey);
+  campaignMusicOverride = null;
+}
+
+function setupCampaignFight(index) {
+  const campaign = campaigns[campaignId];
+  const fight = campaign.fights[index];
+  if (!fight) return;
+
+  // Resolve opponent
+  if (typeof fight.opponent === 'string') {
+    selectedCPU = characters.find(c => c.name === fight.opponent)
+      || secretCharOrder.find(c => c.name === fight.opponent);
+  } else {
+    selectedCPU = fight.opponent; // boss or special character object
+  }
+
+  // Resolve difficulty
+  cpuDifficulty = difficulties.find(d => d.name === fight.difficulty) || difficulties[0];
+
+  // Resolve level
+  selectedLevel = defaultLevels.find(l => l.name === fight.level)
+    || secretLevels.find(l => l.name === fight.level)
+    || campaignLevels.find(l => l.name === fight.level)
+    || defaultLevels[0];
+
+  // Random CPU assist
+  cpuAssistIndex = Math.floor(Math.random() * assists.length);
+
+  // Set up bonus fight state
+  if (fight.isBonus && fight.bonusType === 'testYourMight') {
+    testYourMightActive = true;
+    testYourMightMaxTime = fight.bonusTime * 60; // seconds to frames
+    testYourMightTimer = testYourMightMaxTime;
+    testYourMightDamage = 0;
+  } else {
+    testYourMightActive = false;
+  }
+
+  // Printer Boss secret phase
+  if (fight.isPrinterBoss) {
+    printerBossPhase = 0; // starts as TYM fake
+    printerBossTimer = 0;
+    printerBossInkSplats = [];
+    printerBossPapers = [];
+  } else {
+    printerBossPhase = -1; // not a printer boss fight
+  }
+
+  // Music override for specific fights
+  campaignMusicOverride = fight.music || null;
+
+  startVersusScreen();
 }
 
 function startRumblePractice() {
@@ -32,6 +90,18 @@ function startRumblePractice() {
 function startFight() {
   player = new Fighter(selectedPlayer, 250, 1, true, selectedAssist);
   cpu = new Fighter(selectedCPU, 710, -1, false, assists[cpuAssistIndex]);
+
+  // The Count on Brutal: upgrade to final version
+  if (cpu.char.isTheCount && !cpu.char.isTheCountFinal && cpuDifficulty && cpuDifficulty.name === 'BRUTAL') {
+    cpu.char = { ...cpu.char, isTheCountFinal: true, stats: { speed: 6.0, power: 1.5, defense: 1.3 } };
+    cpu.health = 350;
+    cpu.maxHealth = 350;
+  }
+
+  // Reset Count death phase
+  countDeathPhase = -1;
+  countDeathTimer = 0;
+
   gameState = 'fight';
   paused = false;
   winner = null;

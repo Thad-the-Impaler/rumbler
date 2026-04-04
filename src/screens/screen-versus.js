@@ -82,7 +82,8 @@ function drawVersusScreen() {
   const offsetR = (1 - easeR) * 500;
 
   // Tinted background
-  ctx.fillStyle = selectedCPU.accent + '33';
+  const cpuVsAccent = selectedCPU.isErictho ? '#9944dd' : selectedCPU.isRelapmi ? '#00ff44' : selectedCPU.accent;
+  ctx.fillStyle = cpuVsAccent + '33';
   ctx.fillRect(splitX - skew, 0, W - splitX + skew, H);
 
   // Draw portrait icon
@@ -90,11 +91,18 @@ function drawVersusScreen() {
   if (cImg) {
     const cx = splitX + (W - splitX) / 2 - iconSize / 2 + offsetR;
     const cy = H / 2 - iconSize / 2 - 10;
-    ctx.shadowColor = selectedCPU.accent;
+    ctx.shadowColor = cpuVsAccent;
     ctx.shadowBlur = 30 * easeR;
     ctx.globalAlpha = easeR;
     ctx.drawImage(cImg, cx, cy, iconSize, iconSize);
     ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1;
+  } else {
+    // Fallback: draw procedural icon
+    const cx = splitX + (W - splitX) / 2 + offsetR;
+    const cy = H / 2 - 10;
+    ctx.globalAlpha = easeR;
+    drawFighterIcon(selectedCPU.name, cx, cy, iconSize / 2, cpuVsAccent);
     ctx.globalAlpha = 1;
   }
 
@@ -108,7 +116,10 @@ function drawVersusScreen() {
   // CPU name
   ctx.font = 'bold 28px Arial';
   ctx.textAlign = 'center';
-  ctx.fillStyle = selectedCPU.accent;
+  const cpuNameColor = selectedCPU.isErictho ? '#ffffff'
+    : selectedCPU.isRelapmi ? '#00ff44'
+    : selectedCPU.accent;
+  ctx.fillStyle = cpuNameColor;
   ctx.fillText(selectedCPU.name, splitX + (W - splitX) / 2 + offsetR, H / 2 + iconSize / 2 + 20);
 
   // CPU assist name
@@ -165,6 +176,33 @@ function drawVersusScreen() {
     ctx.fillText('VS', 0, 2);
 
     ctx.restore();
+
+    // "Campaigner battle" label for boss fights
+    if (gameMode === 'campaign' && selectedCPU && selectedCPU.isBoss) {
+      ctx.save();
+      ctx.globalAlpha = vsEase;
+      ctx.font = 'bold 18px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#ff4444';
+      ctx.shadowColor = '#ff0000';
+      ctx.shadowBlur = 10;
+      ctx.fillText('CAMPAIGNER BATTLE', splitX, H / 2 + 50);
+      ctx.shadowBlur = 0;
+      ctx.restore();
+    }
+    // "Bonus Challenge" label for bonus fights
+    if (gameMode === 'campaign' && testYourMightActive) {
+      ctx.save();
+      ctx.globalAlpha = vsEase;
+      ctx.font = 'bold 20px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#ffcc00';
+      ctx.shadowColor = '#ff6600';
+      ctx.shadowBlur = 10;
+      ctx.fillText('BONUS CHALLENGE: TEST YOUR MIGHT', splitX, H / 2 + 50);
+      ctx.shadowBlur = 0;
+      ctx.restore();
+    }
   }
 
   // --- Flash transition at the end ---

@@ -58,8 +58,609 @@ Fighter.prototype.handleAI = function(opponent) {
     return;
   }
 
+  // Printer: just stands there
+  if (this.char.isPrinter && !this.char.isPrinterBoss) return;
+
   // Matador: locked into dash
   if (this.matadorDashing) return;
+
+  // Quellic boss: toggle fire phase
+  if (this.char.isQuellic) {
+    if (!this.quellicFirePhase && this.quellicFireCooldown <= 0 && this.state !== 'hitstun' && this.state !== 'launched') {
+      // Activate fire phase when close to opponent or taking pressure
+      const qDist = Math.abs(this.x - opponent.x);
+      if ((qDist < 150 && Math.random() < 0.03) || (this.state === 'blockstun' && Math.random() < 0.1)) {
+        this.quellicFirePhase = true;
+        this.quellicFireTimer = this.quellicFireMaxDuration;
+      }
+    }
+    // While in fire phase, rush toward opponent aggressively
+    if (this.quellicFirePhase) {
+      this.facing = opponent.x > this.x ? 1 : -1;
+      this.vx = this.facing * this.char.stats.speed * 1.3;
+      this.state = 'walk';
+      this.blocking = false;
+      return;
+    }
+    // Otherwise fall through to normal AI
+  }
+
+  // Erictho boss: portal state blocks all AI while active
+  if (this.char.isErictho) {
+    // While hidden or portal animating, block normal AI
+    if (this.ericthoHidden) return;
+    if (this.ericthoPortal && (this.ericthoPortal.phase === 'enter' || this.ericthoPortal.phase === 'exit')) return;
+
+    // Decide to enter portal (AI trigger only — state machine runs in update)
+    if (this.ericthoPortalCooldown <= 0 && !this.ericthoPortal && this.state !== 'attack' && this.state !== 'hitstun' && this.state !== 'launched' && Math.random() < 0.02) {
+      this.ericthoPortal = { x: this.x, y: this.groundY, timer: 0, phase: 'enter', maxTimer: 20 };
+    }
+
+    // Otherwise fall through to normal AI
+  }
+
+  // Twins boss: Helios (aggressive melee) and Selene (evasive archer)
+  if (this.char.isTwins) {
+    // Helios: aggressive — shoots arrows less often, prefers close range
+    if (this.twinsArrowCooldown > 0) this.twinsArrowCooldown--;
+    const hDist = Math.abs(this.x - opponent.x);
+    // Helios only shoots at long range as a gap closer
+    if (this.twinsArrowCooldown <= 0 && hDist > 200 && this.state !== 'attack' && Math.random() < 0.03) {
+      this.twinsArrows.push({
+        x: this.x + this.facing * 20,
+        y: this.centerY - 5,
+        vx: this.facing * 12,
+        vy: 0,
+        hit: false, timer: 60
+      });
+      this.twinsArrowCooldown = 150 + Math.floor(Math.random() * 60);
+    }
+    // Helios jumps toward player when far away
+    if (hDist > 180 && this.grounded && Math.random() < 0.02) {
+      this.vy = -11;
+      this.grounded = false;
+    }
+
+    // Selene AI: evasive — stays at range, shoots more often, jumps away when close
+    const tw = this.twin;
+    if (tw.arrowCooldown > 0) tw.arrowCooldown--;
+    tw.aiTimer--;
+    tw.facing = opponent.x > tw.x ? 1 : -1;
+
+    const sDist = Math.abs(tw.x - opponent.x);
+
+    // Selene movement decisions
+    if (tw.aiTimer <= 0) {
+      tw.aiTimer = 20 + Math.floor(Math.random() * 30);
+      if (sDist < 120) {
+        tw.aiAction = 'flee'; // run away fast
+      } else if (sDist > 350) {
+        tw.aiAction = 'approach'; // don't let player get too far
+      } else if (sDist > 200) {
+        tw.aiAction = Math.random() < 0.6 ? 'strafe' : 'idle'; // comfortable range, strafe and shoot
+      } else {
+        tw.aiAction = Math.random() < 0.7 ? 'retreat' : 'strafe';
+      }
+    }
+
+    const tSpeed = this.char.stats.speed;
+    if (tw.aiAction === 'flee') {
+      tw.vx = -tw.facing * tSpeed * 1.2; // run away fast
+      // Jump away if player is very close
+      if (sDist < 80 && tw.grounded && Math.random() < 0.15) {
+        tw.vy = -10;
+        tw.grounded = false;
+      }
+    } else if (tw.aiAction === 'approach') {
+      tw.vx = tw.facing * tSpeed * 0.6;
+    } else if (tw.aiAction === 'retreat') {
+      tw.vx = -tw.facing * tSpeed * 0.7;
+    } else if (tw.aiAction === 'strafe') {
+      // Strafe perpendicular — try to get to the opposite side from Helios
+      const heliosDir = this.x > opponent.x ? 1 : -1;
+      tw.vx = -heliosDir * tSpeed * 0.6; // go to the other side
+    } else {
+      tw.vx *= 0.8;
+    }
+
+    // Selene jumps randomly while strafing for unpredictability
+    if (tw.grounded && tw.aiAction === 'strafe' && Math.random() < 0.01) {
+      tw.vy = -9;
+      tw.grounded = false;
+    }
+
+    // Selene arrows: shoots more often than Helios
+    if (tw.arrowCooldown <= 0 && sDist > 60 && Math.random() < 0.06) {
+      // Slight vertical aim toward player
+      const dy = (opponent.y - 25) - (tw.y - 25);
+      const dx = opponent.x - tw.x;
+      const angle = Math.atan2(dy, dx);
+      tw.arrows.push({
+        x: tw.x + tw.facing * 20,
+        y: tw.y - 25,
+        vx: Math.cos(angle) * 10,
+        vy: Math.sin(angle) * 10,
+        hit: false, timer: 60
+      });
+      tw.arrowCooldown = 60 + Math.floor(Math.random() * 40);
+    }
+
+    // Fall through to normal AI for Helios movement/attacks (he's aggressive)
+  }
+
+  // Hangman boss: disassemble and fly pieces across screen
+  if (this.char.isHangman) {
+    if (this.hangmanDisCooldown > 0) this.hangmanDisCooldown--;
+
+    // Don't act while disassembled
+    if (this.hangmanDisassembled) return;
+
+    // Initiate disassembly — teleport to other side of opponent
+    const hDist = Math.abs(this.x - opponent.x);
+    if (this.hangmanDisCooldown <= 0 && this.state !== 'attack' && Math.random() < 0.03) {
+      this.hangmanDisassembled = true;
+      this.hangmanHidden = true;
+      // Pick target: opposite side of opponent from current position
+      if (this.x < opponent.x) {
+        this.hangmanTargetX = Math.min(880, opponent.x + 80 + Math.random() * 80);
+      } else {
+        this.hangmanTargetX = Math.max(80, opponent.x - 80 - Math.random() * 80);
+      }
+      // Set up piece order: head, torso, arm, arm, leg, leg
+      this.hangmanPieces = [];
+      this.hangmanPieceIndex = 0;
+      this.hangmanLaunchTimer = 0;
+      this.hangmanDisCooldown = 240; // 4 second cooldown after reassembly
+      return;
+    }
+    // Fall through to normal AI
+  }
+
+  // The Count boss: dark fireworks sweep, ground fireworks, jump explosion
+  if (this.char.isTheCount) {
+    if (this.countFireCooldown > 0) this.countFireCooldown--;
+    if (this.countGroundCooldown > 0) this.countGroundCooldown--;
+
+    if (this.countFiring) return; // firing sweep in progress
+
+    const cDist = Math.abs(this.x - opponent.x);
+    const isFinal = this.char.isTheCountFinal;
+
+    // Final Count: jump much more aggressively
+    if (isFinal && this.grounded && Math.random() < 0.03) {
+      this.vy = -12;
+      this.grounded = false;
+    }
+
+    // Firework sweep (one pass up and down) at medium range
+    if (cDist > (isFinal ? 60 : 100) && this.countFireCooldown <= 0 && Math.random() < (isFinal ? 0.06 : 0.03)) {
+      this.countFiring = true;
+      this.countFireTimer = isFinal ? 70 : 90;
+      this.countFireCooldown = isFinal ? 100 : 200;
+      return;
+    }
+
+    // Ground firework burst toward opponent
+    if (cDist > (isFinal ? 50 : 80) && this.countGroundCooldown <= 0 && Math.random() < (isFinal ? 0.07 : 0.04)) {
+      const darkColors = ['#8B0000', '#CC5500', '#B8860B', '#006400', '#00008B', '#4B0082'];
+      for (let i = 0; i < 3; i++) {
+        const spd = 5 + Math.random() * 3;
+        this.countFireworks.push({
+          x: this.x + (Math.random() - 0.5) * 40,
+          y: this.groundY,
+          vx: this.facing * (2 + Math.random() * 3),
+          vy: -spd - Math.random() * 4,
+          color: darkColors[Math.floor(Math.random() * darkColors.length)],
+          timer: 25 + Math.floor(Math.random() * 15),
+          trail: [],
+          fromGround: true
+        });
+      }
+      this.countGroundCooldown = isFinal ? 50 : 100;
+    }
+
+    // Jump explosion — when in air and close to opponent
+    if (!this.grounded && !this.countJumpExplosionUsed && cDist < 150) {
+      this.countJumpExplosionUsed = true;
+      const darkColors = ['#8B0000', '#CC5500', '#B8860B', '#006400', '#00008B', '#4B0082'];
+      for (let e = 0; e < 20; e++) {
+        const ea = (e / 20) * Math.PI * 2;
+        const es = 3 + Math.random() * 5;
+        this.countExplosions.push({
+          x: this.x, y: this.y - 25,
+          vx: Math.cos(ea) * es, vy: Math.sin(ea) * es,
+          color: darkColors[Math.floor(Math.random() * darkColors.length)],
+          timer: 20 + Math.floor(Math.random() * 10)
+        });
+      }
+      // Damage nearby opponent
+      if (cDist < 80) {
+        const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+        opponent.takeDamage(12 * this.char.stats.power * diffMult,
+          { hitstun: 16, blockstun: 10, launch: false, knockbackForce: 5 },
+          this.facing, false, { x: this.x, y: this.y - 25 });
+      }
+      shakeTimer = 6;
+      shakeIntensity = 7;
+    }
+    if (this.grounded) this.countJumpExplosionUsed = false;
+    // Fall through to normal AI
+  }
+
+  // Relapmi boss: ground spears, body shank, spike ring
+  if (this.char.isRelapmi) {
+    if (this.relapmiSpearCooldown > 0) this.relapmiSpearCooldown--;
+    if (this.relapmiShankCooldown > 0) this.relapmiShankCooldown--;
+    if (this.relapmiSpikeRingCooldown > 0) this.relapmiSpikeRingCooldown--;
+
+    const rDist = Math.abs(this.x - opponent.x);
+
+    // Shank — close range, spear grows from body toward opponent
+    if (rDist < 130 && this.relapmiShankCooldown <= 0 && !this.relapmiShank && Math.random() < 0.06) {
+      const dx = opponent.x - this.x;
+      const dy = (opponent.y - 25) - this.centerY;
+      this.relapmiShank = {
+        angle: Math.atan2(dy, dx),
+        timer: 25,
+        maxLen: 100,
+        length: 0,
+        hit: false
+      };
+      this.relapmiShankCooldown = 80;
+    }
+
+    // Ground spears — summon 2-4 spears rising near opponent at medium+ range
+    if (rDist > 100 && this.relapmiSpearCooldown <= 0 && this.relapmiSpears.length < 5 && Math.random() < 0.035) {
+      const count = 2 + Math.floor(Math.random() * 3);
+      for (let i = 0; i < count; i++) {
+        this.relapmiSpears.push({
+          x: opponent.x + (Math.random() - 0.5) * 150,
+          y: this.groundY,
+          timer: 50,
+          emergeT: 0,
+          hit: false
+        });
+      }
+      this.relapmiSpearCooldown = 150;
+    }
+
+    // Spike ring — fire outward ring at any range, less frequent
+    if (this.relapmiSpikeRingCooldown <= 0 && !this.relapmiSpikeRing && Math.random() < 0.015) {
+      const numSpikes = 12;
+      const spikes = [];
+      for (let i = 0; i < numSpikes; i++) {
+        spikes.push({
+          angle: (i / numSpikes) * Math.PI * 2,
+          dist: 10,
+          speed: 4
+        });
+      }
+      this.relapmiSpikeRing = { spikes, timer: 60, hit: [] };
+      this.relapmiSpikeRingCooldown = 240;
+    }
+    // Fall through to normal AI
+  }
+
+  // Six Iron-Nine Iron boss: club swing, golf ball, lasso
+  if (this.char.isSixIron) {
+    if (this.sixIronClubCooldown > 0) this.sixIronClubCooldown--;
+    if (this.sixIronGolfCooldown > 0) this.sixIronGolfCooldown--;
+    if (this.sixIronLassoCooldown > 0) this.sixIronLassoCooldown--;
+    if (this.char.isSixDriver && this.sixDriverHoleCooldown > 0) this.sixDriverHoleCooldown--;
+
+    if (this.sixIronClubSwinging || this.sixIronLassoPulling) return;
+
+    const siDist = Math.abs(this.x - opponent.x);
+    const isDriver = this.char.isSixDriver;
+
+    // Club swing at close range (Six Driver: massive knockback)
+    if (siDist < 90 && this.sixIronClubCooldown <= 0 && this.state !== 'attack' && Math.random() < 0.07) {
+      this.sixIronClubSwinging = true;
+      this.sixIronClubTimer = 30;
+      this.sixIronClubCooldown = isDriver ? 50 : 70;
+      return;
+    }
+
+    // Shoot golf ball(s) — Six Driver shoots 3 in a spread
+    if (siDist > 150 && this.sixIronGolfCooldown <= 0 && this.sixIronGolfBalls.length < (isDriver ? 6 : 3) && Math.random() < 0.04) {
+      const ballCount = isDriver ? 3 : 1;
+      for (let b = 0; b < ballCount; b++) {
+        const spread = isDriver ? (b - 1) * 2.5 : 0; // -2.5, 0, +2.5 vertical spread
+        this.sixIronGolfBalls.push({
+          x: this.x + this.facing * 25,
+          y: this.centerY - 5,
+          vx: this.facing * (isDriver ? 13 : 11),
+          vy: -3 - Math.random() * 2 + spread,
+          timer: 90,
+          hit: false
+        });
+      }
+      this.sixIronGolfCooldown = isDriver ? 60 : 80;
+      return;
+    }
+
+    // Six Driver: ground holes that pop up golf balls
+    if (isDriver && this.sixDriverHoleCooldown <= 0 && this.sixDriverGroundHoles.length < 3 && Math.random() < 0.025) {
+      // Create 2-3 holes near opponent
+      const holeCount = 2 + Math.floor(Math.random() * 2);
+      for (let h = 0; h < holeCount; h++) {
+        this.sixDriverGroundHoles.push({
+          x: opponent.x + (Math.random() - 0.5) * 150,
+          timer: 50 + Math.floor(Math.random() * 20), // delay before firing
+          fired: false
+        });
+      }
+      this.sixDriverHoleCooldown = 200;
+    }
+
+    // Lasso at medium range to pull player closer
+    if (siDist > 120 && siDist < 350 && this.sixIronLassoCooldown <= 0 && !this.sixIronLasso && Math.random() < 0.03) {
+      this.sixIronLasso = {
+        x: this.x + this.facing * 20,
+        y: this.centerY - 10,
+        vx: this.facing * 10,
+        timer: 45,
+        hit: false
+      };
+      this.sixIronLassoCooldown = isDriver ? 180 : 240;
+      return;
+    }
+    // Fall through to normal AI
+  }
+
+  // Birdeater/Maneater boss: leg crush + tail strike + jump over player
+  if (this.char.isBirdeater) {
+    if (this.birdeaterTailCooldown > 0) this.birdeaterTailCooldown--;
+    if (this.birdeaterLegCrushCooldown > 0) this.birdeaterLegCrushCooldown--;
+    if (this.birdeaterJumpCooldown > 0) this.birdeaterJumpCooldown--;
+
+    const isManeater = this.char.isManeater;
+
+    // During tail strike or jump (or hover), skip other AI
+    if (this.birdeaterTailStriking || this.birdeaterJumping) return;
+    if (isManeater && this.maneaterHovering) return;
+
+    const beDist = Math.abs(this.x - opponent.x);
+
+    // Jump over player when they're very close and in front
+    // Maneater: hover after jumping
+    if (beDist < (isManeater ? 120 : 80) && this.birdeaterJumpCooldown <= 0 && this.grounded && Math.random() < (isManeater ? 0.04 : 0.03)) {
+      this.birdeaterJumping = true;
+      this.birdeaterJumpVy = isManeater ? -16 : -14;
+      this.grounded = false;
+      this.birdeaterJumpCooldown = isManeater ? 150 : 180;
+      this.vx = this.facing * (isManeater ? 7 : 6);
+      if (isManeater) {
+        this.maneaterHovering = true;
+        this.maneaterHoverTimer = 90; // hover for 1.5 seconds
+      }
+      return;
+    }
+
+    // Tail strike at medium range (Maneater: longer range, more frequent)
+    if (beDist < (isManeater ? 200 : 160) && beDist > 30 && this.birdeaterTailCooldown <= 0 && Math.random() < (isManeater ? 0.07 : 0.05)) {
+      this.birdeaterTailStriking = true;
+      this.birdeaterTailTimer = isManeater ? 30 : 35;
+      this.birdeaterTailCooldown = isManeater ? 70 : 100;
+      return;
+    }
+
+    // Walk toward player for leg crush (passive damage at close range is in update)
+    // Fall through to normal AI for movement, jabs, kicks, blocking
+  }
+
+  // Head boss: spit + charge roll
+  if (this.char.isHead) {
+    if (this.headSpitCooldown > 0) this.headSpitCooldown--;
+    if (this.headRollCooldown > 0) this.headRollCooldown--;
+
+    // Don't do anything else while charging or rolling
+    if (this.headCharging || this.headRolling) return;
+
+    const hDist = Math.abs(this.x - opponent.x);
+
+    // Spit at medium-long range
+    if (this.headSpitCooldown <= 0 && hDist > 80 && Math.random() < 0.05) {
+      const angle = Math.atan2((opponent.centerY) - (this.y - 35), opponent.x - this.x);
+      this.headSpitProjectiles.push({
+        x: this.x + this.facing * 30,
+        y: this.y - 35,
+        vx: Math.cos(angle) * 8,
+        vy: Math.sin(angle) * 8,
+        hit: false,
+        timer: 60
+      });
+      this.headSpitCooldown = 60 + Math.floor(Math.random() * 40);
+    }
+
+    // Charge roll at any range, less frequent
+    if (this.headRollCooldown <= 0 && Math.random() < 0.015) {
+      this.headCharging = true;
+      this.headChargeTimer = 40; // charge for ~0.67 seconds
+      return;
+    }
+
+    // Basic movement: roll toward player
+    if (hDist > 60) {
+      this.vx = this.facing * this.char.stats.speed;
+    } else if (hDist < 40) {
+      this.vx = -this.facing * this.char.stats.speed * 0.5;
+    }
+    // Occasional jump
+    if (this.grounded && Math.random() < 0.01) {
+      this.vy = -11;
+      this.grounded = false;
+    }
+    return; // skip normal AI entirely
+  }
+
+  // Orcus boss: soul drain, lightning, spirits
+  if (this.char.isOrcus) {
+    if (this.orcusLightningCooldown > 0) this.orcusLightningCooldown--;
+    if (this.orcusSpiritCooldown > 0) this.orcusSpiritCooldown--;
+    if (this.exorDrainCooldown > 0) this.exorDrainCooldown--;
+
+    const oDist = Math.abs(this.x - opponent.x);
+
+    // Soul drain at close range (same as Exor)
+    if (!this.exorDraining && this.exorDrainCooldown <= 0 && oDist < 120 && this.state !== 'attack' && Math.random() < 0.04) {
+      this.exorDraining = true;
+      this.exorDrainTimer = 90;
+      this.exorDrainTarget = opponent;
+      opponent.slowTimer = Math.max(opponent.slowTimer, 90);
+    }
+
+    // Green lightning at medium range
+    if (this.orcusLightningCooldown <= 0 && oDist > 80 && this.state !== 'attack' && Math.random() < 0.03) {
+      // Strike at player's current position
+      const strikeX = opponent.x + (Math.random() - 0.5) * 40;
+      // Generate bolt path
+      const bolts = [];
+      for (let b = 0; b < 2; b++) {
+        const bolt = [];
+        const segs = 8;
+        for (let s = 0; s <= segs; s++) {
+          bolt.push({
+            x: strikeX + (s > 0 && s < segs ? (Math.random() - 0.5) * 30 : 0),
+            y: s * (opponent.groundY / segs) + (s > 0 && s < segs ? (Math.random() - 0.5) * 15 : 0)
+          });
+        }
+        bolts.push(bolt);
+      }
+      this.orcusLightning.push({ x: strikeX, timer: 20, bolts: bolts });
+      this.orcusLightningCooldown = 120 + Math.floor(Math.random() * 60);
+      shakeTimer = 4;
+      shakeIntensity = 5;
+    }
+
+    // Send spirits at long range
+    if (this.orcusSpiritCooldown <= 0 && this.orcusSpirits.length < 3 && oDist > 100 && Math.random() < 0.025) {
+      this.orcusSpirits.push({
+        x: this.x + this.facing * 20,
+        y: this.centerY - 10,
+        vx: this.facing * 3,
+        vy: -1 + Math.random() * 2,
+        hp: 8,
+        stolenHP: 0,
+        phase: 'attack', // 'attack' -> 'return'
+        hitCooldown: 0
+      });
+      this.orcusSpiritCooldown = 150 + Math.floor(Math.random() * 60);
+    }
+
+    // Fall through to normal AI
+  }
+
+  // Tube Warden boss: tube launcher + gas spray
+  if (this.char.isTubeWarden) {
+    if (this.twTubeCooldown > 0) this.twTubeCooldown--;
+    if (this.twGasCooldown > 0) this.twGasCooldown--;
+
+    const twDist = Math.abs(this.x - opponent.x);
+
+    // Shoot tube at medium-long range
+    if (this.twTubeCooldown <= 0 && twDist > 120 && this.state !== 'attack' && Math.random() < 0.05) {
+      const angle = Math.atan2((opponent.y - 30) - this.centerY, opponent.x - this.x);
+      // Heavy arcing shot — add upward velocity
+      this.twTubes.push({
+        x: this.x + this.facing * 30,
+        y: this.centerY - 10,
+        vx: Math.cos(angle) * 10 + this.facing * 2,
+        vy: Math.sin(angle) * 6 - 4, // arc upward
+        stuck: false,
+        stuckTimer: 0,
+        exploded: false
+      });
+      this.twTubeCooldown = 90 + Math.floor(Math.random() * 60);
+    }
+
+    // Spray gas at close-medium range
+    if (this.twGasCooldown <= 0 && twDist < 200 && this.state !== 'attack' && Math.random() < 0.03) {
+      this.twGasClouds.push({
+        x: this.x + this.facing * (60 + Math.random() * 40),
+        y: this.groundY,
+        timer: 240, // 4 seconds
+        radius: 35 + Math.random() * 15
+      });
+      this.twGasCooldown = 180 + Math.floor(Math.random() * 60);
+    }
+    // Fall through to normal AI for movement/attacks
+  }
+
+  // Scalena boss: neck bite + snake summon
+  if (this.char.isScalena) {
+    if (this.scalenaBiteCooldown > 0) this.scalenaBiteCooldown--;
+    if (this.scalenaSnakeCooldown > 0) this.scalenaSnakeCooldown--;
+
+    // Bite attack — extend neck when close
+    if (this.scalenaBiting) {
+      // Bite animation handled in update; skip other actions
+      return;
+    }
+
+    const sDist = Math.abs(this.x - opponent.x);
+
+    // Neck bite at medium range
+    if (sDist < 200 && sDist > 40 && this.scalenaBiteCooldown <= 0 && this.state !== 'attack' && Math.random() < 0.06) {
+      this.scalenaBiting = true;
+      this.scalenaBiteTimer = 40; // extend, hold, retract
+      this.scalenaBiteCooldown = 120;
+      return;
+    }
+
+    // Summon snakes at long range
+    if (sDist > 150 && this.scalenaSnakeCooldown <= 0 && this.scalenaSnakes.length < 4 && Math.random() < 0.04) {
+      // Summon 2-3 snakes from ground near opponent
+      const count = 2 + Math.floor(Math.random() * 2);
+      for (let i = 0; i < count; i++) {
+        this.scalenaSnakes.push({
+          x: opponent.x + (Math.random() - 0.5) * 120,
+          y: this.groundY,
+          vx: 0, vy: 0,
+          timer: 480, // 8 seconds
+          biteCooldown: 30, // short initial delay
+          emergeTimer: 20 // rise from ground
+        });
+      }
+      this.scalenaSnakeCooldown = 300; // 5 second cooldown
+    }
+    // Fall through to normal AI for movement, jabs, kicks, blocking
+  }
+
+  // Borgus boss: special move cooldowns + laser charging (runs every frame)
+  if (this.char.isBorgus) {
+    if (this.borgusLaserCooldown > 0) this.borgusLaserCooldown--;
+    if (this.borgusSlamCooldown > 0) this.borgusSlamCooldown--;
+
+    // Laser charging animation — locks out all other actions
+    if (this.borgusLaserCharging > 0) {
+      this.borgusLaserCharging--;
+      if (this.borgusLaserCharging === 0) {
+        this.borgusLaser = {
+          x: this.x + this.facing * 40,
+          y: this.centerY,
+          vx: this.facing * 14,
+          timer: 60,
+          hit: false
+        };
+        this.borgusLaserCooldown = 150;
+      }
+      return;
+    }
+
+    // Special moves — fire laser at long range, fist slam at close range
+    const bDist = Math.abs(this.x - opponent.x);
+    if (bDist > 200 && this.borgusLaserCooldown <= 0 && !this.borgusLaser && this.state !== 'attack') {
+      this.borgusLaserCharging = 20;
+      return;
+    }
+    if (bDist < 100 && this.borgusSlamCooldown <= 0 && this.state !== 'attack' && Math.random() < 0.08) {
+      this.startAttack('borgusSlam');
+      this.borgusSlamCooldown = 90;
+      return;
+    }
+    // Otherwise fall through to normal AI for jabs, kicks, movement, blocking
+  }
 
   // Continue combo queue
   if (this.aiComboQueue.length > 0 && this.state !== 'attack') {
@@ -95,20 +696,24 @@ Fighter.prototype.handleAI = function(opponent) {
 
   // Bojdo AI size shifting: shrink when far away for speed, grow when close for power
   if (this.char.isBojdo) {
-    const maxScale = bojdobojdoUnlocked ? 3.5 : 2.0;
-    const minScale = bojdobojdoUnlocked ? 0.2 : 0.5;
-    if (dist > 120 || this.aiAction === 'approach' || this.aiAction === 'retreat') {
-      // Shrink for speed when moving around
-      const targetScale = Math.max(minScale, 0.6);
-      if (this.bojdoScale > targetScale) this.bojdoScale = Math.max(targetScale, this.bojdoScale - 0.03);
-    } else if (dist < 80 && (this.aiAction === 'attack' || this.state === 'attack')) {
+    const isBojdo3 = this.char.isBojdo3;
+    const isDarkB = this.char.isDarkBojdo;
+    const isUpgraded = this.char.name === 'BOJDOBOJDO' || isBojdo3;
+    const maxScale = isDarkB ? 3.0 : (isBojdo3 ? 5.0 : (isUpgraded ? 3.5 : 2.0));
+    const minScale = isDarkB ? 0.25 : (isBojdo3 ? 1.0 : (isUpgraded ? 0.2 : 0.5));
+    const shiftSpeed = isBojdo3 ? 0.05 : 0.03;
+    if (dist > 200 || this.aiAction === 'retreat') {
+      // Shrink for speed when far away or retreating (Bojdo3: only return to default, never shrink)
+      const targetScale = Math.max(minScale, isBojdo3 ? 1.0 : 0.6);
+      if (this.bojdoScale > targetScale) this.bojdoScale = Math.max(targetScale, this.bojdoScale - shiftSpeed);
+    } else if (dist < 120 && (this.aiAction === 'attack' || this.aiAction === 'approach' || this.state === 'attack')) {
       // Grow for power and range when attacking up close
-      const targetScale = Math.min(maxScale, bojdobojdoUnlocked ? 2.5 : 1.8);
-      if (this.bojdoScale < targetScale) this.bojdoScale = Math.min(targetScale, this.bojdoScale + 0.04);
+      const targetScale = Math.min(maxScale, isBojdo3 ? 4.0 : (isUpgraded ? 2.5 : 1.8));
+      if (this.bojdoScale < targetScale) this.bojdoScale = Math.min(targetScale, this.bojdoScale + shiftSpeed + 0.01);
     } else if (this.aiAction === 'block') {
       // Grow big when blocking for more defense
-      const targetScale = Math.min(maxScale, bojdobojdoUnlocked ? 3.0 : 2.0);
-      if (this.bojdoScale < targetScale) this.bojdoScale = Math.min(targetScale, this.bojdoScale + 0.03);
+      const targetScale = Math.min(maxScale, isBojdo3 ? 4.5 : (isUpgraded ? 3.0 : 2.0));
+      if (this.bojdoScale < targetScale) this.bojdoScale = Math.min(targetScale, this.bojdoScale + shiftSpeed);
     }
   }
 
@@ -121,8 +726,57 @@ Fighter.prototype.handleAI = function(opponent) {
     }
   }
 
-  // Snazz AI: dance when far away and health is low
-  if (this.char.isSnazz && !this.dancing && dist > 200 && this.health < this.maxHealth * 0.6 && Math.random() < 0.02) {
+  // Canis AI: transform to wolf, pounce attack
+  if (this.char.isCanis) {
+    if (this.wolfPounceCooldown > 0) this.wolfPounceCooldown--;
+    if (this.wolfCooldown > 0) this.wolfCooldown--;
+
+    // Transform to wolf when far from opponent or randomly
+    if (!this.isWolf && this.wolfCooldown <= 0 && this.grounded && (dist > 200 || Math.random() < 0.01)) {
+      this.isWolf = true;
+      this.wolfFormTimer = 0;
+    }
+
+    // Wolf form behavior
+    if (this.isWolf) {
+      this.wolfFormTimer++;
+      // Revert after max time
+      if (this.wolfFormTimer >= this.wolfFormMaxTime) {
+        this.isWolf = false;
+        this.wolfCooldown = 300; // 5 second cooldown
+      }
+
+      // Pounce across stage at opponent
+      if (!this.wolfPouncing && this.wolfPounceCooldown <= 0 && this.grounded && dist > 80 && Math.random() < 0.05) {
+        this.wolfPouncing = true;
+        this.vy = -8;
+        this.vx = this.facing * 14;
+        this.grounded = false;
+        this.wolfPounceCooldown = 60;
+      }
+
+      // Wolf is much faster — run at opponent aggressively
+      if (!this.wolfPouncing && this.grounded) {
+        this.vx = this.facing * this.char.stats.speed * 1.5;
+        // Attack rapidly at close range
+        if (dist < 70 && this.state !== 'attack' && Math.random() < 0.12) {
+          const atkTypes = ['jab', 'jab', 'lowKick', 'uppercut'];
+          this.startAttack(atkTypes[Math.floor(Math.random() * atkTypes.length)]);
+        }
+      }
+
+      // Revert to human form randomly when close for a surprise
+      if (dist < 60 && Math.random() < 0.005) {
+        this.isWolf = false;
+        this.wolfCooldown = 180;
+      }
+
+      return; // skip normal AI in wolf form
+    }
+  }
+
+  // Snazz AI: dance when far away and health is low (Groove McSmooth never dances — passive heal instead)
+  if (this.char.isSnazz && !this.char.isGrooveMcSmooth && !this.dancing && dist > 200 && this.health < this.maxHealth * 0.6 && Math.random() < 0.02) {
     this.dancing = true;
     this.danceTimer = this.danceMaxFrames;
   }
@@ -240,18 +894,28 @@ Fighter.prototype.handleAI = function(opponent) {
 
   // Duplaire AI: create clones periodically
   if (this.char.isDuplaire && this.state !== 'attack') {
+    const isDarkDup = this.char.isDarkDuplaire;
+    const maxAIClones = isDarkDup ? 4 : 3;
     const activeCount = this.duplaireClones.filter(c => c.active || c.activationTimer > 0).length;
-    if (activeCount < 3 && Math.random() < 0.015) {
+    if (activeCount < maxAIClones && Math.random() < (isDarkDup ? 0.025 : 0.015)) {
       const newTotal = 1 + activeCount + 1;
       const sectionHealth = this.maxHealth / newTotal;
-      this.duplaireClones.push({
+      const clone = {
         x: this.x, y: this.y, facing: this.facing,
         grounded: this.grounded, vy: 0, vx: 0,
-        activationTimer: 180, active: false,
+        activationTimer: isDarkDup ? 90 : 180, active: false,
         animTimer: 0, animFrame: 0,
         state: 'idle', attackFrame: 0, currentAttack: null, stateTimer: 0,
         cloneHealth: sectionHealth, cloneMaxHealth: sectionHealth
-      });
+      };
+      // Dark Duplaire: give clones independent AI state
+      if (isDarkDup) {
+        clone.aiTimer = 30 + Math.floor(Math.random() * 30);
+        clone.aiAction = 'approach';
+        clone.attackCooldown = 30;
+        clone.flashTimer = 0;
+      }
+      this.duplaireClones.push(clone);
       this.duplaireOrigHealth = Math.min(this.duplaireOrigHealth, sectionHealth);
       for (const c of this.duplaireClones) {
         c.cloneMaxHealth = sectionHealth;
@@ -413,14 +1077,17 @@ Fighter.prototype.handleAI = function(opponent) {
 
   if (this.state === 'attack') return;
 
+  // Bojdo AI speed multiplier: smaller = faster (matches player physics)
+  const bojdoAiSpeedMult = this.char.isBojdo ? Math.max(0.3, (3.0 - this.bojdoScale) / 2.0) : 1;
+
   switch (this.aiAction) {
     case 'approach':
-      this.vx = this.facing * this.char.stats.speed * (this.slowTimer > 0 ? 0.4 : 0.8);
+      this.vx = this.facing * this.char.stats.speed * (this.slowTimer > 0 ? 0.4 : 0.8) * bojdoAiSpeedMult;
       this.state = 'walk';
       if (dist < 80) this.aiAction = 'attack';
       break;
     case 'retreat':
-      this.vx = -this.facing * this.char.stats.speed * (this.slowTimer > 0 ? 0.3 : 0.6);
+      this.vx = -this.facing * this.char.stats.speed * (this.slowTimer > 0 ? 0.3 : 0.6) * bojdoAiSpeedMult;
       this.state = 'walk';
       break;
     case 'attack':

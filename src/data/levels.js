@@ -13,7 +13,8 @@ const secretLevelHints = {
   'FOGGY CITY': 'The city by the bay',
   'RAINY CITY': 'The emerald city',
   'GLOWING CITY': 'The city of lights',
-  'SUNNY CITY': 'The city of angels'
+  'SUNNY CITY': 'The city of angels',
+  'THE DUST': 'Prove yourself a warrior'
 };
 
 const secretLevels = [
@@ -21,7 +22,13 @@ const secretLevels = [
   { name: 'FOGGY CITY', desc: 'The skyline of SF shrouded in fog', color: '#C85A17', accent: '#FFB347', unlocked: () => foggyCityUnlocked },
   { name: 'RAINY CITY', desc: 'The skyline of Seattle in the rain', color: '#2F4F4F', accent: '#708090', unlocked: () => rainyCityUnlocked },
   { name: 'GLOWING CITY', desc: 'The skyline of Las Vegas at night', color: '#FFD700', accent: '#FF69B4', unlocked: () => glowingCityUnlocked },
-  { name: 'SUNNY CITY', desc: 'The skyline of LA under golden sun', color: '#FF8C00', accent: '#FFD700', unlocked: () => sunnyCityUnlocked }
+  { name: 'SUNNY CITY', desc: 'The skyline of LA under golden sun', color: '#FF8C00', accent: '#FFD700', unlocked: () => sunnyCityUnlocked },
+  { name: 'THE DUST', desc: 'A forgotten realm of ancient kings', color: '#1a0a2e', accent: '#ff6b35', unlocked: () => dustUnlocked }
+];
+
+// Campaign-only levels (not selectable outside campaign)
+const campaignLevels = [
+  { name: 'THE PULP', desc: 'A swirling mess of cosmic energy', color: '#1a0020', accent: '#aa44ff' }
 ];
 
 function getLevels() {

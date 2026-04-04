@@ -1096,3 +1096,320 @@ function drawGourmandRumble(loseFighter, winFighter) {
   ctx.restore();
 }
 
+function drawBatschRumble(loseFighter, winFighter) {
+  ctx.save();
+
+  // --- Motion blur trail ---
+  for (const t of rumbleBatschTrail) {
+    if (t.alpha < 0.05) continue;
+    ctx.globalAlpha = t.alpha * 0.4;
+    ctx.fillStyle = '#5a7a3a';
+    ctx.beginPath();
+    ctx.ellipse(t.x, t.y - 8, 22, 14, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // --- Spinning shell (phases 1-2, and slowing in 3) ---
+  if (rumbleBatschPhase >= 1 && rumbleBatschPhase <= 3 && rumbleBatschSpinSpeed > 0) {
+    ctx.save();
+    ctx.translate(rumbleBatschShellX, rumbleBatschShellY - 8);
+    ctx.rotate(rumbleBatschSpinAngle);
+
+    // Shell dome
+    ctx.fillStyle = '#5a7a3a';
+    ctx.strokeStyle = '#3a5a1a';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 22, 14, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Shell segments
+    ctx.strokeStyle = '#3a5a1a';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(-8, -12); ctx.lineTo(-8, 12); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(8, -12); ctx.lineTo(8, 12); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-20, -2); ctx.lineTo(20, -2); ctx.stroke();
+
+    // Speed lines when moving fast
+    if (rumbleBatschPhase === 2) {
+      const speed = Math.sqrt(rumbleBatschShellVx * rumbleBatschShellVx + rumbleBatschShellVy * rumbleBatschShellVy);
+      if (speed > 8) {
+        ctx.strokeStyle = 'rgba(255, 255, 200, 0.4)';
+        ctx.lineWidth = 1;
+        for (let i = 0; i < 4; i++) {
+          const angle = (i / 4) * Math.PI * 2;
+          const r = 24 + Math.random() * 8;
+          ctx.beginPath();
+          ctx.moveTo(Math.cos(angle) * 22, Math.sin(angle) * 14);
+          ctx.lineTo(Math.cos(angle) * r, Math.sin(angle) * (r * 0.6));
+          ctx.stroke();
+        }
+      }
+    }
+
+    ctx.restore();
+  }
+
+  // --- Impact sparks ---
+  for (const s of rumbleBatschSparks) {
+    ctx.save();
+    const sparkAlpha = s.life / 20;
+    ctx.globalAlpha = sparkAlpha;
+    // Yellow-orange sparks
+    const r = 255;
+    const g = Math.floor(150 + Math.random() * 105);
+    ctx.fillStyle = `rgb(${r}, ${g}, 0)`;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, 1.5 + Math.random(), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // --- "Look up" indicator during pop-out / hold phase ---
+  if (rumbleBatschPhase === 3 || rumbleBatschPhase === 4) {
+    const t = rumbleBatschPhase === 3 ? Math.min(1, (rumbleTimer - 420) / 30) : 1;
+    if (t > 0.5) {
+      ctx.globalAlpha = 0.4;
+      ctx.fillStyle = '#c4a55a';
+      for (let i = 0; i < 3; i++) {
+        const dotY = winFighter.y - 65 - i * 8 - Math.sin(Date.now() * 0.003 + i) * 3;
+        ctx.beginPath();
+        ctx.arc(winFighter.x, dotY, 2 - i * 0.4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  ctx.restore();
+}
+
+
+
+function drawPaletapRumble(loseFighter, winFighter) {
+  const loserChar = winner === 'player' ? selectedCPU : selectedPlayer;
+
+  // Phase 2: Opponent vibrates — jitter their position
+  if (rumblePaletapPhase === 2 && !rumbleLoserHidden) {
+    const vib = rumblePaletapVibrate;
+    loseFighter.x += (Math.random() - 0.5) * vib;
+  }
+
+  // Phase 3-4: Draw disassembled body parts
+  if (rumblePaletapPhase >= 3 && rumblePaletapParts.length > 0) {
+    ctx.save();
+    for (const part of rumblePaletapParts) {
+      ctx.save();
+      ctx.translate(part.x, part.y);
+      ctx.rotate(part.rot);
+
+      ctx.fillStyle = part.color;
+      ctx.strokeStyle = loserChar.outline;
+      ctx.lineWidth = 1.5;
+
+      switch (part.type) {
+        case 'head':
+          ctx.beginPath();
+          ctx.arc(0, 0, part.size, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+          // Eyes (X marks)
+          ctx.strokeStyle = loserChar.outline;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(-5, -3); ctx.lineTo(-1, 1);
+          ctx.moveTo(-1, -3); ctx.lineTo(-5, 1);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(5, -3); ctx.lineTo(1, 1);
+          ctx.moveTo(1, -3); ctx.lineTo(5, 1);
+          ctx.stroke();
+          break;
+        case 'torso':
+          ctx.beginPath();
+          ctx.roundRect(-part.size, -part.size * 1.2, part.size * 2, part.size * 2.4, 4);
+          ctx.fill();
+          ctx.stroke();
+          // Chest accent
+          ctx.fillStyle = loserChar.accent;
+          ctx.beginPath();
+          ctx.roundRect(-part.size * 0.6, -part.size * 0.6, part.size * 1.2, part.size * 1.5, 2);
+          ctx.fill();
+          break;
+        case 'armL':
+        case 'armR':
+          ctx.beginPath();
+          ctx.roundRect(-3, -part.size, 6, part.size * 2, 3);
+          ctx.fill();
+          ctx.stroke();
+          break;
+        case 'legL':
+        case 'legR':
+          ctx.beginPath();
+          ctx.roundRect(-4, -part.size, 8, part.size * 2, 3);
+          ctx.fill();
+          ctx.stroke();
+          break;
+      }
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+
+}
+
+
+function drawMatadorRumble(loseFighter, winFighter) {
+  const f = winFighter.facing;
+  const groundY = loseFighter.groundY;
+
+  // Red cape held by Matador (phases 0-1)
+  if (rumbleMatadorPhase <= 1) {
+    ctx.save();
+    const capeX = winFighter.x + f * 20;
+    const capeY = winFighter.y - 40;
+    const wave = Math.sin(Date.now() * 0.006) * 5;
+    // Cape fabric
+    ctx.fillStyle = '#cc0000';
+    ctx.beginPath();
+    ctx.moveTo(capeX, capeY - 10);
+    ctx.quadraticCurveTo(capeX + f * (25 + wave), capeY + 10, capeX + f * (20 + wave * 0.5), capeY + 45);
+    ctx.lineTo(capeX + f * (5 + wave * 0.3), capeY + 48);
+    ctx.quadraticCurveTo(capeX + f * 10, capeY + 20, capeX, capeY - 10);
+    ctx.closePath();
+    ctx.fill();
+    // Cape edge
+    ctx.strokeStyle = '#880000';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    // Stick
+    ctx.strokeStyle = '#8B6914';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(winFighter.x + f * 15, winFighter.y - 35);
+    ctx.lineTo(capeX, capeY - 12);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Bull
+  if (rumbleMatadorPhase >= 1 && rumbleMatadorPhase <= 3) {
+    const bx = rumbleMatadorBullX;
+    const by = groundY;
+    const bullDir = f; // bull charges in same direction as matador faces
+    const bobY = Math.sin(Date.now() * 0.02) * 3;
+
+    ctx.save();
+    ctx.translate(bx, by + bobY);
+    ctx.scale(-bullDir, 1); // flip based on direction
+
+    // Body (large, dark)
+    ctx.fillStyle = '#2a1a0a';
+    ctx.beginPath();
+    ctx.ellipse(0, -30, 45, 25, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#1a0a00';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Head (lower, more forward)
+    ctx.fillStyle = '#3a2a1a';
+    ctx.beginPath();
+    ctx.ellipse(40, -25, 18, 16, 0.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Horns
+    ctx.strokeStyle = '#d4c4a0';
+    ctx.lineWidth = 4;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(48, -35);
+    ctx.quadraticCurveTo(60, -50, 55, -55);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(48, -18);
+    ctx.quadraticCurveTo(60, -5, 55, -2);
+    ctx.stroke();
+
+    // Eye (angry red)
+    ctx.fillStyle = '#ff2222';
+    ctx.beginPath();
+    ctx.arc(50, -27, 3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Nostrils (steam)
+    ctx.fillStyle = '#1a0a00';
+    ctx.beginPath();
+    ctx.ellipse(56, -22, 2, 1.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(56, -18, 2, 1.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Legs (animated gallop)
+    const gallop = Date.now() * 0.02;
+    ctx.strokeStyle = '#2a1a0a';
+    ctx.lineWidth = 6;
+    ctx.lineCap = 'round';
+    // Front legs
+    ctx.beginPath();
+    ctx.moveTo(25, -10);
+    ctx.lineTo(25 + Math.sin(gallop) * 10, 0);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(30, -10);
+    ctx.lineTo(30 + Math.sin(gallop + Math.PI) * 10, 0);
+    ctx.stroke();
+    // Back legs
+    ctx.beginPath();
+    ctx.moveTo(-25, -10);
+    ctx.lineTo(-25 + Math.sin(gallop + Math.PI * 0.5) * 10, 0);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(-30, -10);
+    ctx.lineTo(-30 + Math.sin(gallop + Math.PI * 1.5) * 10, 0);
+    ctx.stroke();
+
+    // Tail
+    ctx.strokeStyle = '#2a1a0a';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(-42, -30);
+    ctx.quadraticCurveTo(-55, -40 + Math.sin(Date.now() * 0.01) * 5, -50, -50);
+    ctx.stroke();
+    // Tail tuft
+    ctx.fillStyle = '#1a0a00';
+    ctx.beginPath();
+    ctx.arc(-50, -50, 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  // Dust particles
+  for (const d of rumbleMatadorDust) {
+    ctx.save();
+    ctx.globalAlpha = d.timer / 25;
+    ctx.fillStyle = '#aa9977';
+    ctx.beginPath();
+    ctx.arc(d.x, d.y, 3 + (1 - d.timer / 25) * 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  // Screen shake dust on trample
+  if (rumbleMatadorPhase === 2 && rumbleLoserHidden) {
+    ctx.save();
+    ctx.globalAlpha = 0.3;
+    ctx.fillStyle = '#aa9977';
+    ctx.beginPath();
+    ctx.ellipse(loseFighter.x, groundY, 30, 8, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+}

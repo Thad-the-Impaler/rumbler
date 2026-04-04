@@ -1,6 +1,8 @@
 Fighter.prototype.startAttack = function(type) {
   // Torrena cannot attack while in water phase
   if (this.waterPhase) return;
+  // Quellic cannot attack while in fire phase
+  if (this.quellicFirePhase) return;
 
   // Clear stale buffer if too much time has passed since last input
   if (frameCount - this.lastInputFrame > this.comboWindowFrames) {
@@ -52,8 +54,26 @@ Fighter.prototype.executeAttack = function(type) {
       launch: this.pendingCombo.launch || base.launch,
       isCombo: true
     };
+    // Combo-specific or generic combo sound
+    const comboSound = comboSfxMap[this.pendingCombo.name];
+    playSfx(comboSound || sfx_comboAttack);
   } else {
     this.currentAttack = attacks[type];
+    // Character-specific and attack-type sound effects
+    const isShade = this.char.name === 'SHADE';
+    if (this.char.isRubberman) {
+      playSfx(sfx_rubberStretch);
+    } else if (isShade && (type === 'jab' || type === 'uppercut')) {
+      playSfx(sfx_shadePunch);
+    } else if (isShade && (type === 'lowKick' || type === 'highKick')) {
+      playSfx(sfx_shadeKick);
+    } else if (type === 'jab') {
+      playSfx(sfx_jab);
+    } else if (type === 'uppercut') {
+      playSfx(sfx_uppercut);
+    } else if (type === 'lowKick' || type === 'highKick') {
+      playSfx(sfx_kick);
+    }
   }
   this.attackFrame = 0;
   this.stateTimer = this.currentAttack.startup + this.currentAttack.active + this.currentAttack.recovery;
@@ -63,6 +83,14 @@ Fighter.prototype.executeAttack = function(type) {
 Fighter.prototype.callAssist = function(opponent) {
   if (this.assistCooldown > 0 || !this.assist) return;
   this.assistCooldown = this.assist.cooldownTime;
+  // Play assist sound effect
+  if (this.assist.isSerpent) {
+    playSfx(sfx_serpent);
+  } else if (this.assist.isSticker) {
+    playSfx(sfx_sticker);
+  } else {
+    playSfx(sfx_assistShoot);
+  }
   if (this.assist.isWeedthorn) {
     this.assistActive = {
       x: opponent.x, y: opponent.groundY, vx: 0, timer: 45, hit: false,
@@ -97,7 +125,16 @@ Fighter.prototype.callAssist = function(opponent) {
 
 
 Fighter.prototype.isHitAt = function(px, py, radiusX, radiusY) {
+  if (this.ericthoHidden) return false;
+  if (this.hangmanHidden) return false;
   if (Math.abs(px - this.x) < radiusX && Math.abs(py - this.centerY) < radiusY) return true;
+  // Twins: Selene is also a valid hit target
+  if (this.char.isTwins && this.twin) {
+    if (Math.abs(px - this.twin.x) < radiusX && Math.abs(py - (this.twin.y - 25)) < radiusY) {
+      this.twin.flashTimer = 8;
+      return true;
+    }
+  }
   if (this.char.isDuplaire) {
     for (const clone of this.duplaireClones) {
       if (clone.active && Math.abs(px - clone.x) < radiusX && Math.abs(py - (clone.y - 25)) < radiusY) return true;
@@ -108,8 +145,14 @@ Fighter.prototype.isHitAt = function(px, py, radiusX, radiusY) {
 
 
 Fighter.prototype.takeDamage = function(dmg, attackData, attackerFacing, bypassBlock, hitPos) {
+  // Erictho: immune while inside portal
+  if (this.ericthoHidden) return false;
+  // Hangman: immune while disassembled
+  if (this.hangmanHidden) return false;
   // Torrena water phase: immune to all damage
   if (this.waterPhase) return false;
+  // Quellic fire phase: immune to all damage
+  if (this.quellicFirePhase) return false;
 
   // Clear queued attacks when hit
   this.queuedAttacks = [];
@@ -160,7 +203,8 @@ Fighter.prototype.takeDamage = function(dmg, attackData, attackerFacing, bypassB
   const bojdoDefMult = this.char.isBojdo ? this.bojdoScale : 1;
   const bojShrinkDefMult = (this.bojShrinkTimer > 0 && !this.char.isBojdo) ? 0.3 : 1;
   const tortoiseMult = this.isTortoise ? 0.4 : 1; // 60% reduction in tortoise form
-  let finalDmg = dmg * tortoiseMult / (this.char.stats.defense * bojdoDefMult * bojShrinkDefMult);
+  const wolfVulnMult = this.isWolf ? 1.5 : 1; // 50% extra damage in wolf form
+  let finalDmg = dmg * tortoiseMult * wolfVulnMult / (this.char.stats.defense * bojdoDefMult * bojShrinkDefMult);
 
   // Snazz McJazz: 2x damage if interrupted during dance
   if (this.dancing) {

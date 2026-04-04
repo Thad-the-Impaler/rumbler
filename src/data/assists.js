@@ -73,10 +73,15 @@ function activateMasterPasskey() {
   if (!rainyCityUnlocked) { rainyCityUnlocked = true; }
   if (!glowingCityUnlocked) { glowingCityUnlocked = true; }
   if (!sunnyCityUnlocked) { sunnyCityUnlocked = true; }
+  if (!dustUnlocked) { dustUnlocked = true; }
   rumblePracticeUnlocked = true;
+  // Unlock all bosses for practice
+  for (const boss of practiceBossList) {
+    defeatedBosses[boss.name] = true;
+  }
   masterUnlockFlash = 60;
 }
 
 function isMasterPasskeyNeeded() {
-  return !bojdoUnlocked || !bojdobojdoUnlocked || !rubbermanUnlocked || !torrenaUnlocked || !snazzUnlocked || !haystackUnlocked || !codemaxUnlocked || !corvidaUnlocked || !golgarUnlocked || !telatrineUnlocked || !duplaireUnlocked || !bozollokUnlocked || !gourmandUnlocked || !batschUnlocked || !paletapUnlocked || !matadorUnlocked || !killawattUnlocked || !backtrackUnlocked || !exorUnlocked || !buckUnlocked || !vorticeUnlocked || !xhaustUnlocked || !weedthornUnlocked || !bojAssistUnlocked || !jazzAssistUnlocked || !cyanoAssistUnlocked || !warperAssistUnlocked || !aphidAssistUnlocked || !studAssistUnlocked || !floatAssistUnlocked || !stickerAssistUnlocked || !serpentAssistUnlocked || !snowyCityUnlocked || !foggyCityUnlocked || !rainyCityUnlocked || !glowingCityUnlocked || !sunnyCityUnlocked;
+  return !bojdoUnlocked || !bojdobojdoUnlocked || !rubbermanUnlocked || !torrenaUnlocked || !snazzUnlocked || !haystackUnlocked || !codemaxUnlocked || !corvidaUnlocked || !golgarUnlocked || !telatrineUnlocked || !duplaireUnlocked || !bozollokUnlocked || !gourmandUnlocked || !batschUnlocked || !paletapUnlocked || !matadorUnlocked || !killawattUnlocked || !backtrackUnlocked || !exorUnlocked || !buckUnlocked || !vorticeUnlocked || !xhaustUnlocked || !weedthornUnlocked || !bojAssistUnlocked || !jazzAssistUnlocked || !cyanoAssistUnlocked || !warperAssistUnlocked || !aphidAssistUnlocked || !studAssistUnlocked || !floatAssistUnlocked || !stickerAssistUnlocked || !serpentAssistUnlocked || !snowyCityUnlocked || !foggyCityUnlocked || !rainyCityUnlocked || !glowingCityUnlocked || !sunnyCityUnlocked || !dustUnlocked;
 }

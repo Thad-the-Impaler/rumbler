@@ -481,6 +481,37 @@ function drawFighterIcon(charName, x, y, size, color) {
       ctx.fill();
       break;
     }
+    case 'PRINTER': {
+      // Printer icon
+      ctx.fillRect(-8 * s, -10 * s, 16 * s, 12 * s);
+      ctx.fillRect(-6 * s, -14 * s, 12 * s, 5 * s);
+      ctx.fillRect(-9 * s, -1 * s, 18 * s, 5 * s);
+      // Paper
+      ctx.save();
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.fillRect(-4 * s, -18 * s, 8 * s, 6 * s);
+      ctx.restore();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(-4 * s, -18 * s, 8 * s, 6 * s);
+      break;
+    }
+    case 'BIRDEATER': {
+      // Spider with legs
+      ctx.lineWidth = 1.5 * s;
+      ctx.beginPath();
+      ctx.ellipse(0, -2 * s, 6 * s, 4 * s, 0, 0, Math.PI * 2);
+      ctx.fill();
+      for (let side = -1; side <= 1; side += 2) {
+        for (let i = 0; i < 4; i++) {
+          ctx.beginPath();
+          ctx.moveTo(side * 5 * s, (-3 + i * 2) * s);
+          ctx.lineTo(side * (10 + i) * s, (-8 + i * 4) * s);
+          ctx.stroke();
+        }
+      }
+      break;
+    }
     default: {
       // Fallback: circle with first letter
       ctx.beginPath();
@@ -500,6 +531,15 @@ function drawFighterIcon(charName, x, y, size, color) {
 }
 
 function drawHUD() {
+  // Dark Bojdo HUD distortion
+  const darkBojdoHud = cpu && cpu.char && cpu.char.isDarkBojdo && cpu.darkBojdoHudScale !== undefined;
+  if (darkBojdoHud) {
+    ctx.save();
+    const hs = cpu.darkBojdoHudScale;
+    ctx.translate(480 * (1 - hs), 30 * (1 - hs));
+    ctx.scale(hs, hs);
+  }
+
   const barWidth = 350;
   const barHeight = 24;
   const barY = 25;
@@ -549,7 +589,10 @@ function drawHUD() {
   ctx.lineWidth = 2;
   ctx.strokeRect(30, barY, barWidth, barHeight);
 
-  // CPU health bar (right, fills from right)
+  // CPU health bar (right, fills from right) — skip for bonus fights
+  if (testYourMightActive) {
+    // Show nothing for CPU side — the TYM HUD replaces it
+  } else {
   ctx.fillStyle = '#333';
   ctx.fillRect(580, barY, barWidth, barHeight);
   const cHealthWidth = (cpu.health / cpu.maxHealth) * barWidth;
@@ -592,6 +635,7 @@ function drawHUD() {
   ctx.strokeStyle = '#fff';
   ctx.lineWidth = 2;
   ctx.strokeRect(580, barY, barWidth, barHeight);
+  } // end if !testYourMightActive
 
   // Names with icons
   drawPortraitIcon(selectedPlayer.name, 16, barY + 5, 16);
@@ -599,24 +643,28 @@ function drawHUD() {
   ctx.textAlign = 'left';
   ctx.fillStyle = selectedPlayer.accent;
   ctx.fillText(selectedPlayer.name, 30, barY - 5);
-  drawPortraitIcon(selectedCPU.name, 944, barY + 5, 16);
-  ctx.textAlign = 'right';
-  ctx.fillStyle = selectedCPU.accent;
-  ctx.fillText(selectedCPU.name + (gameMode === 'practice' ? '' : ' (CPU)'), 930, barY - 5);
+  if (!testYourMightActive) {
+    drawPortraitIcon(selectedCPU.name, 944, barY + 5, 16);
+    ctx.textAlign = 'right';
+    ctx.fillStyle = selectedCPU.accent;
+    ctx.fillText(selectedCPU.name + (gameMode === 'practice' ? '' : ' (CPU)'), 930, barY - 5);
+  }
 
   // Health numbers
   ctx.font = '12px Arial';
   ctx.textAlign = 'left';
   ctx.fillStyle = '#fff';
   ctx.fillText(gameMode === 'practice' ? '\u221E' : Math.ceil(player.health), 35, barY + 17);
-  ctx.textAlign = 'right';
-  ctx.fillText(gameMode === 'practice' ? '\u221E' : Math.ceil(cpu.health), 925, barY + 17);
+  if (!testYourMightActive) {
+    ctx.textAlign = 'right';
+    ctx.fillText(gameMode === 'practice' ? '\u221E' : Math.ceil(cpu.health), 925, barY + 17);
 
-  // VS text
-  ctx.font = 'bold 18px Arial';
-  ctx.textAlign = 'center';
-  ctx.fillStyle = '#666';
-  ctx.fillText('VS', 480, barY + 18);
+    // VS text
+    ctx.font = 'bold 18px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#666';
+    ctx.fillText('VS', 480, barY + 18);
+  }
 
   // Practice mode label
   if (gameMode === 'practice') {
@@ -701,8 +749,9 @@ function drawHUD() {
     const scaleBarY = barY + barHeight + 38;
     const scaleBarW = 140;
     const scaleBarH = 10;
-    const sMin = bojdobojdoUnlocked ? 0.2 : 0.5;
-    const sMax = bojdobojdoUnlocked ? 3.5 : 2.0;
+    const isBBHud = player.char.name === 'BOJDOBOJDO' || player.char.isBojdo3;
+    const sMin = isBBHud ? 0.2 : 0.5;
+    const sMax = isBBHud ? 3.5 : 2.0;
     const scalePct = (player.bojdoScale - sMin) / (sMax - sMin);
     ctx.fillStyle = '#222';
     ctx.fillRect(scaleBarX, scaleBarY, scaleBarW, scaleBarH);
@@ -720,6 +769,49 @@ function drawHUD() {
     ctx.fillStyle = '#aaa';
     ctx.fillText('SIZE [K+/L-]', scaleBarX, scaleBarY + 22);
   }
+
+  // Test Your Might bonus HUD (fades out during Printer Boss transition)
+  if (testYourMightActive && (printerBossPhase <= 0)) {
+    const secondsLeft = Math.ceil(testYourMightTimer / 60);
+    const timePct = testYourMightTimer / testYourMightMaxTime;
+
+    // Fade out if printer boss phase 1 is starting
+    const tymFade = printerBossPhase === 0 ? 1 : 0;
+    ctx.globalAlpha = tymFade;
+
+    // "TEST YOUR MIGHT" banner
+    ctx.font = 'bold 28px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffcc00';
+    ctx.shadowColor = '#ff6600';
+    ctx.shadowBlur = 10;
+    ctx.fillText('TEST YOUR MIGHT', 480, 80);
+    ctx.shadowBlur = 0;
+
+    // Timer bar
+    const timerBarW = 200;
+    const timerBarX = 480 - timerBarW / 2;
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(timerBarX, 90, timerBarW, 10);
+    const timerColor = timePct > 0.3 ? '#ffcc00' : (timePct > 0.1 ? '#ff6600' : '#ff0000');
+    ctx.fillStyle = timerColor;
+    ctx.fillRect(timerBarX, 90, timerBarW * timePct, 10);
+
+    // Timer text
+    ctx.font = 'bold 18px Arial';
+    ctx.fillStyle = secondsLeft <= 5 ? '#ff4444' : '#fff';
+    ctx.fillText(secondsLeft + 's', 480, 120);
+
+    // Damage score
+    ctx.font = 'bold 24px Arial';
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'right';
+    ctx.fillText('DAMAGE: ' + Math.floor(testYourMightDamage), 930, 80);
+    ctx.globalAlpha = 1;
+  }
+
+  // Close Dark Bojdo HUD distortion
+  if (darkBojdoHud) ctx.restore();
 }
 
 function drawFinishHimScreen() {

@@ -21,5 +21,8 @@ const characterRumbles = {
   'TELATRINE': { name: "THAT'S A WRAP", code: 'around', desc: 'Carry the opponent off the edge of the screen and lose them' },
   'DUPLAIRE': { name: "CAN'T GET ENOUGH OF ME", code: 'invade', desc: 'Clone army buries the opponent and swarms the entire Earth' },
   'BOZOLLOK': { name: 'THE WORLD, OUR HIVE', code: 'infest', desc: 'Insect swarm devours the opponent, leaving only a skeleton' },
-  'GOURMAND': { name: 'LAST COURSE', code: 'ingest', desc: 'Cook the opponent in a giant frying pan and swallow them whole' }
+  'GOURMAND': { name: 'LAST COURSE', code: 'ingest', desc: 'Cook the opponent in a giant frying pan and swallow them whole' },
+  'BATSCH': { name: 'SHELL SHOCKED', code: 'bounce', desc: 'Ricochet off the walls at blinding speed, pummeling the opponent' },
+  'PALETAP': { name: 'ANYBODY HOME?', code: 'shaken', desc: 'Knock on their head until they fall apart' },
+  'MATADOR': { name: 'OLE!', code: 'torero', desc: 'Wave a red cape and let the bull do the rest' }
 };

@@ -3,8 +3,9 @@ Fighter.prototype.handlePlayerInput = function(keys, opponent) {
   if (this.dancing) return;
   if (this.exploding) return;
 
-  const bojdoMaxScale = bojdobojdoUnlocked ? 3.5 : 2.0;
-  const bojdoSpeedMult = this.char.isBojdo ? Math.max(bojdobojdoUnlocked ? 0 : 0.25, (bojdoMaxScale - this.bojdoScale) / (bojdoMaxScale - 1.0)) : 1; // smaller = faster, bigger = slower
+  const isBBojdo = this.char.name === 'BOJDOBOJDO' || this.char.isBojdo3;
+  const bojdoMaxScale = isBBojdo ? 3.5 : 2.0;
+  const bojdoSpeedMult = this.char.isBojdo ? Math.max(isBBojdo ? 0 : 0.25, (bojdoMaxScale - this.bojdoScale) / (bojdoMaxScale - 1.0)) : 1;
   const tortoiseSpeedMult = this.isTortoise ? 0.5 : 1;
   const bojShrinkSpeedMult = (this.bojShrinkTimer > 0 && !this.char.isBojdo) ? 1.5 : 1; // faster when shrunk
   const stickerMult = this.stickerSlowTimer > 0 ? 0.3 : 1;
@@ -68,6 +69,7 @@ Fighter.prototype.handlePlayerInput = function(keys, opponent) {
     if (this.char.isCorvida && this.corvidaJayPending) {
       this.corvidaJayPending = false;
       this.isJay = true;
+      playSfx(sfx_jayForm);
     }
     // Batsch: transform to tortoise if double-crouch was triggered
     if (this.char.isBatsch && this.batschCrouchPending) {
@@ -78,6 +80,7 @@ Fighter.prototype.handlePlayerInput = function(keys, opponent) {
 
   // Golgar entity swap: press D to switch to dormant entity
   if (this.char.isGolgar && (keys['g'] || keys['G']) && this.state !== 'attack') {
+    playSfx(sfx_soulSwap);
     const oldX = this.x;
     const oldY = this.y;
     const oldFacing = this.facing;
@@ -163,12 +166,14 @@ Fighter.prototype.handlePlayerInput = function(keys, opponent) {
   // Torrena water phase toggle
   if (this.char.isTorrena && (keys['h'] || keys['H'])) {
     this.waterPhase = !this.waterPhase;
+    playSfx(sfx_waterPhase);
     keys['h'] = false; keys['H'] = false;
   }
 
   // Haystack explosion: press F to explode
   if (this.char.isHaystack && (keys['f'] || keys['F']) && !this.exploding && this.state !== 'attack') {
     this.exploding = true;
+    playSfx(sfx_hayExplosion);
     this.reformTimer = this.reformMaxFrames;
     // Spawn arrow projectiles in all directions
     for (let i = 0; i < 6; i++) {
@@ -233,6 +238,7 @@ Fighter.prototype.handlePlayerInput = function(keys, opponent) {
   // Snazz McJazz dance: press J to start dancing (can't if already dancing or attacking)
   if (this.char.isSnazz && (keys['j'] || keys['J']) && !this.dancing && this.state !== 'attack') {
     this.dancing = true;
+    playSfx(sfx_jazzDance);
     this.danceTimer = this.danceMaxFrames;
     this.state = 'idle';
     keys['j'] = false; keys['J'] = false;
@@ -331,13 +337,20 @@ Fighter.prototype.handlePlayerInput = function(keys, opponent) {
   }
   // Bojdo size shifting: hold K to grow, hold L to shrink
   if (this.char.isBojdo) {
-    const maxScale = bojdobojdoUnlocked ? 3.5 : 2.0;
-    const minScale = bojdobojdoUnlocked ? 0.2 : 0.5;
+    const isBB = this.char.name === 'BOJDOBOJDO' || this.char.isBojdo3;
+    const maxScale = isBB ? 3.5 : 2.0;
+    const minScale = isBB ? 0.2 : 0.5;
+    const wasShifting = this.bojdoShifting;
     if (keys['k'] || keys['K']) {
       this.bojdoScale = Math.min(this.bojdoScale + 0.02, maxScale);
+      this.bojdoShifting = true;
     } else if (keys['l'] || keys['L']) {
       this.bojdoScale = Math.max(this.bojdoScale - 0.02, minScale);
+      this.bojdoShifting = true;
+    } else {
+      this.bojdoShifting = false;
     }
+    if (this.bojdoShifting && !wasShifting) playSfx(sfx_sizeShifting);
   }
 
   // Exor soul drain: press N at close range to drain HP
@@ -354,6 +367,7 @@ Fighter.prototype.handlePlayerInput = function(keys, opponent) {
 
   // Codemax swap: press N to switch positions with opponent
   if (this.char.isCodemax && (keys['n'] || keys['N']) && this.swapCooldown <= 0 && this.state !== 'attack') {
+    playSfx(sfx_codePort);
     const myX = this.x, myY = this.y;
     const oppX = opponent.x, oppY = opponent.y;
     this.teleportGhost = { x: myX, y: myY, timer: 15 };

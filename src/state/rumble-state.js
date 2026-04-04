@@ -74,6 +74,27 @@ let rumbleGourmandPlateX = 0;
 let rumbleGourmandLeafPlaced = false;
 let rumbleGourmandTongueT = 0; // 0-1 tongue extension progress
 let rumbleGourmandSwallowT = 0; // 0-1 swallow progress
+let rumbleBatschPhase = 0; // 0=enter shell, 1=spin up, 2=ricochet, 3=launch, 4=pop out, 5=hold
+let rumbleBatschShellX = 0;
+let rumbleBatschShellY = 0;
+let rumbleBatschShellVx = 0;
+let rumbleBatschShellVy = 0;
+let rumbleBatschSpinAngle = 0;
+let rumbleBatschSpinSpeed = 0; // radians per frame
+let rumbleBatschHits = 0; // ricochet hits landed
+let rumbleBatschSparks = []; // impact spark particles { x, y, vx, vy, life }
+let rumbleBatschTrail = []; // motion blur trail { x, y, alpha }
+let rumbleBatschLaunchVy = 0; // opponent launch velocity
+let rumbleBatschLastHitFrame = 0; // frame of last hit (for cooldown)
+let rumbleMatadorPhase = 0; // 0=walk+cape, 1=bull rush, 2=trample, 3=hold
+let rumbleMatadorBullX = 0; // bull position
+let rumbleMatadorBullSpeed = 0;
+let rumbleMatadorDust = []; // dust particles from bull
+
+let rumblePaletapPhase = 0; // 0=walk, 1=slam fist, 2=vibrate, 3=disassemble, 4=hold
+let rumblePaletapVibrate = 0; // vibration intensity (ramps up)
+let rumblePaletapParts = []; // disassembled body parts { type, x, y, vy, rot, rotSpeed }
+
 let rumbleSnazzConfetti = []; // confetti particles
 let rumbleSnazzPunchLanded = false; // final punch connected
 let rumbleHailShards = []; // ice shards from hailstone cracking
@@ -107,4 +128,10 @@ function resetRumbleState() {
   rumbleGourmandToppings = []; rumbleGourmandSauces = [];
   rumbleGourmandPlateX = 0; rumbleGourmandLeafPlaced = false;
   rumbleGourmandTongueT = 0; rumbleGourmandSwallowT = 0;
+  rumbleBatschPhase = 0; rumbleBatschShellX = 0; rumbleBatschShellY = 0;
+  rumbleBatschShellVx = 0; rumbleBatschShellVy = 0; rumbleBatschSpinAngle = 0;
+  rumbleBatschSpinSpeed = 0; rumbleBatschHits = 0; rumbleBatschSparks = [];
+  rumbleBatschTrail = []; rumbleBatschLaunchVy = 0; rumbleBatschLastHitFrame = 0;
+  rumbleMatadorPhase = 0; rumbleMatadorBullX = 0; rumbleMatadorBullSpeed = 0; rumbleMatadorDust = [];
+  rumblePaletapPhase = 0; rumblePaletapVibrate = 0; rumblePaletapParts = [];
 }

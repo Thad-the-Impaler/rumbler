@@ -19,23 +19,28 @@ SOURCE_FILES = [
     'data/attacks.js',
     'data/rumble-defs.js',
     'data/combos.js',
+    'data/campaign.js',
     # State
     'state/game-state.js',
     'state/rumble-state.js',
     'state/unlock-state.js',
     # Audio
     'audio/music.js',
+    'audio/sfx.js',
+    'audio/ability-sfx.js',
     # Screens
     'screens/screen-hud.js',
     'screens/screen-title.js',
     'screens/screen-char-select.js',
     'screens/screen-practice-select.js',
+    'screens/screen-boss-select.js',
     'screens/screen-assist-select.js',
     'screens/screen-difficulty.js',
     'screens/screen-pause.js',
     'screens/screen-victory.js',
     'screens/screen-level-select.js',
     'screens/screen-versus.js',
+    'screens/screen-campaign-select.js',
     # Backgrounds
     'backgrounds/background.js',
     # Rumbles

@@ -259,22 +259,37 @@ Fighter.prototype.update = function(opponent, keys) {
     }
   }
 
-  // Apply velocity with friction
-  this.x += this.vx;
-  this.vx *= 0.85;
+  // Apply velocity with friction (skip while Erictho is in portal)
+  if (!this.ericthoHidden) {
+    this.x += this.vx;
+    this.vx *= 0.85;
+  }
 
   // Boundaries
   if (this.char.isTelatrine) {
-    if (this.x < 20) { this.x = 940; this.teleportGhost = { x: 20, y: this.y, timer: 12 }; }
-    else if (this.x > 940) { this.x = 20; this.teleportGhost = { x: 940, y: this.y, timer: 12 }; }
-  } else {
+    if (this.x < 20) { this.x = 940; this.teleportGhost = { x: 20, y: this.y, timer: 12 }; playSfx(sfx_warpWalk); }
+    else if (this.x > 940) { this.x = 20; this.teleportGhost = { x: 940, y: this.y, timer: 12 }; playSfx(sfx_warpWalk); }
+  } else if (!this.ericthoHidden) {
     if (this.x < 40) this.x = 40;
     if (this.x > 920) this.x = 920;
   }
 
-  // Face opponent
-  if (this.state !== 'attack' && this.state !== 'hitstun' && this.state !== 'blockstun') {
-    this.facing = opponent.x > this.x ? 1 : -1;
+  // Face opponent (skip while Erictho is in portal)
+  if (this.state !== 'attack' && this.state !== 'hitstun' && this.state !== 'blockstun' && !this.ericthoHidden) {
+    // Dark Duplaire / Twins: face closest entity
+    if (opponent.char.isDarkDuplaire && this.isPlayer) {
+      let closestX = opponent.x;
+      let closestDist = Math.abs(this.x - opponent.x);
+      for (const c of opponent.duplaireClones) {
+        if (c.active) {
+          const d = Math.abs(this.x - c.x);
+          if (d < closestDist) { closestDist = d; closestX = c.x; }
+        }
+      }
+      this.facing = closestX > this.x ? 1 : -1;
+    } else {
+      this.facing = opponent.x > this.x ? 1 : -1;
+    }
   }
 
   // State timer
@@ -309,6 +324,1034 @@ Fighter.prototype.update = function(opponent, keys) {
     }
     if (gp.timer <= 0 || gp.x < -20 || gp.x > 980 || gp.hit) {
       this.gourmandProjectile = null;
+    }
+  }
+
+  // Borgus laser projectile update
+  if (this.borgusLaser) {
+    const bl = this.borgusLaser;
+    bl.x += bl.vx;
+    bl.timer--;
+    if (!bl.hit && opponent.isHitAt(bl.x, bl.y, 30, 40)) {
+      bl.hit = true;
+      const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+      opponent.takeDamage(8 * this.char.stats.power * diffMult, { hitstun: 12, blockstun: 8, launch: false, knockbackForce: 3 }, bl.vx > 0 ? 1 : -1, false, { x: bl.x, y: bl.y });
+    }
+    if (bl.timer <= 0 || bl.x < -30 || bl.x > 990 || bl.hit) {
+      this.borgusLaser = null;
+    }
+  }
+
+  // The Count update: firework sweep, ground fireworks, explosions
+  if (this.char.isTheCount) {
+    const darkColors = ['#8B0000', '#CC5500', '#B8860B', '#006400', '#00008B', '#4B0082'];
+
+    // Firing sweep: one pass up and down
+    if (this.countFiring) {
+      this.countFireTimer--;
+      const progress = 1 - (this.countFireTimer / 90);
+      // Single sweep: 0→PI (up then down)
+      const aimAngle = Math.sin(progress * Math.PI) * (Math.PI / 2);
+      if (this.countFireTimer % 4 === 0) {
+        const spd = 7 + Math.random() * 3;
+        const spread = (Math.random() - 0.5) * 0.25;
+        const angle = aimAngle + spread;
+        this.countFireworks.push({
+          x: this.x + this.facing * 15,
+          y: this.centerY - 15,
+          vx: this.facing * Math.cos(angle) * spd,
+          vy: -Math.sin(angle) * spd,
+          color: darkColors[Math.floor(Math.random() * darkColors.length)],
+          timer: 28 + Math.floor(Math.random() * 12),
+          trail: []
+        });
+      }
+      if (this.countFireTimer <= 0) this.countFiring = false;
+    }
+
+    // Update firework projectiles
+    for (let i = this.countFireworks.length - 1; i >= 0; i--) {
+      const fw = this.countFireworks[i];
+      fw.trail.push({ x: fw.x, y: fw.y, timer: 8 });
+      fw.x += fw.vx;
+      fw.vy += 0.15;
+      fw.y += fw.vy;
+      fw.timer--;
+      for (let t = fw.trail.length - 1; t >= 0; t--) {
+        fw.trail[t].timer--;
+        if (fw.trail[t].timer <= 0) fw.trail.splice(t, 1);
+      }
+      // Hit check
+      if (opponent && opponent.isHitAt(fw.x, fw.y, 22, 32)) {
+        // Explode on hit
+        for (let e = 0; e < 10; e++) {
+          const ea = Math.random() * Math.PI * 2;
+          const es = 2 + Math.random() * 3;
+          this.countExplosions.push({
+            x: fw.x, y: fw.y,
+            vx: Math.cos(ea) * es, vy: Math.sin(ea) * es,
+            color: darkColors[Math.floor(Math.random() * darkColors.length)],
+            timer: 12 + Math.floor(Math.random() * 8)
+          });
+        }
+        // Final Count: add text explosions
+        if (this.char.isTheCountFinal) {
+          const highPhrases = ['BRAVO!', 'BRAVA!', 'BRAVISSIMO!', 'GOOD SHOW!'];
+          const lowPhrases = ['THE HORROR!', 'THE PAIN!', 'THE AGONY!', 'SWEET SORROW!'];
+          const phrases = this.health > 50 ? highPhrases : lowPhrases;
+          this.countExplosions.push({
+            x: fw.x, y: fw.y - 10, vx: 0, vy: -1.5,
+            color: darkColors[Math.floor(Math.random() * darkColors.length)],
+            timer: 30,
+            text: phrases[Math.floor(Math.random() * phrases.length)]
+          });
+        }
+        const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+        opponent.takeDamage(3 * this.char.stats.power * diffMult,
+          { hitstun: 5, blockstun: 3, launch: false }, this.facing, false, { x: fw.x, y: fw.y });
+        this.countFireworks.splice(i, 1);
+        continue;
+      }
+      // Expire
+      if (fw.timer <= 0 || fw.x < 0 || fw.x > 960 || fw.y > 540) {
+        for (let e = 0; e < 6; e++) {
+          const ea = Math.random() * Math.PI * 2;
+          const es = 1 + Math.random() * 2;
+          this.countExplosions.push({
+            x: fw.x, y: fw.y,
+            vx: Math.cos(ea) * es, vy: Math.sin(ea) * es,
+            color: darkColors[Math.floor(Math.random() * darkColors.length)],
+            timer: 10 + Math.floor(Math.random() * 8)
+          });
+        }
+        // Final Count: text on air explosions too
+        if (this.char.isTheCountFinal) {
+          const highPhrases = ['BRAVO!', 'BRAVA!', 'BRAVISSIMO!', 'GOOD SHOW!'];
+          const lowPhrases = ['THE HORROR!', 'THE PAIN!', 'THE AGONY!', 'SWEET SORROW!'];
+          const phrases = this.health > 50 ? highPhrases : lowPhrases;
+          this.countExplosions.push({
+            x: fw.x, y: fw.y - 10, vx: 0, vy: -1.5,
+            color: darkColors[Math.floor(Math.random() * darkColors.length)],
+            timer: 30,
+            text: phrases[Math.floor(Math.random() * phrases.length)]
+          });
+        }
+        this.countFireworks.splice(i, 1);
+      }
+    }
+
+    // Update explosion particles
+    for (let i = this.countExplosions.length - 1; i >= 0; i--) {
+      const e = this.countExplosions[i];
+      e.x += e.vx;
+      e.y += e.vy;
+      e.vy += 0.1;
+      e.timer--;
+      if (e.timer <= 0) this.countExplosions.splice(i, 1);
+    }
+  }
+
+  // Relapmi update: ground spears, body shank, spike ring
+  if (this.char.isRelapmi) {
+    // Ground spears: rise, hold, retract
+    for (let i = this.relapmiSpears.length - 1; i >= 0; i--) {
+      const spear = this.relapmiSpears[i];
+      spear.timer--;
+      if (spear.timer > 35) {
+        // Emerging (0 to 1 over 15 frames)
+        spear.emergeT = Math.min(1, spear.emergeT + 1 / 12);
+      } else if (spear.timer > 10) {
+        spear.emergeT = 1; // fully up
+      } else {
+        // Retracting
+        spear.emergeT = spear.timer / 10;
+      }
+      // Damage when fully emerged
+      if (spear.emergeT > 0.7 && !spear.hit) {
+        const spearTipY = spear.y - 80 * spear.emergeT;
+        if (opponent.isHitAt(spear.x, spearTipY, 20, 40)) {
+          const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+          opponent.takeDamage(10 * this.char.stats.power * diffMult,
+            { hitstun: 18, blockstun: 10, launch: true, knockbackForce: 2 },
+            this.facing, false, { x: spear.x, y: spearTipY });
+          spear.hit = true;
+        }
+      }
+      if (spear.timer <= 0) this.relapmiSpears.splice(i, 1);
+    }
+
+    // Body shank: spear extends from body in a direction
+    if (this.relapmiShank) {
+      const shank = this.relapmiShank;
+      shank.timer--;
+      if (shank.timer > 15) {
+        // Extending
+        shank.length = Math.min(shank.maxLen, shank.length + shank.maxLen / 8);
+      } else if (shank.timer > 5) {
+        // Holding
+        shank.length = shank.maxLen;
+      } else {
+        // Retracting
+        shank.length = shank.maxLen * (shank.timer / 5);
+      }
+      // Hit check at tip
+      if (!shank.hit && shank.length > 40) {
+        const tipX = this.x + Math.cos(shank.angle) * shank.length;
+        const tipY = this.centerY + Math.sin(shank.angle) * shank.length;
+        if (opponent.isHitAt(tipX, tipY, 30, 30)) {
+          const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+          opponent.takeDamage(14 * this.char.stats.power * diffMult,
+            { hitstun: 20, blockstun: 12, launch: false, knockbackForce: 5 },
+            this.facing, false, { x: tipX, y: tipY });
+          shank.hit = true;
+        }
+      }
+      if (shank.timer <= 0) this.relapmiShank = null;
+    }
+
+    // Spike ring: expand outward with spiral
+    if (this.relapmiSpikeRing) {
+      const ring = this.relapmiSpikeRing;
+      ring.timer--;
+      for (let i = 0; i < ring.spikes.length; i++) {
+        const spike = ring.spikes[i];
+        spike.dist += spike.speed;
+        spike.angle += 0.03; // spiral rotation
+        const sx = this.x + Math.cos(spike.angle) * spike.dist;
+        const sy = this.centerY + Math.sin(spike.angle) * spike.dist;
+        // Hit check
+        if (!ring.hit[i] && opponent.isHitAt(sx, sy, 18, 18)) {
+          const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+          opponent.takeDamage(7 * this.char.stats.power * diffMult,
+            { hitstun: 12, blockstun: 8, launch: false, knockbackForce: 3 },
+            sx < opponent.x ? -1 : 1, false, { x: sx, y: sy });
+          ring.hit[i] = true;
+        }
+      }
+      if (ring.timer <= 0) this.relapmiSpikeRing = null;
+    }
+  }
+
+  // Six Iron-Nine Iron update: club swing, golf balls, lasso
+  if (this.char.isSixIron) {
+    // Club swing animation
+    if (this.sixIronClubSwinging) {
+      this.sixIronClubTimer--;
+      // Hit check at peak of swing (frame 12-15)
+      if (this.sixIronClubTimer === 15) {
+        const hitX = this.x + this.facing * 70;
+        const hitY = this.centerY;
+        const isDriver = this.char.isSixDriver;
+        if (opponent.isHitAt(hitX, hitY, 45, 50)) {
+          const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+          const kb = isDriver ? 14 : 7;
+          const dmg = isDriver ? 20 : 15;
+          opponent.takeDamage(dmg * this.char.stats.power * diffMult,
+            { hitstun: isDriver ? 28 : 22, blockstun: isDriver ? 18 : 14, launch: isDriver, knockbackForce: kb },
+            this.facing, false, { x: hitX, y: hitY });
+          shakeTimer = isDriver ? 8 : 4;
+          shakeIntensity = isDriver ? 10 : 5;
+        }
+      }
+      if (this.sixIronClubTimer <= 0) this.sixIronClubSwinging = false;
+    }
+
+    // Golf ball projectiles
+    for (let i = this.sixIronGolfBalls.length - 1; i >= 0; i--) {
+      const ball = this.sixIronGolfBalls[i];
+      ball.x += ball.vx;
+      ball.vy += 0.15; // gravity arc
+      ball.y += ball.vy;
+      ball.timer--;
+      // Bounce off ground
+      if (ball.y > this.groundY) {
+        ball.y = this.groundY;
+        ball.vy = -Math.abs(ball.vy) * 0.5;
+        if (Math.abs(ball.vy) < 1) ball.timer = 0; // stop bouncing
+      }
+      if (!ball.hit && opponent.isHitAt(ball.x, ball.y, 20, 30)) {
+        ball.hit = true;
+        const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+        opponent.takeDamage(8 * this.char.stats.power * diffMult,
+          { hitstun: 14, blockstun: 8, launch: false, knockbackForce: 3 },
+          ball.vx > 0 ? 1 : -1, false, { x: ball.x, y: ball.y });
+      }
+      if (ball.timer <= 0 || ball.hit || ball.x < -20 || ball.x > 980) {
+        this.sixIronGolfBalls.splice(i, 1);
+      }
+    }
+
+    // Lasso
+    if (this.sixIronLasso) {
+      const lasso = this.sixIronLasso;
+      if (!lasso.hit) {
+        lasso.x += lasso.vx;
+        lasso.timer--;
+        // Check if lasso reaches opponent
+        if (opponent.isHitAt(lasso.x, lasso.y, 30, 40)) {
+          lasso.hit = true;
+          this.sixIronLassoPulling = true;
+          this.sixIronLassoPullTimer = 30;
+        }
+        if (lasso.timer <= 0) this.sixIronLasso = null;
+      }
+    }
+
+    // Pulling opponent closer with lasso
+    if (this.sixIronLassoPulling) {
+      this.sixIronLassoPullTimer--;
+      const pullDir = this.x > opponent.x ? 1 : -1;
+      opponent.x += pullDir * 6;
+      opponent.vx = pullDir * 3;
+      // Keep opponent from going past Six Iron
+      if (Math.abs(opponent.x - this.x) < 50) {
+        this.sixIronLassoPulling = false;
+        this.sixIronLasso = null;
+      }
+      if (this.sixIronLassoPullTimer <= 0) {
+        this.sixIronLassoPulling = false;
+        this.sixIronLasso = null;
+      }
+    }
+
+    // Six Driver: ground holes
+    if (this.char.isSixDriver) {
+      for (let i = this.sixDriverGroundHoles.length - 1; i >= 0; i--) {
+        const hole = this.sixDriverGroundHoles[i];
+        hole.timer--;
+        if (hole.timer <= 0 && !hole.fired) {
+          hole.fired = true;
+          // Pop a golf ball straight up from the hole
+          this.sixIronGolfBalls.push({
+            x: hole.x,
+            y: this.groundY,
+            vx: (Math.random() - 0.5) * 3,
+            vy: -10 - Math.random() * 4,
+            timer: 90,
+            hit: false
+          });
+        }
+        if (hole.fired) {
+          hole.timer--;
+          if (hole.timer < -30) {
+            this.sixDriverGroundHoles.splice(i, 1);
+          }
+        }
+      }
+    }
+  }
+
+  // Birdeater update: leg crush, tail strike, jump
+  if (this.char.isBirdeater) {
+    // Walk animation phase
+    this.birdeaterLegPhase += 0.04;
+
+    // Jump physics
+    if (this.birdeaterJumping) {
+      const isManeater = this.char.isManeater;
+
+      // Maneater hover: pause at apex and hover with wings
+      if (isManeater && this.maneaterHovering && this.maneaterHoverTimer > 0) {
+        if (this.birdeaterJumpVy >= -2) {
+          // At apex — hover
+          this.birdeaterJumpVy *= 0.7; // dampen vertical
+          this.maneaterHoverTimer--;
+          // Drift toward player horizontally during hover
+          const hoverDir = opponent.x > this.x ? 1 : -1;
+          this.vx = hoverDir * 2;
+          // Hover complete — fall
+          if (this.maneaterHoverTimer <= 0) {
+            this.maneaterHovering = false;
+          }
+        } else {
+          // Still ascending — light gravity
+          this.birdeaterJumpVy += 0.2;
+        }
+      } else {
+        // Normal gravity (or Maneater done hovering)
+        this.birdeaterJumpVy += 0.5;
+        if (isManeater && this.maneaterHovering) this.maneaterHovering = false;
+      }
+
+      this.y += this.birdeaterJumpVy;
+      this.x += this.vx;
+      // Ceiling clamp
+      if (this.y < 60) { this.y = 60; this.birdeaterJumpVy = 0; }
+
+      if (this.y >= this.groundY) {
+        this.y = this.groundY;
+        this.grounded = true;
+        this.birdeaterJumping = false;
+        this.birdeaterJumpVy = 0;
+        this.maneaterHovering = false;
+        this.maneaterHoverTimer = 0;
+        this.vx = 0;
+        // Landing crush damage (Maneater: heavier)
+        const crushRange = isManeater ? 80 : 60;
+        if (Math.abs(this.x - opponent.x) < crushRange) {
+          const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+          const crushDmg = isManeater ? 25 : 18;
+          opponent.takeDamage(crushDmg * this.char.stats.power * diffMult,
+            { hitstun: 25, blockstun: 15, launch: true, knockbackForce: isManeater ? 7 : 5 },
+            this.facing, false, { x: this.x, y: this.groundY });
+          shakeTimer = isManeater ? 12 : 8;
+          shakeIntensity = isManeater ? 14 : 10;
+        }
+      }
+    }
+
+    // Tail strike animation
+    if (this.birdeaterTailStriking) {
+      this.birdeaterTailTimer--;
+      // Hit check at the peak of the strike (frame 15-20)
+      if (this.birdeaterTailTimer === 18) {
+        const tailX = this.x - this.facing * 60; // tail strikes behind/above
+        const tailY = this.centerY - 50;
+        // Check wide area in front since tail swings over
+        const isME = this.char.isManeater;
+        const hitX = this.x + this.facing * (isME ? 110 : 80);
+        const hitY = this.centerY - 30;
+        if (opponent.isHitAt(hitX, hitY, isME ? 60 : 50, 50)) {
+          const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+          const tailDmg = isME ? 24 : 16;
+          opponent.takeDamage(tailDmg * this.char.stats.power * diffMult,
+            { hitstun: isME ? 26 : 22, blockstun: isME ? 16 : 12, launch: isME, knockbackForce: isME ? 8 : 6 },
+            this.facing, false, { x: hitX, y: hitY });
+          shakeTimer = isME ? 8 : 5;
+          shakeIntensity = isME ? 9 : 6;
+        }
+      }
+      if (this.birdeaterTailTimer <= 0) {
+        this.birdeaterTailStriking = false;
+      }
+    }
+
+    // Passive leg crush damage — when opponent is directly underneath
+    if (this.grounded && !this.birdeaterJumping && this.birdeaterLegCrushCooldown <= 0) {
+      const dist = Math.abs(this.x - opponent.x);
+      if (dist < 45 && opponent.grounded) {
+        const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+        opponent.takeDamage(6 * this.char.stats.power * diffMult,
+          { hitstun: 10, blockstun: 6, launch: false, knockbackForce: 2 },
+          this.facing, false, { x: this.x, y: opponent.y });
+        this.birdeaterLegCrushCooldown = 30; // 0.5s between crushes
+      }
+    }
+  }
+
+  // Twins update: Selene movement, arrows for both, facing override
+  if (this.char.isTwins) {
+    const tw = this.twin;
+
+    // Move Selene
+    tw.x += tw.vx;
+    tw.vx *= 0.85;
+    if (tw.x < 40) tw.x = 40;
+    if (tw.x > 920) tw.x = 920;
+
+    // Selene gravity + jumping
+    if (!tw.grounded) {
+      tw.vy += 0.5;
+      tw.y += tw.vy;
+      if (tw.y >= this.groundY) {
+        tw.y = this.groundY;
+        tw.vy = 0;
+        tw.grounded = true;
+      }
+    }
+
+    // Animation
+    if (Math.abs(tw.vx) > 0.5 || !tw.grounded) {
+      tw.animTimer++;
+      if (tw.animTimer > 8) { tw.animTimer = 0; tw.animFrame = (tw.animFrame + 1) % 4; }
+    } else {
+      tw.animFrame = 0; tw.animTimer = 0;
+    }
+
+    if (tw.flashTimer > 0) tw.flashTimer--;
+
+    // Update Helios arrows
+    for (let i = this.twinsArrows.length - 1; i >= 0; i--) {
+      const arr = this.twinsArrows[i];
+      arr.x += arr.vx;
+      arr.timer--;
+      if (!arr.hit && opponent.isHitAt(arr.x, arr.y, 20, 25)) {
+        arr.hit = true;
+        const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+        opponent.takeDamage(8 * this.char.stats.power * diffMult,
+          { hitstun: 14, blockstun: 8, launch: false, knockbackForce: 2 },
+          arr.vx > 0 ? 1 : -1, false, { x: arr.x, y: arr.y });
+      }
+      if (arr.timer <= 0 || arr.hit || arr.x < -20 || arr.x > 980) {
+        this.twinsArrows.splice(i, 1);
+      }
+    }
+
+    // Update Selene arrows
+    for (let i = tw.arrows.length - 1; i >= 0; i--) {
+      const arr = tw.arrows[i];
+      arr.x += arr.vx;
+      arr.timer--;
+      if (!arr.hit && opponent.isHitAt(arr.x, arr.y, 20, 25)) {
+        arr.hit = true;
+        const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+        opponent.takeDamage(8 * this.char.stats.power * diffMult,
+          { hitstun: 14, blockstun: 8, launch: false, knockbackForce: 2 },
+          arr.vx > 0 ? 1 : -1, false, { x: arr.x, y: arr.y });
+      }
+      if (arr.timer <= 0 || arr.hit || arr.x < -20 || arr.x > 980) {
+        tw.arrows.splice(i, 1);
+      }
+    }
+
+    // Player faces the closer twin
+    if (opponent.isPlayer && opponent.state !== 'attack' && opponent.state !== 'hitstun' && opponent.state !== 'blockstun') {
+      const distH = Math.abs(opponent.x - this.x);
+      const distS = Math.abs(opponent.x - tw.x);
+      const closerX = distH <= distS ? this.x : tw.x;
+      opponent.facing = closerX > opponent.x ? 1 : -1;
+    }
+
+    // Selene can also take/deal melee damage — check overlap with player
+    if (tw.state !== 'hitstun') {
+      // Push apart
+      const tOverlap = 40 - Math.abs(opponent.x - tw.x);
+      if (tOverlap > 0 && Math.abs(opponent.y - tw.y) < 50) {
+        const push = tOverlap / 2 + 0.5;
+        if (opponent.x < tw.x) { tw.x += push; } else { tw.x -= push; }
+      }
+    }
+  }
+
+  // Hangman disassembly update
+  if (this.char.isHangman && this.hangmanDisassembled) {
+    const gY = this.groundY;
+    // Target positions for each piece (relative to targetX, at groundY)
+    const targetPositions = {
+      'head':     { x: this.hangmanTargetX,      y: gY - 55 },
+      'torso':    { x: this.hangmanTargetX,      y: gY - 30 },
+      'leftArm':  { x: this.hangmanTargetX - 18, y: gY - 35 },
+      'rightArm': { x: this.hangmanTargetX + 18, y: gY - 35 },
+      'leftLeg':  { x: this.hangmanTargetX - 8,  y: gY - 10 },
+      'rightLeg': { x: this.hangmanTargetX + 8,  y: gY - 10 }
+    };
+    const pieceTypes = ['head', 'torso', 'leftArm', 'rightArm', 'leftLeg', 'rightLeg'];
+    this.hangmanLaunchTimer--;
+
+    // Launch pieces one at a time
+    if (this.hangmanPieceIndex < pieceTypes.length && this.hangmanLaunchTimer <= 0) {
+      const type = pieceTypes[this.hangmanPieceIndex];
+      const target = targetPositions[type];
+      const startX = this.x;
+      const startY = this.y - 50 + this.hangmanPieceIndex * 3;
+      // Calculate velocity to arrive at target in ~25 frames with an arc
+      const flightFrames = 25;
+      const vx = (target.x - startX) / flightFrames;
+      const vy = (target.y - startY) / flightFrames - 3; // arc upward bias
+      this.hangmanPieces.push({
+        type: type,
+        x: startX, y: startY,
+        vx: vx, vy: vy,
+        targetX: target.x, targetY: target.y,
+        flightTimer: flightFrames,
+        landed: false,
+        hitCooldown: 0
+      });
+      this.hangmanPieceIndex++;
+      this.hangmanLaunchTimer = 12;
+    }
+
+    // Update flying pieces
+    let allLanded = true;
+    for (const piece of this.hangmanPieces) {
+      if (piece.landed) continue;
+      allLanded = false;
+      piece.x += piece.vx;
+      piece.y += piece.vy;
+      piece.vy += 0.25; // gentle gravity for arc
+      piece.flightTimer--;
+      if (piece.hitCooldown > 0) piece.hitCooldown--;
+
+      // Land when flight timer expires or close enough to target
+      const distToTarget = Math.sqrt((piece.x - piece.targetX) ** 2 + (piece.y - piece.targetY) ** 2);
+      if (piece.flightTimer <= 0 || distToTarget < 10) {
+        piece.x = piece.targetX;
+        piece.y = piece.targetY;
+        piece.vx = 0; piece.vy = 0;
+        piece.landed = true;
+        continue;
+      }
+
+      // Damage player on contact while flying
+      if (piece.hitCooldown <= 0 && opponent.isHitAt(piece.x, piece.y, 25, 25)) {
+        const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+        const dmg = (piece.type === 'head' ? 12 : 6) * this.char.stats.power * diffMult;
+        opponent.takeDamage(dmg,
+          { hitstun: piece.type === 'head' ? 20 : 12, blockstun: 8, launch: false, knockbackForce: 3 },
+          piece.vx > 0 ? 1 : -1, false, { x: piece.x, y: piece.y });
+        piece.hitCooldown = 30;
+      }
+    }
+
+    // All pieces launched and landed — reassemble
+    if (this.hangmanPieceIndex >= pieceTypes.length && allLanded) {
+      this.hangmanDisassembled = false;
+      this.hangmanHidden = false;
+      this.x = this.hangmanTargetX;
+      this.y = this.groundY;
+      this.grounded = true;
+      this.hangmanPieces = [];
+      this.facing = opponent.x > this.x ? 1 : -1;
+    }
+  }
+
+  // Dark Bojdo: proximity shrink effect on opponent + HUD distortion
+  if (this.char.isDarkBojdo) {
+    // Proximity shrink: closer = smaller player, farther = bigger
+    const dist = Math.abs(this.x - opponent.x);
+    const maxDist = 400;
+    const proxT = Math.min(1, dist / maxDist); // 0 = touching, 1 = far away
+    // Player scale: 0.4 when touching, 1.3 when far
+    const targetPlayerScale = 0.4 + proxT * 0.9;
+    // Smoothly interpolate
+    if (!opponent._darkBojdoScale) opponent._darkBojdoScale = 1.0;
+    opponent._darkBojdoScale += (targetPlayerScale - opponent._darkBojdoScale) * 0.05;
+
+    // HUD distortion: randomly shift HUD scale every few seconds
+    if (this.darkBojdoHudTimer > 0) {
+      this.darkBojdoHudTimer--;
+      this.darkBojdoHudScale += (this.darkBojdoHudTarget - this.darkBojdoHudScale) * 0.05;
+    } else {
+      // Pick a new random distortion every 2-4 seconds
+      this.darkBojdoHudTimer = 120 + Math.floor(Math.random() * 120);
+      this.darkBojdoHudTarget = 0.6 + Math.random() * 0.8; // 0.6 to 1.4
+    }
+    this.darkBojdoHudScale += (this.darkBojdoHudTarget - this.darkBojdoHudScale) * 0.03;
+  }
+
+  // Head boss: charge roll, spit projectiles, rotation
+  if (this.char.isHead) {
+    const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+
+    // Rotate based on movement
+    if (Math.abs(this.vx) > 0.5) {
+      this.headRotation += this.vx * 0.04;
+    }
+
+    // Charge-up
+    if (this.headCharging) {
+      this.headChargeTimer--;
+      this.vx *= 0.9; // slow down while charging
+      if (this.headChargeTimer <= 0) {
+        this.headCharging = false;
+        this.headRolling = true;
+        this.headRollSpeed = this.facing * 16;
+        this.headRollCooldown = 900; // 15 seconds
+      }
+    }
+
+    // Fast roll
+    if (this.headRolling) {
+      this.vx = this.headRollSpeed;
+      this.headRotation += this.headRollSpeed * 0.08;
+
+      // Damage on contact
+      if (Math.abs(this.x - opponent.x) < 50 && Math.abs(this.y - opponent.y) < 50) {
+        opponent.takeDamage(18 * this.char.stats.power * diffMult,
+          { hitstun: 20, blockstun: 14, launch: true, knockbackForce: 8 },
+          this.headRollSpeed > 0 ? 1 : -1, false, { x: this.x, y: this.centerY });
+      }
+
+      // Hit wall — stop rolling
+      if (this.x <= 40 || this.x >= 920) {
+        this.headRolling = false;
+        this.headRollSpeed = 0;
+        this.vx = 0;
+        shakeTimer = 8;
+        shakeIntensity = 8;
+      }
+    }
+
+    // Spit projectiles
+    for (let i = this.headSpitProjectiles.length - 1; i >= 0; i--) {
+      const sp = this.headSpitProjectiles[i];
+      sp.x += sp.vx;
+      sp.y += sp.vy;
+      sp.vy += 0.15; // slight gravity
+      sp.timer--;
+
+      if (!sp.hit && opponent.isHitAt(sp.x, sp.y, 20, 20)) {
+        sp.hit = true;
+        opponent.takeDamage(7 * this.char.stats.power * diffMult,
+          { hitstun: 12, blockstun: 8, launch: false, knockbackForce: 2 },
+          sp.vx > 0 ? 1 : -1, false, { x: sp.x, y: sp.y });
+      }
+
+      if (sp.timer <= 0 || sp.hit || sp.x < -30 || sp.x > 990 || sp.y > this.groundY + 20) {
+        this.headSpitProjectiles.splice(i, 1);
+      }
+    }
+  }
+
+  // Orcus: lightning, spirits, soul drain (drain reuses Exor's existing code path)
+  if (this.char.isOrcus) {
+    const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+
+    // Soul drain update (same as Exor — fields are initialized in core)
+    if (this.exorDrainCooldown > 0) this.exorDrainCooldown--;
+    if (this.exorDraining && this.exorDrainTarget) {
+      this.exorDrainTimer--;
+      const target = this.exorDrainTarget;
+      const dist = Math.abs(this.x - target.x);
+      if (dist > 200) {
+        this.exorDraining = false;
+        this.exorDrainTarget = null;
+        this.exorDrainCooldown = 180;
+      } else {
+        const drainRate = 0.5;
+        target.health -= drainRate;
+        if (target.health <= 0) target.health = 0;
+        this.health = Math.min(this.maxHealth, this.health + drainRate);
+        target.slowTimer = Math.max(target.slowTimer, 10);
+        if (Math.random() < 0.3) {
+          this.exorSoulParticles.push({
+            x: target.x + (Math.random() - 0.5) * 30,
+            y: target.centerY - 10 + (Math.random() - 0.5) * 30,
+            tx: this.x, ty: this.centerY - 10,
+            t: 0, speed: 0.03 + Math.random() * 0.02, life: 1
+          });
+        }
+      }
+      if (this.exorDrainTimer <= 0) {
+        this.exorDraining = false;
+        this.exorDrainTarget = null;
+        this.exorDrainCooldown = 240;
+      }
+    }
+    // Update soul particles
+    for (let i = this.exorSoulParticles.length - 1; i >= 0; i--) {
+      const p = this.exorSoulParticles[i];
+      p.tx = this.x; p.ty = this.centerY - 10;
+      p.t += p.speed;
+      if (p.t >= 1) { this.exorSoulParticles.splice(i, 1); continue; }
+      p.life = 1 - p.t;
+    }
+
+    // Lightning update
+    for (let i = this.orcusLightning.length - 1; i >= 0; i--) {
+      const lt = this.orcusLightning[i];
+      lt.timer--;
+      // Damage on first few frames
+      if (lt.timer > 15) {
+        if (Math.abs(lt.x - opponent.x) < 35 && opponent.y >= opponent.groundY - 10) {
+          opponent.takeDamage(6 * this.char.stats.power * diffMult,
+            { hitstun: 14, blockstun: 8, launch: false, knockbackForce: 2 },
+            lt.x < opponent.x ? 1 : -1, false, { x: lt.x, y: opponent.groundY - 30 });
+          lt.timer = Math.min(lt.timer, 15); // stop damage after first hit
+        }
+      }
+      if (lt.timer <= 0) this.orcusLightning.splice(i, 1);
+    }
+
+    // Spirits update
+    for (let i = this.orcusSpirits.length - 1; i >= 0; i--) {
+      const sp = this.orcusSpirits[i];
+      if (sp.hitCooldown > 0) sp.hitCooldown--;
+
+      if (sp.phase === 'attack') {
+        // Home toward player
+        const dx = opponent.x - sp.x;
+        const dy = (opponent.centerY - 10) - sp.y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        sp.vx += (dx / dist) * 0.4;
+        sp.vy += (dy / dist) * 0.4;
+        const spd = Math.sqrt(sp.vx * sp.vx + sp.vy * sp.vy);
+        if (spd > 5) { sp.vx *= 5 / spd; sp.vy *= 5 / spd; }
+        sp.x += sp.vx;
+        sp.y += sp.vy;
+
+        // Hit player — steal 10 HP
+        if (sp.hitCooldown <= 0 && Math.abs(sp.x - opponent.x) < 30 && Math.abs(sp.y - opponent.centerY) < 30) {
+          const stealAmt = Math.min(10, opponent.health);
+          opponent.health -= stealAmt;
+          if (opponent.health <= 0) opponent.health = 0;
+          opponent.flashTimer = 8;
+          sp.stolenHP += stealAmt;
+          sp.phase = 'return'; // head back to Orcus
+          sp.vx = 0; sp.vy = 0;
+        }
+      } else {
+        // Return to Orcus
+        const dx = this.x - sp.x;
+        const dy = (this.centerY - 10) - sp.y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        sp.vx += (dx / dist) * 0.5;
+        sp.vy += (dy / dist) * 0.5;
+        const spd = Math.sqrt(sp.vx * sp.vx + sp.vy * sp.vy);
+        if (spd > 6) { sp.vx *= 6 / spd; sp.vy *= 6 / spd; }
+        sp.x += sp.vx;
+        sp.y += sp.vy;
+
+        // Deliver HP to Orcus
+        if (dist < 30) {
+          this.health = Math.min(this.maxHealth, this.health + sp.stolenHP);
+          this.orcusSpirits.splice(i, 1);
+          continue;
+        }
+      }
+
+      // Spirits can be killed by player attacks (checked via isHitAt)
+      // We check if player's attack hit position is near this spirit
+      if (player && player.state === 'attack' && player.currentAttack) {
+        const atk = player.currentAttack;
+        const prog = player.attackFrame / (atk.startup + atk.active + atk.recovery);
+        if (player.attackFrame >= atk.startup && player.attackFrame < atk.startup + atk.active) {
+          const hitX = player.x + player.facing * atk.range;
+          if (Math.abs(hitX - sp.x) < 40 && Math.abs(player.centerY - sp.y) < 40) {
+            sp.hp -= 10; // one hit kills
+            if (sp.hp <= 0) {
+              // Spirit dies — player regains stolen HP
+              if (sp.stolenHP > 0) {
+                player.health = Math.min(player.maxHealth, player.health + sp.stolenHP);
+                player.flashTimer = 4;
+              }
+              this.orcusSpirits.splice(i, 1);
+              continue;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Tube Warden: tube projectiles and gas clouds
+  if (this.char.isTubeWarden) {
+    const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+
+    // Update tubes
+    for (let i = this.twTubes.length - 1; i >= 0; i--) {
+      const tube = this.twTubes[i];
+      if (!tube.stuck) {
+        // In flight — apply gravity
+        tube.vy += 0.35;
+        tube.x += tube.vx;
+        tube.y += tube.vy;
+
+        // Hit player while flying
+        if (opponent.isHitAt(tube.x, tube.y, 25, 30)) {
+          opponent.takeDamage(12 * this.char.stats.power * diffMult,
+            { hitstun: 16, blockstun: 10, launch: false, knockbackForce: 4 },
+            tube.vx > 0 ? 1 : -1, false, { x: tube.x, y: tube.y });
+          tube.stuck = true;
+          tube.stuckTimer = 60;
+          tube.y = Math.min(tube.y, this.groundY);
+        }
+
+        // Stick into ground
+        if (tube.y >= this.groundY) {
+          tube.y = this.groundY;
+          tube.stuck = true;
+          tube.stuckTimer = 60; // 1 second fuse before exploding
+        }
+
+        // Off screen
+        if (tube.x < -50 || tube.x > 1010) {
+          this.twTubes.splice(i, 1);
+          continue;
+        }
+      } else {
+        // Stuck — count down to explosion
+        tube.stuckTimer--;
+        if (tube.stuckTimer <= 0 && !tube.exploded) {
+          tube.exploded = true;
+          // Create gas cloud at explosion point
+          this.twGasClouds.push({
+            x: tube.x,
+            y: this.groundY,
+            timer: 180, // 3 seconds of lingering gas
+            radius: 40
+          });
+          shakeTimer = 4;
+          shakeIntensity = 4;
+          // Explosion damage to nearby player
+          if (Math.abs(tube.x - opponent.x) < 60 && Math.abs(this.groundY - opponent.y) < 60) {
+            opponent.takeDamage(8 * this.char.stats.power * diffMult,
+              { hitstun: 12, blockstun: 8, launch: false, knockbackForce: 2 },
+              tube.x < opponent.x ? 1 : -1, false, { x: tube.x, y: this.groundY });
+          }
+          this.twTubes.splice(i, 1);
+          continue;
+        }
+      }
+    }
+
+    // Update gas clouds — damage player standing in them
+    for (let i = this.twGasClouds.length - 1; i >= 0; i--) {
+      const gas = this.twGasClouds[i];
+      gas.timer--;
+      if (gas.timer <= 0) {
+        this.twGasClouds.splice(i, 1);
+        continue;
+      }
+      // Damage player every 30 frames if standing in gas
+      if (gas.timer % 30 === 0) {
+        const gDist = Math.abs(gas.x - opponent.x);
+        if (gDist < gas.radius && opponent.y >= gas.y - 50) {
+          opponent.takeDamage(3 * this.char.stats.power * diffMult,
+            { hitstun: 8, blockstun: 4, launch: false, knockbackForce: 1 },
+            gas.x < opponent.x ? 1 : -1, false, { x: gas.x, y: gas.y - 20 });
+        }
+      }
+    }
+  }
+
+  // Scalena bite + snake update
+  if (this.char.isScalena) {
+    // Bite animation: extend neck forward, check hit at head, retract
+    if (this.scalenaBiting) {
+      this.scalenaBiteTimer--;
+      const totalFrames = 40;
+      const t = 1 - this.scalenaBiteTimer / totalFrames;
+      if (t < 0.3) {
+        // Extending: 0 to 1 over first 30%
+        this.scalenaNeckExtend = t / 0.3;
+      } else if (t < 0.5) {
+        // Holding at full extension
+        this.scalenaNeckExtend = 1;
+        // Check hit at the head position
+        if (this.scalenaBiteTimer === Math.floor(totalFrames * 0.5)) {
+          const headX = this.x + this.facing * (30 + 120 * this.scalenaNeckExtend);
+          const headY = this.centerY - 5;
+          if (opponent.isHitAt(headX, headY, 40, 40)) {
+            const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+            opponent.takeDamage(14 * this.char.stats.power * diffMult,
+              { hitstun: 20, blockstun: 12, launch: false, knockbackForce: 4 },
+              this.facing, false, { x: headX, y: headY });
+          }
+        }
+      } else {
+        // Retracting: 1 to 0 over last 50%
+        this.scalenaNeckExtend = Math.max(0, 1 - (t - 0.5) / 0.5);
+      }
+      if (this.scalenaBiteTimer <= 0) {
+        this.scalenaBiting = false;
+        this.scalenaNeckExtend = 0;
+      }
+    }
+
+    // Snake update: homing toward opponent, biting
+    for (let i = this.scalenaSnakes.length - 1; i >= 0; i--) {
+      const snake = this.scalenaSnakes[i];
+      snake.timer--;
+      if (snake.emergeTimer > 0) {
+        snake.emergeTimer--;
+        continue; // still rising from ground
+      }
+      if (snake.biteCooldown > 0) snake.biteCooldown--;
+      // Homing toward opponent
+      const dx = opponent.x - snake.x;
+      const dy = (opponent.y - 25) - snake.y;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      snake.vx += (dx / dist) * 0.25;
+      snake.vy += (dy / dist) * 0.25;
+      const spd = Math.sqrt(snake.vx * snake.vx + snake.vy * snake.vy);
+      if (spd > 3) { snake.vx *= 3 / spd; snake.vy *= 3 / spd; }
+      snake.x += snake.vx;
+      snake.y += snake.vy;
+      // Bite
+      if (snake.biteCooldown <= 0 && opponent.isHitAt(snake.x, snake.y, 25, 25)) {
+        const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+        opponent.takeDamage(5 * this.char.stats.power * diffMult,
+          { hitstun: 14, blockstun: 8, launch: false, knockbackForce: 1 },
+          snake.x < opponent.x ? 1 : -1, false, { x: snake.x, y: snake.y });
+        snake.biteCooldown = 70;
+      }
+      if (snake.timer <= 0) {
+        this.scalenaSnakes.splice(i, 1);
+      }
+    }
+  }
+
+  // Quellic fire phase update (runs every frame)
+  if (this.char.isQuellic) {
+    if (this.quellicFireCooldown > 0) this.quellicFireCooldown--;
+    if (this.quellicContactCooldown > 0) this.quellicContactCooldown--;
+
+    if (this.quellicFirePhase) {
+      this.quellicFireTimer--;
+      if (this.quellicFireTimer <= 0) {
+        // Fire phase expired
+        this.quellicFirePhase = false;
+        this.quellicFireCooldown = this.quellicFireCooldownMax;
+      } else {
+        // Contact damage: hurt opponent when overlapping
+        const dist = Math.abs(this.x - opponent.x);
+        if (dist < 45 && this.quellicContactCooldown <= 0) {
+          const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+          opponent.takeDamage(6 * this.char.stats.power * diffMult,
+            { hitstun: 8, blockstun: 4, launch: false, knockbackForce: 2 },
+            this.facing, true, { x: this.x, y: this.centerY }); // bypassBlock = true
+          this.quellicContactCooldown = 20; // damage every 20 frames max
+        }
+      }
+    }
+  }
+
+  // Erictho portal state machine (runs every frame)
+  if (this.char.isErictho) {
+    if (this.ericthoPortalCooldown > 0) this.ericthoPortalCooldown--;
+
+    if (this.ericthoPortal) {
+      const p = this.ericthoPortal;
+
+      if (p.phase === 'enter') {
+        p.timer++;
+        if (p.timer >= p.maxTimer) {
+          // Drop in — become hidden
+          this.ericthoHidden = true;
+          this.ericthoHiddenTimer = 0;
+          this.ericthoExitChosen = false;
+          this.x = -200; // move offscreen
+          this.vx = 0;
+          this.state = 'idle';
+          this.ericthoPortal = { x: p.x, y: this.groundY, timer: 0, phase: 'fade', maxTimer: 15 };
+        }
+      } else if (p.phase === 'exit') {
+        p.timer++;
+        if (p.timer >= p.maxTimer) {
+          // Pop out
+          this.x = p.x;
+          this.y = this.groundY;
+          this.grounded = true;
+          this.ericthoHidden = false;
+          this.ericthoHiddenTimer = 0;
+          this.facing = opponent.x > this.x ? 1 : -1;
+          this.ericthoPortalCooldown = 180 + Math.floor(Math.random() * 120);
+          this.ericthoPortal = { x: p.x, y: this.groundY, timer: 0, phase: 'fade', maxTimer: 15 };
+        }
+      } else if (p.phase === 'fade') {
+        p.timer++;
+        if (p.timer >= p.maxTimer) {
+          this.ericthoPortal = null;
+        }
+      }
+    }
+
+    // While hidden, count up and open exit portal
+    if (this.ericthoHidden) {
+      this.ericthoHiddenTimer++;
+      if (this.ericthoHiddenTimer > 45 && !this.ericthoExitChosen) {
+        this.ericthoExitChosen = true;
+        // Choose exit location
+        let exitX;
+        if (Math.random() < 0.6) {
+          exitX = opponent.x + (opponent.facing * -80);
+        } else {
+          exitX = 100 + Math.random() * 760;
+        }
+        exitX = Math.max(60, Math.min(900, exitX));
+        this.ericthoPortal = { x: exitX, y: this.groundY, timer: 0, phase: 'exit', maxTimer: 20 };
+      }
     }
   }
 
@@ -811,36 +1854,113 @@ Fighter.prototype.update = function(opponent, keys) {
         if (clone.activationTimer <= 0) clone.active = true;
         continue;
       }
-      // Clones stay stationary (no horizontal movement), but mirror jumps
-      // Gravity
-      if (!clone.grounded) {
-        clone.vy += 0.5;
-        clone.y += clone.vy;
-        if (clone.y >= this.groundY) {
-          clone.y = this.groundY;
-          clone.vy = 0;
-          clone.grounded = true;
+      // Dark Duplaire: independent clone AI
+      if (this.char.isDarkDuplaire && clone.aiTimer !== undefined) {
+        // Gravity
+        if (!clone.grounded) {
+          clone.vy += 0.5;
+          clone.y += clone.vy;
+          if (clone.y >= this.groundY) {
+            clone.y = this.groundY;
+            clone.vy = 0;
+            clone.grounded = true;
+          }
         }
-      }
-      // Jump when main jumps
-      if (!this.grounded && clone.grounded && this.vy < -5) {
-        clone.vy = this.vy;
-        clone.grounded = false;
-      }
-      if (clone.x < 40) clone.x = 40;
-      if (clone.x > 920) clone.x = 920;
-      // Mirror facing, crouching, blocking
-      clone.facing = this.facing;
-      clone.crouching = this.crouching;
-      clone.blocking = this.blocking;
-      clone.animTimer++;
-      if (clone.animTimer > 8) { clone.animTimer = 0; clone.animFrame = (clone.animFrame + 1) % 4; }
-      // Mirror attacks
-      if (this.state === 'attack' && this.currentAttack && clone.state !== 'attack') {
-        clone.state = 'attack';
-        clone.currentAttack = this.currentAttack;
-        clone.attackFrame = 0;
-        clone.stateTimer = this.currentAttack.startup + this.currentAttack.active + this.currentAttack.recovery;
+        // Face player
+        clone.facing = opponent.x > clone.x ? 1 : -1;
+        if (clone.flashTimer > 0) clone.flashTimer--;
+        if (clone.attackCooldown > 0) clone.attackCooldown--;
+
+        // Independent AI decisions
+        clone.aiTimer--;
+        if (clone.aiTimer <= 0) {
+          clone.aiTimer = 20 + Math.floor(Math.random() * 25);
+          const cDist = Math.abs(clone.x - opponent.x);
+          if (cDist > 200) clone.aiAction = 'approach';
+          else if (cDist < 60) clone.aiAction = Math.random() < 0.4 ? 'attack' : 'retreat';
+          else clone.aiAction = Math.random() < 0.5 ? 'approach' : (Math.random() < 0.5 ? 'attack' : 'strafe');
+        }
+
+        // Movement
+        const cSpeed = this.char.stats.speed;
+        if (clone.state !== 'attack') {
+          if (clone.aiAction === 'approach') {
+            clone.vx = clone.facing * cSpeed;
+          } else if (clone.aiAction === 'retreat') {
+            clone.vx = -clone.facing * cSpeed;
+          } else if (clone.aiAction === 'strafe') {
+            clone.vx = (Math.random() < 0.5 ? 1 : -1) * cSpeed * 0.6;
+          } else {
+            clone.vx *= 0.8;
+          }
+        } else {
+          clone.vx *= 0.8;
+        }
+        clone.x += clone.vx;
+        clone.vx *= 0.85;
+        if (clone.x < 40) clone.x = 40;
+        if (clone.x > 920) clone.x = 920;
+
+        // Jump occasionally
+        if (clone.grounded && Math.random() < 0.008) {
+          clone.vy = -10;
+          clone.grounded = false;
+        }
+
+        // Independent attacks
+        if (clone.aiAction === 'attack' && clone.attackCooldown <= 0 && clone.state !== 'attack') {
+          const cDist = Math.abs(clone.x - opponent.x);
+          if (cDist < 80) {
+            const atkTypes = ['jab', 'lowKick', 'uppercut', 'highKick'];
+            const atkType = atkTypes[Math.floor(Math.random() * atkTypes.length)];
+            clone.state = 'attack';
+            clone.currentAttack = attacks[atkType];
+            clone.attackFrame = 0;
+            clone.stateTimer = clone.currentAttack.startup + clone.currentAttack.active + clone.currentAttack.recovery;
+            clone.attackCooldown = 30 + Math.floor(Math.random() * 20);
+          }
+        }
+
+        // Walk animation
+        if (Math.abs(clone.vx) > 0.5) {
+          clone.animTimer++;
+          if (clone.animTimer > 8) { clone.animTimer = 0; clone.animFrame = (clone.animFrame + 1) % 4; }
+        } else {
+          clone.animFrame = 0; clone.animTimer = 0;
+        }
+
+      } else {
+        // Normal Duplaire: clones stay stationary, mirror jumps
+        // Gravity
+        if (!clone.grounded) {
+          clone.vy += 0.5;
+          clone.y += clone.vy;
+          if (clone.y >= this.groundY) {
+            clone.y = this.groundY;
+            clone.vy = 0;
+            clone.grounded = true;
+          }
+        }
+        // Jump when main jumps
+        if (!this.grounded && clone.grounded && this.vy < -5) {
+          clone.vy = this.vy;
+          clone.grounded = false;
+        }
+        if (clone.x < 40) clone.x = 40;
+        if (clone.x > 920) clone.x = 920;
+        // Mirror facing, crouching, blocking
+        clone.facing = this.facing;
+        clone.crouching = this.crouching;
+        clone.blocking = this.blocking;
+        clone.animTimer++;
+        if (clone.animTimer > 8) { clone.animTimer = 0; clone.animFrame = (clone.animFrame + 1) % 4; }
+        // Mirror attacks
+        if (this.state === 'attack' && this.currentAttack && clone.state !== 'attack') {
+          clone.state = 'attack';
+          clone.currentAttack = this.currentAttack;
+          clone.attackFrame = 0;
+          clone.stateTimer = this.currentAttack.startup + this.currentAttack.active + this.currentAttack.recovery;
+        }
       }
       if (clone.state === 'attack' && clone.currentAttack) {
         clone.attackFrame++;
@@ -860,6 +1980,31 @@ Fighter.prototype.update = function(opponent, keys) {
         }
       }
     }
+  }
+
+  // Canis wolf form update
+  if (this.char.isCanis && this.isWolf) {
+    // Pounce physics
+    if (this.wolfPouncing) {
+      // Check pounce hit on landing near opponent
+      if (this.grounded) {
+        this.wolfPouncing = false;
+        if (Math.abs(this.x - opponent.x) < 50) {
+          const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+          opponent.takeDamage(20 * this.char.stats.power * diffMult,
+            { hitstun: 20, blockstun: 14, launch: false, knockbackForce: 6 },
+            this.facing, false, { x: this.x, y: this.y });
+          shakeTimer = 5;
+          shakeIntensity = 6;
+        }
+        this.vx *= 0.3;
+      }
+    }
+  }
+
+  // Groove McSmooth: passive heal +3 HP/sec while walking
+  if (this.char.isGrooveMcSmooth && Math.abs(this.vx) > 0.5 && this.health < this.maxHealth) {
+    this.health = Math.min(this.maxHealth, this.health + 3 / 60); // 3 HP per second at 60fps
   }
 
   // Snazz McJazz dance timer
@@ -919,6 +2064,15 @@ Fighter.prototype.update = function(opponent, keys) {
             hitClonePos = { x: hitX, y: this.centerY };
             break;
           }
+        }
+      }
+      // Twins: check if hit lands on Selene (the twin)
+      if (!hitBody && opponent.char.isTwins && opponent.twin) {
+        const tw = opponent.twin;
+        if (Math.abs(hitX - tw.x) < hitRadius && Math.abs(this.centerY - (tw.y - 25)) < 70) {
+          hitBody = true;
+          hitClonePos = { x: hitX, y: this.centerY };
+          tw.flashTimer = 8;
         }
       }
       if (hitBody) {

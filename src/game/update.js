@@ -26,6 +26,263 @@ function update() {
 
   if (gameState === 'fight' && !paused && !winner) {
     frameCount++;
+
+    // Test Your Might bonus: countdown timer and track damage
+    if (testYourMightActive) {
+      // Printer Boss: detect first hit and trigger transition
+      if (printerBossPhase === 0) {
+        if (cpu._lastHP === undefined) cpu._lastHP = cpu.health;
+        if (cpu.health < cpu._lastHP) {
+          // First hit landed! Begin transition
+          printerBossPhase = 1;
+          printerBossTimer = 90; // "ENOUGH" duration
+          cpu.health = cpu.maxHealth;
+          cpu._lastHP = cpu.maxHealth;
+          cpu.state = 'idle';
+          cpu.stateTimer = 0;
+          // Freeze player
+          player.state = 'idle';
+          player.vx = 0;
+          player.stateTimer = 0;
+        }
+      }
+
+      // Printer Boss cutscene phases
+      if (printerBossPhase >= 1 && printerBossPhase <= 4) {
+        printerBossTimer--;
+
+        if (printerBossPhase === 1 && printerBossTimer <= 0) {
+          printerBossPhase = 2;
+          printerBossTimer = 120; // "FOR EONS I HAVE SUFFERED"
+        } else if (printerBossPhase === 2 && printerBossTimer <= 0) {
+          printerBossPhase = 3;
+          printerBossTimer = 120; // "NOW YOU SHALL KNOW MY AGONY"
+        } else if (printerBossPhase === 3 && printerBossTimer <= 0) {
+          printerBossPhase = 4;
+          printerBossTimer = 60; // Growth animation
+          shakeTimer = 30;
+          shakeIntensity = 6;
+        } else if (printerBossPhase === 4 && printerBossTimer <= 0) {
+          // Transition to real boss fight!
+          printerBossPhase = 5;
+          testYourMightActive = false; // disable TYM mode
+          // Give printer boss stats
+          cpu.char = {
+            ...cpu.char,
+            isPrinterBoss: true,
+            isBoss: true,
+            stats: { speed: 3.5, power: 1.2, defense: 1.1 }
+          };
+          cpu.health = 250;
+          cpu.maxHealth = 250;
+          cpu.state = 'idle';
+        }
+
+        // During cutscene, freeze both fighters
+        player.state = 'idle';
+        player.vx = 0;
+        cpu.state = 'idle';
+        cpu.vx = 0;
+        return; // skip normal update during cutscene
+      }
+
+      // Normal TYM behavior (phase 0 only, or non-printer-boss)
+      if (printerBossPhase === 0 || printerBossPhase === -1) {
+        testYourMightTimer--;
+        // Track damage dealt to the printer
+        if (cpu._lastHP === undefined) cpu._lastHP = cpu.health;
+        if (cpu.health < cpu._lastHP) {
+          testYourMightDamage += (cpu._lastHP - cpu.health);
+        }
+        cpu._lastHP = cpu.health;
+        // If printer HP hits 0, refill it so the fight continues
+        if (cpu.health <= 0) {
+          cpu.health = cpu.maxHealth;
+          cpu._lastHP = cpu.maxHealth;
+          cpu.state = 'idle';
+          cpu.stateTimer = 0;
+        }
+
+        if (testYourMightTimer <= 0) {
+          winner = 'player';
+          gameState = 'victory';
+          stopFightMusic();
+          return;
+        }
+      }
+    }
+
+    // Printer Boss fight update (phase 5)
+    if (printerBossPhase === 5 && cpu.char.isPrinterBoss) {
+      // Paper projectiles
+      if (!cpu._printerPaperCooldown) cpu._printerPaperCooldown = 0;
+      if (!cpu._printerInkCooldown) cpu._printerInkCooldown = 0;
+      if (!cpu._printerHeadbuttCooldown) cpu._printerHeadbuttCooldown = 0;
+      if (!cpu._printerHeadbutting) cpu._printerHeadbutting = false;
+      if (cpu._printerPaperCooldown > 0) cpu._printerPaperCooldown--;
+      if (cpu._printerInkCooldown > 0) cpu._printerInkCooldown--;
+      if (cpu._printerHeadbuttCooldown > 0) cpu._printerHeadbuttCooldown--;
+
+      const pDist = Math.abs(cpu.x - player.x);
+      const diffMult = cpuDifficulty ? cpuDifficulty.damageMult : 1;
+
+      // Headbutt at close range
+      if (cpu._printerHeadbutting) {
+        cpu._printerHeadbuttTimer--;
+        if (cpu._printerHeadbuttTimer === 8) {
+          // Hit check
+          const hitX = cpu.x + cpu.facing * 50;
+          if (player.isHitAt(hitX, cpu.centerY, 45, 50)) {
+            player.takeDamage(28 * cpu.char.stats.power * diffMult,
+              { hitstun: 24, blockstun: 16, launch: true, knockbackForce: 8 },
+              cpu.facing, false, { x: hitX, y: cpu.centerY });
+            shakeTimer = 8;
+            shakeIntensity = 8;
+          }
+        }
+        if (cpu._printerHeadbuttTimer <= 0) cpu._printerHeadbutting = false;
+      } else if (pDist < 100 && cpu._printerHeadbuttCooldown <= 0 && cpu.state !== 'attack' && Math.random() < 0.06) {
+        cpu._printerHeadbutting = true;
+        cpu._printerHeadbuttTimer = 20;
+        cpu._printerHeadbuttCooldown = 120;
+      }
+
+      // Paper spray at medium-long range
+      if (cpu._printerPaperCooldown <= 0 && pDist > 80 && !cpu._printerHeadbutting && Math.random() < 0.05) {
+        const count = 3 + Math.floor(Math.random() * 3);
+        for (let i = 0; i < count; i++) {
+          printerBossPapers.push({
+            x: cpu.x + cpu.facing * 30,
+            y: cpu.centerY - 10 + (Math.random() - 0.5) * 20,
+            vx: cpu.facing * (8 + Math.random() * 4),
+            vy: (Math.random() - 0.5) * 4,
+            rot: Math.random() * Math.PI * 2,
+            timer: 60,
+            hit: false
+          });
+        }
+        cpu._printerPaperCooldown = 40 + Math.floor(Math.random() * 30);
+      }
+
+      // Ink spray
+      if (cpu._printerInkCooldown <= 0 && !cpu._printerHeadbutting && Math.random() < 0.02) {
+        const inkCount = 2 + Math.floor(Math.random() * 2);
+        for (let i = 0; i < inkCount; i++) {
+          printerBossInkSplats.push({
+            x: Math.random() * 960,
+            y: Math.random() * 540,
+            w: 80 + Math.random() * 120,
+            h: 60 + Math.random() * 80,
+            alpha: 0.85,
+            timer: 180 + Math.floor(Math.random() * 120)
+          });
+        }
+        cpu._printerInkCooldown = 300 + Math.floor(Math.random() * 120);
+      }
+
+      // Update papers
+      for (let i = printerBossPapers.length - 1; i >= 0; i--) {
+        const p = printerBossPapers[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.1;
+        p.rot += 0.1;
+        p.timer--;
+        if (!p.hit && player.isHitAt(p.x, p.y, 18, 18)) {
+          p.hit = true;
+          player.takeDamage(8 * cpu.char.stats.power * diffMult,
+            { hitstun: 8, blockstun: 4, launch: false, knockbackForce: 1 },
+            p.vx > 0 ? 1 : -1, false, { x: p.x, y: p.y });
+        }
+        if (p.timer <= 0 || p.hit || p.x < -30 || p.x > 990 || p.y > 560) {
+          printerBossPapers.splice(i, 1);
+        }
+      }
+
+      // Update ink splats (fade out)
+      for (let i = printerBossInkSplats.length - 1; i >= 0; i--) {
+        const ink = printerBossInkSplats[i];
+        ink.timer--;
+        if (ink.timer < 60) ink.alpha = ink.timer / 60 * 0.85;
+        if (ink.timer <= 0) printerBossInkSplats.splice(i, 1);
+      }
+
+      // Progressive printer damage visual (based on health %)
+      cpu._printerDamageLevel = Math.floor((1 - cpu.health / cpu.maxHealth) * 5);
+    }
+
+    // The Count Final death sequence
+    if (countDeathPhase >= 0) {
+      countDeathTimer++;
+      if (countDeathPhase === 0) {
+        // Bow: Count leans forward
+        cpu.vx = 0;
+        cpu.state = 'idle';
+        player.vx = 0;
+        player.state = 'idle';
+        if (countDeathTimer >= 90) {
+          countDeathPhase = 1;
+          countDeathTimer = 0;
+        }
+      } else if (countDeathPhase === 1) {
+        // Hold — moment of silence
+        if (countDeathTimer >= 60) {
+          countDeathPhase = 2;
+          countDeathTimer = 0;
+          // Spawn massive final firework burst
+          const darkColors = ['#8B0000', '#CC5500', '#B8860B', '#006400', '#00008B', '#4B0082'];
+          for (let e = 0; e < 60; e++) {
+            const ea = (e / 60) * Math.PI * 2;
+            const es = 2 + Math.random() * 8;
+            cpu.countExplosions.push({
+              x: cpu.x, y: cpu.centerY,
+              vx: Math.cos(ea) * es, vy: Math.sin(ea) * es - 2,
+              color: darkColors[Math.floor(Math.random() * darkColors.length)],
+              timer: 30 + Math.floor(Math.random() * 30)
+            });
+          }
+          // Add farewell texts
+          const farewellPhrases = ['BRAVO!', 'BRAVA!', 'BRAVISSIMO!', 'GOOD SHOW!', 'SWEET SORROW!'];
+          for (let t = 0; t < 5; t++) {
+            cpu.countExplosions.push({
+              x: cpu.x + (Math.random() - 0.5) * 80,
+              y: cpu.centerY - 20 + (Math.random() - 0.5) * 40,
+              vx: (Math.random() - 0.5) * 3, vy: -2 - Math.random() * 2,
+              color: darkColors[Math.floor(Math.random() * darkColors.length)],
+              timer: 50,
+              text: farewellPhrases[t]
+            });
+          }
+          shakeTimer = 20;
+          shakeIntensity = 12;
+        }
+      } else if (countDeathPhase === 2) {
+        // Burst — particles fly, Count fades
+        // Update explosion particles
+        for (let i = cpu.countExplosions.length - 1; i >= 0; i--) {
+          const e = cpu.countExplosions[i];
+          e.x += e.vx;
+          e.y += e.vy;
+          e.vy += 0.05;
+          e.timer--;
+          if (e.timer <= 0) cpu.countExplosions.splice(i, 1);
+        }
+        if (countDeathTimer >= 90) {
+          countDeathPhase = 3;
+          countDeathTimer = 0;
+        }
+      } else if (countDeathPhase === 3) {
+        // Fade to victory
+        if (countDeathTimer >= 30) {
+          countDeathPhase = -1;
+          winner = 'player';
+          gameState = 'victory';
+          stopFightMusic();
+        }
+      }
+      return; // skip normal fight update during death
+    }
+
     // Screen shake
     if (shakeTimer > 0) shakeTimer--;
 
@@ -42,7 +299,15 @@ function update() {
         (cpu.char.isPaletap && player.crouching && player.grounded) ||
         (player.char.isPaletap && cpu.crouching && cpu.grounded)
       );
-      const jumpingOver = (!player.grounded && player.y < cpu.y - 50) || (!cpu.grounded && cpu.y < player.y - 50);
+      // Birdeater/Maneater: player can walk under their legs freely
+      const birdeaterInvolved = player.char.isBirdeater || cpu.char.isBirdeater;
+      let jumpingOver;
+      if (birdeaterInvolved) {
+        // Always allow pass-through with Birdeater/Maneater — their body is high on legs
+        jumpingOver = true;
+      } else {
+        jumpingOver = (!player.grounded && player.y < cpu.y - 50) || (!cpu.grounded && cpu.y < player.y - 50);
+      }
       if (!jumpingOver && !crouchingUnder) {
         const overlap = 40 - Math.abs(player.x - cpu.x);
         if (overlap > 0) {
@@ -59,13 +324,26 @@ function update() {
     }
 
 
-    // Check victory (not in practice mode)
-    if (gameMode !== 'practice') {
+    // Check victory (not in practice mode, not in Test Your Might bonus, not in Count death)
+    if (gameMode !== 'practice' && !testYourMightActive && countDeathPhase < 0) {
       if (player.health <= 0 || cpu.health <= 0) {
         winner = player.health <= 0 ? 'cpu' : 'player';
+
+        // The Count Final: skip finisher, do bow + burst instead
+        if (cpu.char.isTheCountFinal && cpu.health <= 0 && countDeathPhase === -1) {
+          countDeathPhase = 0;
+          countDeathTimer = 0;
+          cpu.health = 0;
+          cpu.state = 'idle';
+          cpu.vx = 0;
+          player.state = 'idle';
+          player.vx = 0;
+          winner = null; // don't set winner yet — death sequence handles it
+          return;
+        }
+
         finishHimTimer = 0;
         gameState = 'finishHim';
-        stopFightMusic();
         // Clear hit effects, projectiles, and particles on both fighters
         for (const f of [player, cpu]) {
           f.hitEffect = null;
@@ -1732,6 +2010,429 @@ function update() {
         // Phase 7: Hold (430-600)
         if (rumbleTimer > swallowEnd) {
           rumbleGourmandPhase = 7;
+        }
+
+        if (rumbleTimer >= endFrame) {
+          gameState = 'victory';
+        }
+      }
+
+      if (rumbleType === 'BATSCH') {
+        // Batsch "Shell Shocked": ~480 frames
+        // 0-40: Batsch enters tortoise form, shell starts spinning
+        // 40-80: Spin up — shell spins faster and faster in place
+        // 80-340: Ricochet — shell bounces off walls, steers toward opponent, hits 5 times
+        //         5th hit launches opponent skyward, shell decelerates naturally
+        // 340-400: Shell slows to stop, Batsch pops out, looks up
+        // 400-480: Hold + end
+        const enterEnd = 40;
+        const spinUpEnd = 80;
+        const ricochetEnd = 420;
+        const popOutEnd = 470;
+        const endFrame = 540;
+        const totalHits = 5;
+
+        const dir = loseFighter.x > winFighter.x ? 1 : -1;
+        winFighter.facing = dir;
+        winFighter.vx = 0;
+        loseFighter.vx = 0;
+
+        // Hide Batsch's real body during shell flight phases — the drawn shell IS Batsch
+        if (rumbleBatschPhase >= 1 && rumbleBatschPhase <= 2) {
+          winFighter.x = -200; // park offscreen
+        }
+
+        // Phase 0: Enter tortoise form (0-40)
+        if (rumbleTimer <= enterEnd) {
+          rumbleBatschPhase = 0;
+          winFighter.state = 'idle';
+          if (rumbleTimer === 10) {
+            winFighter.isTortoise = true;
+          }
+          rumbleBatschShellX = winFighter.x;
+          rumbleBatschShellY = winFighter.y;
+          rumbleBatschSpinSpeed = 0.05;
+        }
+
+        // Phase 1: Spin up (40-80)
+        if (rumbleTimer > enterEnd && rumbleTimer <= spinUpEnd) {
+          rumbleBatschPhase = 1;
+          const spinT = (rumbleTimer - enterEnd) / (spinUpEnd - enterEnd);
+          rumbleBatschSpinSpeed = 0.05 + spinT * 0.45;
+          // Store origin on first frame so vibration is around a fixed point
+          if (rumbleTimer === enterEnd + 1) {
+            rumbleBatschShellVx = rumbleBatschShellX; // reuse as originX
+            rumbleBatschShellVy = rumbleBatschShellY; // reuse as originY
+          }
+          rumbleBatschShellX = rumbleBatschShellVx + (Math.random() - 0.5) * spinT * 6;
+          rumbleBatschShellY = rumbleBatschShellVy + (Math.random() - 0.5) * spinT * 3;
+          if (rumbleTimer % 10 === 0) { shakeTimer = 2; shakeIntensity = 1 + spinT * 2; }
+        }
+
+        // Phase 2: Ricochet (80-340)
+        if (rumbleTimer > spinUpEnd && rumbleTimer <= ricochetEnd) {
+          rumbleBatschPhase = 2;
+
+          // Launch on first frame
+          if (rumbleTimer === spinUpEnd + 1) {
+            rumbleBatschShellVx = dir * 14;
+            rumbleBatschShellVy = -3;
+            rumbleBatschHits = 0;
+            rumbleBatschSpinSpeed = 0.5;
+            rumbleBatschLaunchVy = 0;
+            rumbleBatschLastHitFrame = 0;
+          }
+
+          const hitCooldown = 18; // frames after a hit before steering resumes
+          const framesSinceHit = rumbleTimer - rumbleBatschLastHitFrame;
+
+          // If all hits landed, decelerate shell to a stop
+          if (rumbleBatschHits >= totalHits) {
+            rumbleBatschShellVx *= 0.93;
+            rumbleBatschShellVy *= 0.93;
+            rumbleBatschSpinSpeed = Math.max(0, rumbleBatschSpinSpeed - 0.008);
+            // Apply gravity to settle on ground
+            rumbleBatschShellVy += 0.4;
+            if (rumbleBatschShellY > loseFighter.groundY) {
+              rumbleBatschShellY = loseFighter.groundY;
+              rumbleBatschShellVy = 0;
+              rumbleBatschShellVx *= 0.85;
+            }
+          } else if (framesSinceHit > hitCooldown) {
+            // Steer shell toward opponent (only after cooldown)
+            const dx = loseFighter.x - rumbleBatschShellX;
+            const dy = (loseFighter.y - 20) - rumbleBatschShellY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist > 1) {
+              const steer = 0.6 + rumbleBatschHits * 0.15;
+              rumbleBatschShellVx += (dx / dist) * steer;
+              rumbleBatschShellVy += (dy / dist) * steer;
+            }
+            // Cap speed
+            const speed = Math.sqrt(rumbleBatschShellVx * rumbleBatschShellVx + rumbleBatschShellVy * rumbleBatschShellVy);
+            const maxSpeed = 12 + rumbleBatschHits * 2;
+            if (speed > maxSpeed) {
+              rumbleBatschShellVx *= maxSpeed / speed;
+              rumbleBatschShellVy *= maxSpeed / speed;
+            }
+          }
+
+          // Move shell
+          rumbleBatschShellX += rumbleBatschShellVx;
+          rumbleBatschShellY += rumbleBatschShellVy;
+
+          // Bounce off walls
+          if (rumbleBatschShellX < 30) {
+            rumbleBatschShellX = 30;
+            rumbleBatschShellVx = Math.abs(rumbleBatschShellVx);
+            for (let i = 0; i < 6; i++) {
+              rumbleBatschSparks.push({ x: 30, y: rumbleBatschShellY, vx: 2 + Math.random() * 4, vy: (Math.random() - 0.5) * 6, life: 15 });
+            }
+          }
+          if (rumbleBatschShellX > 930) {
+            rumbleBatschShellX = 930;
+            rumbleBatschShellVx = -Math.abs(rumbleBatschShellVx);
+            for (let i = 0; i < 6; i++) {
+              rumbleBatschSparks.push({ x: 930, y: rumbleBatschShellY, vx: -2 - Math.random() * 4, vy: (Math.random() - 0.5) * 6, life: 15 });
+            }
+          }
+          if (rumbleBatschShellY < 60) {
+            rumbleBatschShellY = 60;
+            rumbleBatschShellVy = Math.abs(rumbleBatschShellVy);
+          }
+          if (rumbleBatschShellY > loseFighter.groundY) {
+            rumbleBatschShellY = loseFighter.groundY;
+            rumbleBatschShellVy = -Math.abs(rumbleBatschShellVy);
+          }
+
+          // Check hit on opponent (only if we haven't finished all hits)
+          if (rumbleBatschHits < totalHits) {
+            const hdx = rumbleBatschShellX - loseFighter.x;
+            const hdy = rumbleBatschShellY - (loseFighter.y - 20);
+            const hitDist = Math.sqrt(hdx * hdx + hdy * hdy);
+            if (hitDist < 45) {
+              rumbleBatschHits++;
+              loseFighter.flashTimer = 8;
+
+              if (rumbleBatschHits < totalHits) {
+                // Regular hit — stagger and bounce off
+                shakeTimer = 6; shakeIntensity = 3 + rumbleBatschHits;
+                for (let i = 0; i < 10; i++) {
+                  rumbleBatschSparks.push({
+                    x: loseFighter.x, y: loseFighter.y - 30,
+                    vx: (Math.random() - 0.5) * 10, vy: (Math.random() - 0.5) * 10,
+                    life: 20
+                  });
+                }
+                loseFighter.x += Math.sign(rumbleBatschShellVx) * 20;
+                loseFighter.x = Math.max(80, Math.min(880, loseFighter.x));
+                // Bounce shell hard away from opponent
+                rumbleBatschShellVx = -Math.sign(rumbleBatschShellVx) * (10 + rumbleBatschHits * 1.5);
+                rumbleBatschShellVy = -5 - Math.random() * 3;
+                rumbleBatschLastHitFrame = rumbleTimer; // record hit frame for cooldown
+                rumbleBatschSpinSpeed = Math.min(1.2, rumbleBatschSpinSpeed + 0.12);
+              } else {
+                // 5th hit — launch opponent skyward
+                shakeTimer = 10; shakeIntensity = 8;
+                loseFighter.flashTimer = 15;
+                rumbleBatschLaunchVy = -14;
+                for (let i = 0; i < 20; i++) {
+                  rumbleBatschSparks.push({
+                    x: loseFighter.x, y: loseFighter.y - 30,
+                    vx: (Math.random() - 0.5) * 14, vy: -Math.random() * 12,
+                    life: 25
+                  });
+                }
+              }
+            }
+          }
+
+          // Opponent launch after 5th hit
+          if (rumbleBatschHits >= totalHits && rumbleBatschLaunchVy !== 0) {
+            loseFighter.y += rumbleBatschLaunchVy;
+            rumbleBatschLaunchVy -= 0.5;
+            if (loseFighter.y < -100) {
+              rumbleLoserHidden = true;
+              rumbleBatschLaunchVy = 0;
+            }
+          }
+
+          // Add trail (only while moving fast)
+          const trailSpeed = Math.sqrt(rumbleBatschShellVx * rumbleBatschShellVx + rumbleBatschShellVy * rumbleBatschShellVy);
+          if (trailSpeed > 3) {
+            rumbleBatschTrail.push({ x: rumbleBatschShellX, y: rumbleBatschShellY, alpha: 0.6 });
+            if (rumbleBatschTrail.length > 12) rumbleBatschTrail.shift();
+          }
+        }
+
+        // Phase 3: Pop out (340-400)
+        if (rumbleTimer > ricochetEnd && rumbleTimer <= popOutEnd) {
+          rumbleBatschPhase = 3;
+          rumbleBatschSpinSpeed = Math.max(0, rumbleBatschSpinSpeed - 0.03);
+          if (rumbleTimer === ricochetEnd + 15) {
+            winFighter.isTortoise = false;
+            winFighter.x = rumbleBatschShellX;
+            winFighter.y = rumbleBatschShellY;
+            winFighter.state = 'idle';
+            winFighter.facing = dir;
+          }
+          if (rumbleTimer > ricochetEnd + 15) {
+            winFighter.state = 'idle';
+          }
+        }
+
+        // Phase 4: Hold (400-480)
+        if (rumbleTimer > popOutEnd) {
+          rumbleBatschPhase = 4;
+          winFighter.state = 'idle';
+        }
+
+        // Update sparks every frame
+        for (let i = rumbleBatschSparks.length - 1; i >= 0; i--) {
+          const s = rumbleBatschSparks[i];
+          s.x += s.vx; s.y += s.vy;
+          s.vy += 0.3;
+          s.life--;
+          if (s.life <= 0) rumbleBatschSparks.splice(i, 1);
+        }
+
+        // Update trail fade
+        for (const t of rumbleBatschTrail) {
+          t.alpha *= 0.85;
+        }
+
+        // Update spin angle
+        rumbleBatschSpinAngle += rumbleBatschSpinSpeed;
+
+        if (rumbleTimer >= endFrame) {
+          winFighter.isTortoise = false;
+          gameState = 'victory';
+        }
+      }
+
+      if (rumbleType === 'MATADOR') {
+        // Matador "Ole!": ~300 frames
+        // 0-60: Matador walks to position, holds up red cape
+        // 60-80: Bull enters from offscreen, accelerating
+        // 80-140: Bull charges across, tramples opponent
+        // 140-200: Bull exits other side, dust settles
+        // 200-300: Hold, then end
+        const capeEnd = 60;
+        const bullEnterEnd = 80;
+        const trampleEnd = 140;
+        const exitEnd = 200;
+        const endFrame = 300;
+
+        // Determine bull direction: comes from behind Matador (opposite his facing)
+        const bullDir = winFighter.facing; // bull charges in same direction Matador faces
+        const bullStartX = winFighter.facing === 1 ? -80 : 1040;
+        const bullEndX = winFighter.facing === 1 ? 1040 : -80;
+
+        if (rumbleTimer <= capeEnd) {
+          // Phase 0: Matador walks slightly away from opponent, faces them
+          rumbleMatadorPhase = 0;
+          // Position Matador off to the side of the opponent
+          const capeX = loseFighter.x + winFighter.facing * 80;
+          winFighter.x += (capeX - winFighter.x) * 0.05;
+          winFighter.animTimer++;
+          if (winFighter.animTimer > 8) { winFighter.animTimer = 0; winFighter.animFrame = (winFighter.animFrame + 1) % 4; }
+        } else if (rumbleTimer <= trampleEnd) {
+          // Phase 1-2: Bull rushes across
+          rumbleMatadorPhase = rumbleTimer <= bullEnterEnd ? 1 : 2;
+          if (rumbleTimer === capeEnd + 1) {
+            rumbleMatadorBullX = bullStartX;
+            rumbleMatadorBullSpeed = 0;
+          }
+          // Accelerate bull
+          rumbleMatadorBullSpeed = Math.min(16, rumbleMatadorBullSpeed + 0.4);
+          rumbleMatadorBullX += bullDir * rumbleMatadorBullSpeed;
+
+          // Trample check — when bull passes over opponent
+          if (Math.abs(rumbleMatadorBullX - loseFighter.x) < 40 && !rumbleLoserHidden) {
+            rumbleLoserHidden = true;
+            shakeTimer = 12;
+            shakeIntensity = 12;
+            loseFighter.flashTimer = 15;
+          }
+
+          // Dust trail
+          if (rumbleTimer % 2 === 0 && rumbleMatadorBullSpeed > 5) {
+            rumbleMatadorDust.push({
+              x: rumbleMatadorBullX - bullDir * 30,
+              y: loseFighter.groundY - Math.random() * 10,
+              vx: -bullDir * (1 + Math.random() * 2),
+              vy: -1 - Math.random() * 2,
+              timer: 20 + Math.floor(Math.random() * 10)
+            });
+          }
+
+          // Matador sidesteps as bull passes (ole!)
+          if (Math.abs(rumbleMatadorBullX - winFighter.x) < 60) {
+            winFighter.x -= winFighter.facing * 2; // step aside
+          }
+        } else if (rumbleTimer <= exitEnd) {
+          // Phase 3: Bull exits, dust settles
+          rumbleMatadorPhase = 3;
+          rumbleMatadorBullX += bullDir * rumbleMatadorBullSpeed;
+        } else {
+          rumbleMatadorPhase = 3;
+        }
+
+        // Update dust particles
+        for (let i = rumbleMatadorDust.length - 1; i >= 0; i--) {
+          const d = rumbleMatadorDust[i];
+          d.x += d.vx;
+          d.y += d.vy;
+          d.vy += 0.05;
+          d.timer--;
+          if (d.timer <= 0) rumbleMatadorDust.splice(i, 1);
+        }
+
+        if (rumbleTimer >= endFrame) {
+          gameState = 'victory';
+        }
+      }
+
+      if (rumbleType === 'PALETAP') {
+        // Paletap "Anybody Home?": ~360 frames
+        // 0-60: Paletap walks up to opponent
+        // 60-90: Winds up and slams fist on opponent's head
+        // 90-220: Opponent vibrates violently, shaking and spasming
+        // 220-280: Opponent disassembles — head, torso, limbs fall apart
+        // 280-360: Hold on fallen parts, then end
+        const walkEnd = 60;
+        const slamEnd = 90;
+        const vibrateEnd = 220;
+        const disassembleEnd = 280;
+        const endFrame = 360;
+
+        if (rumbleTimer <= walkEnd) {
+          // Phase 0: Paletap walks toward opponent
+          rumblePaletapPhase = 0;
+          const t = rumbleTimer / walkEnd;
+          const targetX = loseFighter.x - winFighter.facing * 45;
+          winFighter.x += (targetX - winFighter.x) * 0.06;
+          winFighter.animTimer++;
+          if (winFighter.animTimer > 8) { winFighter.animTimer = 0; winFighter.animFrame = (winFighter.animFrame + 1) % 4; }
+        } else if (rumbleTimer <= slamEnd) {
+          // Phase 1: Paletap does his shockwave slam on the opponent
+          rumblePaletapPhase = 1;
+          if (rumbleTimer === walkEnd + 1) {
+            winFighter.paletapSlamming = true;
+            winFighter.paletapSlamFrame = 0;
+          }
+          // When slam completes, trigger the hit (suppress normal shockwave)
+          if (winFighter.paletapShockwave) {
+            winFighter.paletapShockwave = null; // no actual shockwave projectile
+            shakeTimer = 10;
+            shakeIntensity = 10;
+            loseFighter.flashTimer = 12;
+          }
+        } else if (rumbleTimer <= vibrateEnd) {
+          // Phase 2: Opponent vibrates
+          rumblePaletapPhase = 2;
+          const vibProgress = (rumbleTimer - slamEnd) / (vibrateEnd - slamEnd);
+          rumblePaletapVibrate = vibProgress * 15; // ramps from 0 to 15
+          // Screen shake ramps up too
+          if (rumbleTimer % 10 === 0) {
+            shakeTimer = 3;
+            shakeIntensity = vibProgress * 6;
+          }
+        } else if (rumbleTimer <= disassembleEnd) {
+          // Phase 3: Disassemble — parts fall off
+          rumblePaletapPhase = 3;
+          if (rumbleTimer === vibrateEnd + 1) {
+            // Spawn body parts
+            winFighter._hideFrontArm = false;
+            rumbleLoserHidden = true;
+            const lx = loseFighter.x;
+            const ly = loseFighter.y;
+            const loserColor = (winner === 'player' ? selectedCPU : selectedPlayer).color;
+            const loserAccent = (winner === 'player' ? selectedCPU : selectedPlayer).accent;
+            rumblePaletapParts = [
+              { type: 'head', x: lx, y: ly - 55, vy: -4, vx: (Math.random() - 0.5) * 3, rot: 0, rotSpeed: 0.1 + Math.random() * 0.1, size: 16, color: loserAccent },
+              { type: 'torso', x: lx, y: ly - 30, vy: -1, vx: (Math.random() - 0.5) * 2, rot: 0, rotSpeed: 0.05, size: 16, color: loserColor },
+              { type: 'armL', x: lx - 15, y: ly - 35, vy: -3, vx: -2 - Math.random() * 2, rot: 0, rotSpeed: 0.15, size: 8, color: loserColor },
+              { type: 'armR', x: lx + 15, y: ly - 35, vy: -2.5, vx: 2 + Math.random() * 2, rot: 0, rotSpeed: -0.12, size: 8, color: loserColor },
+              { type: 'legL', x: lx - 8, y: ly - 10, vy: -2, vx: -1.5 - Math.random(), rot: 0, rotSpeed: 0.08, size: 10, color: loserColor },
+              { type: 'legR', x: lx + 8, y: ly - 10, vy: -1.5, vx: 1.5 + Math.random(), rot: 0, rotSpeed: -0.09, size: 10, color: loserColor }
+            ];
+            shakeTimer = 10;
+            shakeIntensity = 10;
+          }
+          // Update falling parts
+          for (const part of rumblePaletapParts) {
+            part.vy += 0.35; // gravity
+            part.x += part.vx;
+            part.y += part.vy;
+            part.rot += part.rotSpeed;
+            // Land on ground
+            if (part.y > loseFighter.groundY) {
+              part.y = loseFighter.groundY;
+              part.vy = -Math.abs(part.vy) * 0.3;
+              part.vx *= 0.7;
+              part.rotSpeed *= 0.5;
+              if (Math.abs(part.vy) < 0.5) part.vy = 0;
+            }
+          }
+        } else {
+          // Phase 4: Hold
+          rumblePaletapPhase = 4;
+          // Parts settle
+          for (const part of rumblePaletapParts) {
+            if (part.vy !== 0) {
+              part.vy += 0.35;
+              part.x += part.vx;
+              part.y += part.vy;
+              part.rot += part.rotSpeed;
+              if (part.y > loseFighter.groundY) {
+                part.y = loseFighter.groundY;
+                part.vy = 0;
+                part.vx = 0;
+                part.rotSpeed = 0;
+              }
+            }
+          }
         }
 
         if (rumbleTimer >= endFrame) {
