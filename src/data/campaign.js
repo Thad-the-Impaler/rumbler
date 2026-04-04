@@ -261,6 +261,61 @@ const maneaterChar = {
   maxHealth: 280
 };
 
+// Boss: Groove McSmooth (Dark Snazz McJazz)
+const grooveMcSmoothChar = {
+  name: 'GROOVE MCSMOOTH',
+  color: '#6a2d8a',
+  accent: '#333333',
+  outline: '#3a1a4a',
+  stats: { speed: 5.0, power: 1.0, defense: 0.9 },
+  desc: 'The Eternal Dancer',
+  isSnazz: true,
+  isGrooveMcSmooth: true,
+  isBoss: true,
+  maxHealth: 200
+};
+
+// Boss: The Count (enhanced, final battle)
+const theCountFinalChar = {
+  name: 'THE COUNT',
+  color: '#8B1A1A',
+  accent: '#DAA520',
+  outline: '#4A0A0A',
+  stats: { speed: 6.0, power: 1.5, defense: 1.3 },
+  desc: 'The Dark Celebrant',
+  isTheCount: true,
+  isTheCountFinal: true,
+  isBoss: true,
+  maxHealth: 350
+};
+
+// Boss: Dark Duplaire
+const darkDuplaireChar = {
+  name: 'DARK DUPLAIRE',
+  color: '#00ccbb',
+  accent: '#005550',
+  outline: '#003a35',
+  stats: { speed: 5.0, power: 0.9, defense: 0.8 },
+  desc: 'The Clone Army',
+  isDuplaire: true,
+  isDarkDuplaire: true,
+  isBoss: true,
+  maxHealth: 220
+};
+
+// Boss: Canis
+const canisChar = {
+  name: 'CANIS',
+  color: '#6a4a2a',
+  accent: '#a07040',
+  outline: '#3a2a1a',
+  stats: { speed: 5.0, power: 1.1, defense: 1.0 },
+  desc: 'The Shapeshifter',
+  isCanis: true,
+  isBoss: true,
+  maxHealth: 210
+};
+
 // Printer Boss (for practice mode — the actual fight creates this dynamically)
 const printerBossChar = {
   name: 'PRINTER',
@@ -376,7 +431,15 @@ const campaigns = {
       { opponent: 'MATADOR', difficulty: 'Brutal', level: 'THE DEN' },
       { opponent: sixDriverChar, difficulty: 'Brutal', level: 'FOGGY CITY', isBoss: true },
       { opponent: printerChar, difficulty: 'Easy', level: 'CLASSIC', isBonus: true, bonusType: 'testYourMight', bonusTime: 30, isPrinterBoss: true },
-      { opponent: maneaterChar, difficulty: 'Brutal', level: 'THE DEN', isBoss: true }
+      { opponent: maneaterChar, difficulty: 'Brutal', level: 'THE DEN', isBoss: true },
+      { opponent: ericthoChar, difficulty: 'Brutal', level: 'THE TEMPLE', isBoss: true },
+      { opponent: quellicChar, difficulty: 'Brutal', level: 'CLASSIC', isBoss: true },
+      { opponent: scalenaChar, difficulty: 'Brutal', level: 'SNOWY CITY', isBoss: true },
+      { opponent: grooveMcSmoothChar, difficulty: 'Brutal', level: 'GLOWING CITY', isBoss: true },
+      { opponent: darkDuplaireChar, difficulty: 'Brutal', level: 'THE VOID', isBoss: true },
+      { opponent: canisChar, difficulty: 'Brutal', level: 'THE PEAK', isBoss: true },
+      { opponent: relapmiChar, difficulty: 'Brutal', level: 'THE DUST', isBoss: true },
+      { opponent: theCountFinalChar, difficulty: 'Brutal', level: 'THE PULP', isBoss: true, music: 'THE COUNT' }
     ]
   }
 };

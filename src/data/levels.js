@@ -26,8 +26,10 @@ const secretLevels = [
   { name: 'THE DUST', desc: 'A forgotten realm of ancient kings', color: '#1a0a2e', accent: '#ff6b35', unlocked: () => dustUnlocked }
 ];
 
-// Campaign-only levels (kept for reference, now also in secretLevels)
-const campaignLevels = [];
+// Campaign-only levels (not selectable outside campaign)
+const campaignLevels = [
+  { name: 'THE PULP', desc: 'A swirling mess of cosmic energy', color: '#1a0020', accent: '#aa44ff' }
+];
 
 function getLevels() {
   const lvls = [...defaultLevels];

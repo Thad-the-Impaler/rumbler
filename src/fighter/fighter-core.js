@@ -88,7 +88,7 @@ class Fighter {
 
     // Duplaire clones
     this.duplaireClones = [];
-    this.duplaireMaxClones = 6;
+    this.duplaireMaxClones = this.char.isDarkDuplaire ? 4 : 6;
     this.duplaireOrigHealth = this.maxHealth; // original body's section health
     this._isCloneDraw = false;
     this._cloneAlpha = 1;
@@ -315,6 +315,18 @@ class Fighter {
       this.hangmanLaunchTimer = 0;        // frames between piece launches
       this.hangmanHidden = false;         // true while body is disassembled
       this.health = this.char.maxHealth || 200;
+      this.maxHealth = this.health;
+    }
+
+    // Canis boss state
+    if (this.char.isCanis) {
+      this.isWolf = false;          // wolf form active
+      this.wolfPouncing = false;    // mid-pounce
+      this.wolfPounceCooldown = 0;
+      this.wolfFormTimer = 0;       // frames spent in wolf form
+      this.wolfFormMaxTime = 420;   // 7 seconds max in wolf form
+      this.wolfCooldown = 0;        // cooldown before transforming again
+      this.health = this.char.maxHealth || 210;
       this.maxHealth = this.health;
     }
 

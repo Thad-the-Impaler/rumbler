@@ -1323,6 +1323,113 @@ function drawBackground() {
       }
       break;
     }
+    case 'THE PULP': {
+      // Swirling cosmic energy — chaotic, surreal, terrifying yet beautiful
+      const tSlow = t * 0.001;
+      // Deep void gradient that shifts
+      const grad = ctx.createRadialGradient(
+        480 + Math.sin(tSlow) * 100, 270 + Math.cos(tSlow * 0.7) * 50, 50,
+        480, 270, 550
+      );
+      grad.addColorStop(0, '#1a0020');
+      grad.addColorStop(0.3, '#0a0030');
+      grad.addColorStop(0.6, '#150025');
+      grad.addColorStop(1, '#000010');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 960, 540);
+
+      // Swirling cosmic nebula layers
+      for (let layer = 0; layer < 3; layer++) {
+        const lt = tSlow * (0.5 + layer * 0.3);
+        const colors = ['rgba(120,0,200,', 'rgba(200,0,80,', 'rgba(0,100,200,'];
+        ctx.save();
+        ctx.translate(480, 270);
+        ctx.rotate(lt + layer * 2);
+        for (let arm = 0; arm < 4; arm++) {
+          const angle = (arm / 4) * Math.PI * 2;
+          ctx.save();
+          ctx.rotate(angle);
+          ctx.globalAlpha = 0.08 + Math.sin(t * 0.002 + arm) * 0.03;
+          ctx.fillStyle = colors[layer] + '0.4)';
+          ctx.beginPath();
+          ctx.ellipse(150, 0, 200, 40, Math.sin(lt + arm) * 0.3, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+        ctx.restore();
+      }
+
+      // Cosmic energy streams
+      ctx.save();
+      for (let s = 0; s < 8; s++) {
+        const st = t * 0.003 + s * 1.7;
+        const sx = 480 + Math.sin(st) * 300;
+        const sy = 270 + Math.cos(st * 1.3) * 200;
+        const streamColors = ['#ff00aa', '#aa00ff', '#0066ff', '#ff4400', '#00ffaa', '#ffaa00', '#ff0066', '#4400ff'];
+        ctx.strokeStyle = streamColors[s];
+        ctx.lineWidth = 2;
+        ctx.globalAlpha = 0.15 + Math.sin(t * 0.004 + s) * 0.08;
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        for (let seg = 1; seg <= 6; seg++) {
+          const nx = sx + Math.sin(st + seg * 0.8) * seg * 40;
+          const ny = sy + Math.cos(st * 1.2 + seg * 0.6) * seg * 25;
+          ctx.lineTo(nx, ny);
+        }
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      ctx.restore();
+
+      // Floating energy particles
+      for (let i = 0; i < 50; i++) {
+        const px = (i * 197 + t * 0.015 * (i % 4 + 1)) % 960;
+        const py = (i * 131 + t * 0.01 * (i % 3 + 1)) % 540;
+        const sparkColors = ['#ff44aa', '#aa44ff', '#44aaff', '#ffaa44', '#44ffaa', '#ff4444'];
+        ctx.fillStyle = sparkColors[i % sparkColors.length];
+        ctx.globalAlpha = 0.2 + Math.sin(i * 0.7 + t * 0.005) * 0.15;
+        ctx.beginPath();
+        ctx.arc(px, py, 1 + Math.sin(i + t * 0.003) * 1, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+
+      // Central vortex eye
+      ctx.save();
+      ctx.translate(480, 270);
+      ctx.rotate(tSlow * 2);
+      ctx.globalAlpha = 0.06;
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1;
+      for (let r = 0; r < 5; r++) {
+        ctx.beginPath();
+        ctx.arc(0, 0, 30 + r * 25 + Math.sin(t * 0.003 + r) * 10, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      ctx.restore();
+
+      // Floor — barely visible ethereal platform
+      ctx.fillStyle = 'rgba(30, 10, 50, 0.5)';
+      ctx.fillRect(0, 385, 960, 155);
+      ctx.strokeStyle = 'rgba(150, 50, 200, 0.2)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, 387);
+      ctx.lineTo(960, 387);
+      ctx.stroke();
+      // Faint energy wisps along floor
+      for (let i = 0; i < 6; i++) {
+        const wx = (i * 170 + t * 0.02) % 960;
+        ctx.strokeStyle = `rgba(200, 100, 255, ${0.1 + Math.sin(t * 0.003 + i) * 0.05})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(wx, 387);
+        ctx.quadraticCurveTo(wx + 20, 380 + Math.sin(t * 0.005 + i) * 5, wx + 40, 387);
+        ctx.stroke();
+      }
+      break;
+    }
   }
 }
 

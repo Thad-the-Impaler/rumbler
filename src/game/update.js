@@ -211,6 +211,78 @@ function update() {
       cpu._printerDamageLevel = Math.floor((1 - cpu.health / cpu.maxHealth) * 5);
     }
 
+    // The Count Final death sequence
+    if (countDeathPhase >= 0) {
+      countDeathTimer++;
+      if (countDeathPhase === 0) {
+        // Bow: Count leans forward
+        cpu.vx = 0;
+        cpu.state = 'idle';
+        player.vx = 0;
+        player.state = 'idle';
+        if (countDeathTimer >= 90) {
+          countDeathPhase = 1;
+          countDeathTimer = 0;
+        }
+      } else if (countDeathPhase === 1) {
+        // Hold — moment of silence
+        if (countDeathTimer >= 60) {
+          countDeathPhase = 2;
+          countDeathTimer = 0;
+          // Spawn massive final firework burst
+          const darkColors = ['#8B0000', '#CC5500', '#B8860B', '#006400', '#00008B', '#4B0082'];
+          for (let e = 0; e < 60; e++) {
+            const ea = (e / 60) * Math.PI * 2;
+            const es = 2 + Math.random() * 8;
+            cpu.countExplosions.push({
+              x: cpu.x, y: cpu.centerY,
+              vx: Math.cos(ea) * es, vy: Math.sin(ea) * es - 2,
+              color: darkColors[Math.floor(Math.random() * darkColors.length)],
+              timer: 30 + Math.floor(Math.random() * 30)
+            });
+          }
+          // Add farewell texts
+          const farewellPhrases = ['BRAVO!', 'BRAVA!', 'BRAVISSIMO!', 'GOOD SHOW!', 'SWEET SORROW!'];
+          for (let t = 0; t < 5; t++) {
+            cpu.countExplosions.push({
+              x: cpu.x + (Math.random() - 0.5) * 80,
+              y: cpu.centerY - 20 + (Math.random() - 0.5) * 40,
+              vx: (Math.random() - 0.5) * 3, vy: -2 - Math.random() * 2,
+              color: darkColors[Math.floor(Math.random() * darkColors.length)],
+              timer: 50,
+              text: farewellPhrases[t]
+            });
+          }
+          shakeTimer = 20;
+          shakeIntensity = 12;
+        }
+      } else if (countDeathPhase === 2) {
+        // Burst — particles fly, Count fades
+        // Update explosion particles
+        for (let i = cpu.countExplosions.length - 1; i >= 0; i--) {
+          const e = cpu.countExplosions[i];
+          e.x += e.vx;
+          e.y += e.vy;
+          e.vy += 0.05;
+          e.timer--;
+          if (e.timer <= 0) cpu.countExplosions.splice(i, 1);
+        }
+        if (countDeathTimer >= 90) {
+          countDeathPhase = 3;
+          countDeathTimer = 0;
+        }
+      } else if (countDeathPhase === 3) {
+        // Fade to victory
+        if (countDeathTimer >= 30) {
+          countDeathPhase = -1;
+          winner = 'player';
+          gameState = 'victory';
+          stopFightMusic();
+        }
+      }
+      return; // skip normal fight update during death
+    }
+
     // Screen shake
     if (shakeTimer > 0) shakeTimer--;
 
@@ -227,15 +299,12 @@ function update() {
         (cpu.char.isPaletap && player.crouching && player.grounded) ||
         (player.char.isPaletap && cpu.crouching && cpu.grounded)
       );
-      // Birdeater: too tall to jump over, but he can jump over the player
+      // Birdeater/Maneater: player can walk under their legs freely
       const birdeaterInvolved = player.char.isBirdeater || cpu.char.isBirdeater;
       let jumpingOver;
       if (birdeaterInvolved) {
-        // Only the Birdeater himself can jump over (during his jump)
-        const beIsPlayer = player.char.isBirdeater;
-        const be = beIsPlayer ? player : cpu;
-        const other = beIsPlayer ? cpu : player;
-        jumpingOver = be.birdeaterJumping && !be.grounded && be.y < other.y - 30;
+        // Always allow pass-through with Birdeater/Maneater — their body is high on legs
+        jumpingOver = true;
       } else {
         jumpingOver = (!player.grounded && player.y < cpu.y - 50) || (!cpu.grounded && cpu.y < player.y - 50);
       }
@@ -255,10 +324,24 @@ function update() {
     }
 
 
-    // Check victory (not in practice mode, not in Test Your Might bonus)
-    if (gameMode !== 'practice' && !testYourMightActive) {
+    // Check victory (not in practice mode, not in Test Your Might bonus, not in Count death)
+    if (gameMode !== 'practice' && !testYourMightActive && countDeathPhase < 0) {
       if (player.health <= 0 || cpu.health <= 0) {
         winner = player.health <= 0 ? 'cpu' : 'player';
+
+        // The Count Final: skip finisher, do bow + burst instead
+        if (cpu.char.isTheCountFinal && cpu.health <= 0 && countDeathPhase === -1) {
+          countDeathPhase = 0;
+          countDeathTimer = 0;
+          cpu.health = 0;
+          cpu.state = 'idle';
+          cpu.vx = 0;
+          player.state = 'idle';
+          player.vx = 0;
+          winner = null; // don't set winner yet — death sequence handles it
+          return;
+        }
+
         finishHimTimer = 0;
         gameState = 'finishHim';
         // Clear hit effects, projectiles, and particles on both fighters

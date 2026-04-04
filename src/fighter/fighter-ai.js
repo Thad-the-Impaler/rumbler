@@ -224,17 +224,24 @@ Fighter.prototype.handleAI = function(opponent) {
     if (this.countFiring) return; // firing sweep in progress
 
     const cDist = Math.abs(this.x - opponent.x);
+    const isFinal = this.char.isTheCountFinal;
+
+    // Final Count: jump much more aggressively
+    if (isFinal && this.grounded && Math.random() < 0.03) {
+      this.vy = -12;
+      this.grounded = false;
+    }
 
     // Firework sweep (one pass up and down) at medium range
-    if (cDist > 100 && this.countFireCooldown <= 0 && Math.random() < 0.03) {
+    if (cDist > (isFinal ? 60 : 100) && this.countFireCooldown <= 0 && Math.random() < (isFinal ? 0.06 : 0.03)) {
       this.countFiring = true;
-      this.countFireTimer = 90; // 1.5 second sweep (one pass up-down)
-      this.countFireCooldown = 200;
+      this.countFireTimer = isFinal ? 70 : 90;
+      this.countFireCooldown = isFinal ? 100 : 200;
       return;
     }
 
     // Ground firework burst toward opponent
-    if (cDist > 80 && this.countGroundCooldown <= 0 && Math.random() < 0.04) {
+    if (cDist > (isFinal ? 50 : 80) && this.countGroundCooldown <= 0 && Math.random() < (isFinal ? 0.07 : 0.04)) {
       const darkColors = ['#8B0000', '#CC5500', '#B8860B', '#006400', '#00008B', '#4B0082'];
       for (let i = 0; i < 3; i++) {
         const spd = 5 + Math.random() * 3;
@@ -249,7 +256,7 @@ Fighter.prototype.handleAI = function(opponent) {
           fromGround: true
         });
       }
-      this.countGroundCooldown = 100;
+      this.countGroundCooldown = isFinal ? 50 : 100;
     }
 
     // Jump explosion — when in air and close to opponent
@@ -719,8 +726,57 @@ Fighter.prototype.handleAI = function(opponent) {
     }
   }
 
-  // Snazz AI: dance when far away and health is low
-  if (this.char.isSnazz && !this.dancing && dist > 200 && this.health < this.maxHealth * 0.6 && Math.random() < 0.02) {
+  // Canis AI: transform to wolf, pounce attack
+  if (this.char.isCanis) {
+    if (this.wolfPounceCooldown > 0) this.wolfPounceCooldown--;
+    if (this.wolfCooldown > 0) this.wolfCooldown--;
+
+    // Transform to wolf when far from opponent or randomly
+    if (!this.isWolf && this.wolfCooldown <= 0 && this.grounded && (dist > 200 || Math.random() < 0.01)) {
+      this.isWolf = true;
+      this.wolfFormTimer = 0;
+    }
+
+    // Wolf form behavior
+    if (this.isWolf) {
+      this.wolfFormTimer++;
+      // Revert after max time
+      if (this.wolfFormTimer >= this.wolfFormMaxTime) {
+        this.isWolf = false;
+        this.wolfCooldown = 300; // 5 second cooldown
+      }
+
+      // Pounce across stage at opponent
+      if (!this.wolfPouncing && this.wolfPounceCooldown <= 0 && this.grounded && dist > 80 && Math.random() < 0.05) {
+        this.wolfPouncing = true;
+        this.vy = -8;
+        this.vx = this.facing * 14;
+        this.grounded = false;
+        this.wolfPounceCooldown = 60;
+      }
+
+      // Wolf is much faster — run at opponent aggressively
+      if (!this.wolfPouncing && this.grounded) {
+        this.vx = this.facing * this.char.stats.speed * 1.5;
+        // Attack rapidly at close range
+        if (dist < 70 && this.state !== 'attack' && Math.random() < 0.12) {
+          const atkTypes = ['jab', 'jab', 'lowKick', 'uppercut'];
+          this.startAttack(atkTypes[Math.floor(Math.random() * atkTypes.length)]);
+        }
+      }
+
+      // Revert to human form randomly when close for a surprise
+      if (dist < 60 && Math.random() < 0.005) {
+        this.isWolf = false;
+        this.wolfCooldown = 180;
+      }
+
+      return; // skip normal AI in wolf form
+    }
+  }
+
+  // Snazz AI: dance when far away and health is low (Groove McSmooth never dances — passive heal instead)
+  if (this.char.isSnazz && !this.char.isGrooveMcSmooth && !this.dancing && dist > 200 && this.health < this.maxHealth * 0.6 && Math.random() < 0.02) {
     this.dancing = true;
     this.danceTimer = this.danceMaxFrames;
   }
@@ -838,18 +894,28 @@ Fighter.prototype.handleAI = function(opponent) {
 
   // Duplaire AI: create clones periodically
   if (this.char.isDuplaire && this.state !== 'attack') {
+    const isDarkDup = this.char.isDarkDuplaire;
+    const maxAIClones = isDarkDup ? 4 : 3;
     const activeCount = this.duplaireClones.filter(c => c.active || c.activationTimer > 0).length;
-    if (activeCount < 3 && Math.random() < 0.015) {
+    if (activeCount < maxAIClones && Math.random() < (isDarkDup ? 0.025 : 0.015)) {
       const newTotal = 1 + activeCount + 1;
       const sectionHealth = this.maxHealth / newTotal;
-      this.duplaireClones.push({
+      const clone = {
         x: this.x, y: this.y, facing: this.facing,
         grounded: this.grounded, vy: 0, vx: 0,
-        activationTimer: 180, active: false,
+        activationTimer: isDarkDup ? 90 : 180, active: false,
         animTimer: 0, animFrame: 0,
         state: 'idle', attackFrame: 0, currentAttack: null, stateTimer: 0,
         cloneHealth: sectionHealth, cloneMaxHealth: sectionHealth
-      });
+      };
+      // Dark Duplaire: give clones independent AI state
+      if (isDarkDup) {
+        clone.aiTimer = 30 + Math.floor(Math.random() * 30);
+        clone.aiAction = 'approach';
+        clone.attackCooldown = 30;
+        clone.flashTimer = 0;
+      }
+      this.duplaireClones.push(clone);
       this.duplaireOrigHealth = Math.min(this.duplaireOrigHealth, sectionHealth);
       for (const c of this.duplaireClones) {
         c.cloneMaxHealth = sectionHealth;

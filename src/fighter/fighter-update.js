@@ -276,7 +276,20 @@ Fighter.prototype.update = function(opponent, keys) {
 
   // Face opponent (skip while Erictho is in portal)
   if (this.state !== 'attack' && this.state !== 'hitstun' && this.state !== 'blockstun' && !this.ericthoHidden) {
-    this.facing = opponent.x > this.x ? 1 : -1;
+    // Dark Duplaire / Twins: face closest entity
+    if (opponent.char.isDarkDuplaire && this.isPlayer) {
+      let closestX = opponent.x;
+      let closestDist = Math.abs(this.x - opponent.x);
+      for (const c of opponent.duplaireClones) {
+        if (c.active) {
+          const d = Math.abs(this.x - c.x);
+          if (d < closestDist) { closestDist = d; closestX = c.x; }
+        }
+      }
+      this.facing = closestX > this.x ? 1 : -1;
+    } else {
+      this.facing = opponent.x > this.x ? 1 : -1;
+    }
   }
 
   // State timer
@@ -370,7 +383,7 @@ Fighter.prototype.update = function(opponent, keys) {
       }
       // Hit check
       if (opponent && opponent.isHitAt(fw.x, fw.y, 22, 32)) {
-        // Explode on hit (no text)
+        // Explode on hit
         for (let e = 0; e < 10; e++) {
           const ea = Math.random() * Math.PI * 2;
           const es = 2 + Math.random() * 3;
@@ -379,6 +392,18 @@ Fighter.prototype.update = function(opponent, keys) {
             vx: Math.cos(ea) * es, vy: Math.sin(ea) * es,
             color: darkColors[Math.floor(Math.random() * darkColors.length)],
             timer: 12 + Math.floor(Math.random() * 8)
+          });
+        }
+        // Final Count: add text explosions
+        if (this.char.isTheCountFinal) {
+          const highPhrases = ['BRAVO!', 'BRAVA!', 'BRAVISSIMO!', 'GOOD SHOW!'];
+          const lowPhrases = ['THE HORROR!', 'THE PAIN!', 'THE AGONY!', 'SWEET SORROW!'];
+          const phrases = this.health > 50 ? highPhrases : lowPhrases;
+          this.countExplosions.push({
+            x: fw.x, y: fw.y - 10, vx: 0, vy: -1.5,
+            color: darkColors[Math.floor(Math.random() * darkColors.length)],
+            timer: 30,
+            text: phrases[Math.floor(Math.random() * phrases.length)]
           });
         }
         const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
@@ -397,6 +422,18 @@ Fighter.prototype.update = function(opponent, keys) {
             vx: Math.cos(ea) * es, vy: Math.sin(ea) * es,
             color: darkColors[Math.floor(Math.random() * darkColors.length)],
             timer: 10 + Math.floor(Math.random() * 8)
+          });
+        }
+        // Final Count: text on air explosions too
+        if (this.char.isTheCountFinal) {
+          const highPhrases = ['BRAVO!', 'BRAVA!', 'BRAVISSIMO!', 'GOOD SHOW!'];
+          const lowPhrases = ['THE HORROR!', 'THE PAIN!', 'THE AGONY!', 'SWEET SORROW!'];
+          const phrases = this.health > 50 ? highPhrases : lowPhrases;
+          this.countExplosions.push({
+            x: fw.x, y: fw.y - 10, vx: 0, vy: -1.5,
+            color: darkColors[Math.floor(Math.random() * darkColors.length)],
+            timer: 30,
+            text: phrases[Math.floor(Math.random() * phrases.length)]
           });
         }
         this.countFireworks.splice(i, 1);
@@ -1817,36 +1854,113 @@ Fighter.prototype.update = function(opponent, keys) {
         if (clone.activationTimer <= 0) clone.active = true;
         continue;
       }
-      // Clones stay stationary (no horizontal movement), but mirror jumps
-      // Gravity
-      if (!clone.grounded) {
-        clone.vy += 0.5;
-        clone.y += clone.vy;
-        if (clone.y >= this.groundY) {
-          clone.y = this.groundY;
-          clone.vy = 0;
-          clone.grounded = true;
+      // Dark Duplaire: independent clone AI
+      if (this.char.isDarkDuplaire && clone.aiTimer !== undefined) {
+        // Gravity
+        if (!clone.grounded) {
+          clone.vy += 0.5;
+          clone.y += clone.vy;
+          if (clone.y >= this.groundY) {
+            clone.y = this.groundY;
+            clone.vy = 0;
+            clone.grounded = true;
+          }
         }
-      }
-      // Jump when main jumps
-      if (!this.grounded && clone.grounded && this.vy < -5) {
-        clone.vy = this.vy;
-        clone.grounded = false;
-      }
-      if (clone.x < 40) clone.x = 40;
-      if (clone.x > 920) clone.x = 920;
-      // Mirror facing, crouching, blocking
-      clone.facing = this.facing;
-      clone.crouching = this.crouching;
-      clone.blocking = this.blocking;
-      clone.animTimer++;
-      if (clone.animTimer > 8) { clone.animTimer = 0; clone.animFrame = (clone.animFrame + 1) % 4; }
-      // Mirror attacks
-      if (this.state === 'attack' && this.currentAttack && clone.state !== 'attack') {
-        clone.state = 'attack';
-        clone.currentAttack = this.currentAttack;
-        clone.attackFrame = 0;
-        clone.stateTimer = this.currentAttack.startup + this.currentAttack.active + this.currentAttack.recovery;
+        // Face player
+        clone.facing = opponent.x > clone.x ? 1 : -1;
+        if (clone.flashTimer > 0) clone.flashTimer--;
+        if (clone.attackCooldown > 0) clone.attackCooldown--;
+
+        // Independent AI decisions
+        clone.aiTimer--;
+        if (clone.aiTimer <= 0) {
+          clone.aiTimer = 20 + Math.floor(Math.random() * 25);
+          const cDist = Math.abs(clone.x - opponent.x);
+          if (cDist > 200) clone.aiAction = 'approach';
+          else if (cDist < 60) clone.aiAction = Math.random() < 0.4 ? 'attack' : 'retreat';
+          else clone.aiAction = Math.random() < 0.5 ? 'approach' : (Math.random() < 0.5 ? 'attack' : 'strafe');
+        }
+
+        // Movement
+        const cSpeed = this.char.stats.speed;
+        if (clone.state !== 'attack') {
+          if (clone.aiAction === 'approach') {
+            clone.vx = clone.facing * cSpeed;
+          } else if (clone.aiAction === 'retreat') {
+            clone.vx = -clone.facing * cSpeed;
+          } else if (clone.aiAction === 'strafe') {
+            clone.vx = (Math.random() < 0.5 ? 1 : -1) * cSpeed * 0.6;
+          } else {
+            clone.vx *= 0.8;
+          }
+        } else {
+          clone.vx *= 0.8;
+        }
+        clone.x += clone.vx;
+        clone.vx *= 0.85;
+        if (clone.x < 40) clone.x = 40;
+        if (clone.x > 920) clone.x = 920;
+
+        // Jump occasionally
+        if (clone.grounded && Math.random() < 0.008) {
+          clone.vy = -10;
+          clone.grounded = false;
+        }
+
+        // Independent attacks
+        if (clone.aiAction === 'attack' && clone.attackCooldown <= 0 && clone.state !== 'attack') {
+          const cDist = Math.abs(clone.x - opponent.x);
+          if (cDist < 80) {
+            const atkTypes = ['jab', 'lowKick', 'uppercut', 'highKick'];
+            const atkType = atkTypes[Math.floor(Math.random() * atkTypes.length)];
+            clone.state = 'attack';
+            clone.currentAttack = attacks[atkType];
+            clone.attackFrame = 0;
+            clone.stateTimer = clone.currentAttack.startup + clone.currentAttack.active + clone.currentAttack.recovery;
+            clone.attackCooldown = 30 + Math.floor(Math.random() * 20);
+          }
+        }
+
+        // Walk animation
+        if (Math.abs(clone.vx) > 0.5) {
+          clone.animTimer++;
+          if (clone.animTimer > 8) { clone.animTimer = 0; clone.animFrame = (clone.animFrame + 1) % 4; }
+        } else {
+          clone.animFrame = 0; clone.animTimer = 0;
+        }
+
+      } else {
+        // Normal Duplaire: clones stay stationary, mirror jumps
+        // Gravity
+        if (!clone.grounded) {
+          clone.vy += 0.5;
+          clone.y += clone.vy;
+          if (clone.y >= this.groundY) {
+            clone.y = this.groundY;
+            clone.vy = 0;
+            clone.grounded = true;
+          }
+        }
+        // Jump when main jumps
+        if (!this.grounded && clone.grounded && this.vy < -5) {
+          clone.vy = this.vy;
+          clone.grounded = false;
+        }
+        if (clone.x < 40) clone.x = 40;
+        if (clone.x > 920) clone.x = 920;
+        // Mirror facing, crouching, blocking
+        clone.facing = this.facing;
+        clone.crouching = this.crouching;
+        clone.blocking = this.blocking;
+        clone.animTimer++;
+        if (clone.animTimer > 8) { clone.animTimer = 0; clone.animFrame = (clone.animFrame + 1) % 4; }
+        // Mirror attacks
+        if (this.state === 'attack' && this.currentAttack && clone.state !== 'attack') {
+          clone.state = 'attack';
+          clone.currentAttack = this.currentAttack;
+          clone.attackFrame = 0;
+          clone.stateTimer = this.currentAttack.startup + this.currentAttack.active + this.currentAttack.recovery;
+        }
       }
       if (clone.state === 'attack' && clone.currentAttack) {
         clone.attackFrame++;
@@ -1866,6 +1980,31 @@ Fighter.prototype.update = function(opponent, keys) {
         }
       }
     }
+  }
+
+  // Canis wolf form update
+  if (this.char.isCanis && this.isWolf) {
+    // Pounce physics
+    if (this.wolfPouncing) {
+      // Check pounce hit on landing near opponent
+      if (this.grounded) {
+        this.wolfPouncing = false;
+        if (Math.abs(this.x - opponent.x) < 50) {
+          const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+          opponent.takeDamage(20 * this.char.stats.power * diffMult,
+            { hitstun: 20, blockstun: 14, launch: false, knockbackForce: 6 },
+            this.facing, false, { x: this.x, y: this.y });
+          shakeTimer = 5;
+          shakeIntensity = 6;
+        }
+        this.vx *= 0.3;
+      }
+    }
+  }
+
+  // Groove McSmooth: passive heal +3 HP/sec while walking
+  if (this.char.isGrooveMcSmooth && Math.abs(this.vx) > 0.5 && this.health < this.maxHealth) {
+    this.health = Math.min(this.maxHealth, this.health + 3 / 60); // 3 HP per second at 60fps
   }
 
   // Snazz McJazz dance timer

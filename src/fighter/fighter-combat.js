@@ -203,7 +203,8 @@ Fighter.prototype.takeDamage = function(dmg, attackData, attackerFacing, bypassB
   const bojdoDefMult = this.char.isBojdo ? this.bojdoScale : 1;
   const bojShrinkDefMult = (this.bojShrinkTimer > 0 && !this.char.isBojdo) ? 0.3 : 1;
   const tortoiseMult = this.isTortoise ? 0.4 : 1; // 60% reduction in tortoise form
-  let finalDmg = dmg * tortoiseMult / (this.char.stats.defense * bojdoDefMult * bojShrinkDefMult);
+  const wolfVulnMult = this.isWolf ? 1.5 : 1; // 50% extra damage in wolf form
+  let finalDmg = dmg * tortoiseMult * wolfVulnMult / (this.char.stats.defense * bojdoDefMult * bojShrinkDefMult);
 
   // Snazz McJazz: 2x damage if interrupted during dance
   if (this.dancing) {

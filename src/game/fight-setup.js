@@ -90,6 +90,18 @@ function startRumblePractice() {
 function startFight() {
   player = new Fighter(selectedPlayer, 250, 1, true, selectedAssist);
   cpu = new Fighter(selectedCPU, 710, -1, false, assists[cpuAssistIndex]);
+
+  // The Count on Brutal: upgrade to final version
+  if (cpu.char.isTheCount && !cpu.char.isTheCountFinal && cpuDifficulty && cpuDifficulty.name === 'BRUTAL') {
+    cpu.char = { ...cpu.char, isTheCountFinal: true, stats: { speed: 6.0, power: 1.5, defense: 1.3 } };
+    cpu.health = 350;
+    cpu.maxHealth = 350;
+  }
+
+  // Reset Count death phase
+  countDeathPhase = -1;
+  countDeathTimer = 0;
+
   gameState = 'fight';
   paused = false;
   winner = null;

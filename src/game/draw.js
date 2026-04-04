@@ -57,8 +57,88 @@ function draw() {
       }
       drawBackground();
       player.draw(ctx);
-      cpu.draw(ctx);
-      drawHUD();
+      // The Count Final death sequence: custom cpu draw
+      if (countDeathPhase >= 0) {
+        // Cumulative bow angle: builds during phase 0, holds during phase 1+
+        const bowAngle = countDeathPhase === 0 ? Math.min(1, countDeathTimer / 40) * 0.5 : 0.5;
+
+        if (countDeathPhase <= 1) {
+          // Draw Count body with bow lean
+          ctx.save();
+          ctx.translate(cpu.x, cpu.y);
+          ctx.rotate(cpu.facing * bowAngle);
+          ctx.translate(-cpu.x, -cpu.y);
+          cpu.draw(ctx);
+          ctx.restore();
+          // Draw fireworks/explosions OUTSIDE the rotation
+          for (const e of cpu.countExplosions) {
+            ctx.save();
+            ctx.globalAlpha = Math.min(1, e.timer / 15);
+            if (e.text) {
+              const scale = 1 + (1 - e.timer / 50) * 0.8;
+              ctx.translate(e.x, e.y);
+              ctx.scale(scale, scale);
+              ctx.font = 'bold 18px Arial';
+              ctx.textAlign = 'center';
+              ctx.strokeStyle = '#000';
+              ctx.lineWidth = 3;
+              ctx.strokeText(e.text, 0, 0);
+              ctx.fillStyle = e.color;
+              ctx.fillText(e.text, 0, 0);
+            } else {
+              ctx.fillStyle = e.color;
+              ctx.beginPath();
+              ctx.arc(e.x, e.y, 3 + (1 - e.timer / 30) * 4, 0, Math.PI * 2);
+              ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+            ctx.restore();
+          }
+        } else if (countDeathPhase === 2) {
+          // Burst: fade Count's body
+          ctx.save();
+          ctx.globalAlpha = Math.max(0, 1 - countDeathTimer / 60);
+          ctx.translate(cpu.x, cpu.y);
+          ctx.rotate(cpu.facing * 0.5); // stay bowed
+          ctx.translate(-cpu.x, -cpu.y);
+          cpu.draw(ctx);
+          ctx.restore();
+          // Draw explosions outside rotation
+          for (const e of cpu.countExplosions) {
+            ctx.save();
+            ctx.globalAlpha = Math.min(1, e.timer / 15);
+            if (e.text) {
+              const scale = 1 + (1 - e.timer / 50) * 0.8;
+              ctx.translate(e.x, e.y);
+              ctx.scale(scale, scale);
+              ctx.font = 'bold 18px Arial';
+              ctx.textAlign = 'center';
+              ctx.strokeStyle = '#000';
+              ctx.lineWidth = 3;
+              ctx.strokeText(e.text, 0, 0);
+              ctx.fillStyle = e.color;
+              ctx.fillText(e.text, 0, 0);
+            } else {
+              ctx.fillStyle = e.color;
+              ctx.beginPath();
+              ctx.arc(e.x, e.y, 3 + (1 - e.timer / 30) * 4, 0, Math.PI * 2);
+              ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+            ctx.restore();
+          }
+        }
+        // Phase 3: everything fades to black
+        if (countDeathPhase === 3) {
+          ctx.fillStyle = `rgba(0,0,0,${Math.min(1, countDeathTimer / 30)})`;
+          ctx.fillRect(0, 0, 960, 540);
+        }
+        // No HUD during death sequence
+      } else {
+        cpu.draw(ctx);
+        drawHUD();
+      }
+
       // Printer Boss: paper projectiles
       if (printerBossPhase === 5) {
         for (const p of printerBossPapers) {
@@ -204,7 +284,11 @@ function draw() {
     case 'victory':
       stopFightMusic();
       ctx.save();
-      if (rumbleType === 'DUPLAIRE' && rumbleDuplaireZoom >= 1) {
+      if (cpu && cpu.char && cpu.char.isTheCountFinal) {
+        // Full black background after The Count's death — nothing else
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, 960, 540);
+      } else if (rumbleType === 'DUPLAIRE' && rumbleDuplaireZoom >= 1) {
         // Show clone-covered Earth as victory background
         drawDuplaireRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
       } else {
@@ -234,7 +318,7 @@ function draw() {
         if (rumbleTelatrinePhase === 5) drawTelatrineRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
       if (rumbleBozollokSkeleton) drawBozollokSkeleton(rumbleBozollokSkeleton.x, rumbleBozollokSkeleton.groundY, rumbleBozollokSkeleton.collapseT);
       }
-      drawHUD();
+      if (!(cpu && cpu.char && cpu.char.isTheCountFinal)) drawHUD();
       ctx.restore();
       drawVictoryScreen();
       break;

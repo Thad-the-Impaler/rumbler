@@ -57,6 +57,9 @@ let testYourMightMaxTime = 0;   // total frames
 let testYourMightDamage = 0;    // total damage dealt
 
 // Printer Boss secret phase
+let countDeathPhase = -1;   // -1=inactive, 0=bow, 1=hold, 2=burst, 3=fade
+let countDeathTimer = 0;
+
 let printerBossPhase = 0;      // 0=TYM fake, 1-3=text phases, 4=growth, 5=boss fight
 let printerBossTimer = 0;      // timer for current phase
 let printerBossInkSplats = []; // { x, y, w, h, alpha } screen coverage

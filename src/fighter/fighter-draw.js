@@ -507,6 +507,109 @@ Fighter.prototype.draw = function(ctx) {
     ctx.restore();
   }
 
+  // Canis: draw wolf form instead of normal body
+  if (this.isWolf) {
+    const wolfColor = '#6a4a2a';
+    const wolfDark = '#4a3018';
+    const wolfLight = '#a07040';
+    ctx.save();
+    ctx.translate(0, -15);
+
+    // Body (large horizontal oval)
+    ctx.fillStyle = wolfColor;
+    ctx.strokeStyle = wolfDark;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 28, 14, 0, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
+
+    // Head (larger, wolf-shaped)
+    ctx.fillStyle = wolfColor;
+    ctx.beginPath();
+    ctx.ellipse(f * 24, -4, 14, 11, f * 0.2, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
+
+    // Snout
+    ctx.fillStyle = wolfLight;
+    ctx.beginPath();
+    ctx.ellipse(f * 35, 0, 8, 6, f * 0.3, 0, Math.PI * 2);
+    ctx.fill();
+    // Nose
+    ctx.fillStyle = '#111';
+    ctx.beginPath();
+    ctx.arc(f * 41, -1, 3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Ears (pointed)
+    ctx.fillStyle = wolfDark;
+    ctx.beginPath();
+    ctx.moveTo(f * 18, -12);
+    ctx.lineTo(f * 14, -24);
+    ctx.lineTo(f * 22, -14);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(f * 26, -12);
+    ctx.lineTo(f * 24, -24);
+    ctx.lineTo(f * 30, -14);
+    ctx.closePath();
+    ctx.fill();
+
+    // Eye (fierce)
+    ctx.fillStyle = '#ffaa00';
+    ctx.beginPath();
+    ctx.arc(f * 30, -6, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#111';
+    ctx.beginPath();
+    ctx.arc(f * 30.5, -6, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Legs (4, animated when moving)
+    const run = Math.abs(this.vx) > 1 ? Date.now() * 0.02 : 0;
+    ctx.strokeStyle = wolfColor;
+    ctx.lineWidth = 5;
+    ctx.lineCap = 'round';
+    // Front legs
+    ctx.beginPath(); ctx.moveTo(f * 12, 10); ctx.lineTo(f * 12 + Math.sin(run) * 8, 22); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(f * 18, 10); ctx.lineTo(f * 18 + Math.sin(run + Math.PI) * 8, 22); ctx.stroke();
+    // Back legs
+    ctx.beginPath(); ctx.moveTo(-f * 12, 10); ctx.lineTo(-f * 12 + Math.sin(run + Math.PI * 0.5) * 8, 22); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-f * 18, 10); ctx.lineTo(-f * 18 + Math.sin(run + Math.PI * 1.5) * 8, 22); ctx.stroke();
+
+    // Tail (bushy)
+    ctx.strokeStyle = wolfColor;
+    ctx.lineWidth = 5;
+    ctx.lineCap = 'round';
+    const tailWave = Math.sin(Date.now() * 0.006) * 8;
+    ctx.beginPath();
+    ctx.moveTo(-f * 26, -2);
+    ctx.quadraticCurveTo(-f * 36, -12 + tailWave, -f * 40, -18 + tailWave);
+    ctx.stroke();
+    // Tail fluff
+    ctx.fillStyle = wolfLight;
+    ctx.beginPath();
+    ctx.arc(-f * 40, -18 + tailWave, 5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Pounce effect
+    if (this.wolfPouncing) {
+      ctx.globalAlpha = 0.3;
+      ctx.fillStyle = wolfColor;
+      for (let t = 1; t <= 2; t++) {
+        ctx.beginPath();
+        ctx.ellipse(-this.vx * t * 3, 0, 24, 12, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    ctx.restore();
+    // Skip normal body draw
+    ctx.restore(); // match the save at the top of draw()
+    return;
+  }
+
   // Corvida: draw blue jay form instead of normal body
   if (this.isJay) {
     const isCyanoJay = this.cyanoJayTimer > 0;
@@ -799,6 +902,14 @@ Fighter.prototype.draw = function(ctx) {
 
   if (this.state === 'walk') {
     legSpread = Math.sin(this.animTimer * 0.5) * 12;
+    // Groove McSmooth: samba walk — hip sway + bounce
+    if (this.char.isGrooveMcSmooth) {
+      const sambaT = this.animTimer * 0.4;
+      bodyOffsetX += Math.sin(sambaT) * 4;
+      bodyOffsetY += Math.abs(Math.sin(sambaT * 2)) * 3;
+      armAngle = Math.sin(sambaT + 1) * 0.4;
+      legSpread = Math.sin(sambaT) * 15;
+    }
     // Paletap limping walk — staggery, uneven gait
     if (isPaletap) {
       const limpPhase = Math.sin(this.animTimer * 0.25);
@@ -1326,7 +1437,7 @@ Fighter.prototype.draw = function(ctx) {
 
     // Eyes
     const eyeBaseY = isPaletap ? 0 : headY;
-    ctx.fillStyle = this.char.isErictho ? '#9944dd' : this.char.isRelapmi ? '#ff2222' : this.char.isDarkBojdo ? '#ffcc00' : outline;
+    ctx.fillStyle = this.char.isErictho ? '#9944dd' : this.char.isRelapmi ? '#ff2222' : this.char.isDarkBojdo ? '#ffcc00' : this.char.isDarkDuplaire ? '#00ffdd' : outline;
     ctx.beginPath();
     ctx.arc(f * 5, eyeBaseY - 2, 3, 0, Math.PI * 2);
     ctx.fill();
@@ -1677,8 +1788,12 @@ Fighter.prototype.draw = function(ctx) {
 
   // Snazz McJazz: white fedora
   if (this.char.isSnazz) {
-    ctx.fillStyle = '#ffffff';
-    ctx.strokeStyle = '#cccccc';
+    const isGMS = this.char.isGrooveMcSmooth;
+    const hatColor = isGMS ? '#1a2a6a' : '#ffffff';
+    const hatStroke = isGMS ? '#0a1a4a' : '#cccccc';
+    const bandColor = isGMS ? '#eeeeee' : '#222222';
+    ctx.fillStyle = hatColor;
+    ctx.strokeStyle = hatStroke;
     ctx.lineWidth = 1;
     // Hat brim
     ctx.beginPath();
@@ -1686,7 +1801,7 @@ Fighter.prototype.draw = function(ctx) {
     ctx.fill();
     ctx.stroke();
     // Hat crown
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = hatColor;
     ctx.beginPath();
     ctx.moveTo(-10, headY - 12);
     ctx.lineTo(-8, headY - 28);
@@ -1694,11 +1809,29 @@ Fighter.prototype.draw = function(ctx) {
     ctx.lineTo(10, headY - 12);
     ctx.closePath();
     ctx.fill();
-    ctx.strokeStyle = '#cccccc';
+    ctx.strokeStyle = hatStroke;
     ctx.stroke();
     // Hat band
-    ctx.fillStyle = '#222222';
+    ctx.fillStyle = bandColor;
     ctx.fillRect(-9, headY - 17, 18, 3);
+
+    // Groove McSmooth: neon green shutter shades
+    if (isGMS) {
+      const eyeY = headY - 2;
+      ctx.fillStyle = '#00ff44';
+      ctx.strokeStyle = '#00aa22';
+      ctx.lineWidth = 1;
+      // Frame
+      ctx.fillRect(f * 1, eyeY - 5, f * 16, 8);
+      // Shutter slits (dark horizontal lines)
+      ctx.fillStyle = '#003311';
+      for (let sl = 0; sl < 3; sl++) {
+        ctx.fillRect(f * 2, eyeY - 4 + sl * 3, f * 14, 1.5);
+      }
+      // Bridge across nose
+      ctx.fillStyle = '#00ff44';
+      ctx.fillRect(f * 1, eyeY - 3, -f * 3, 4);
+    }
   }
 
   // Haystack: sword through body and arrows in head
@@ -2147,10 +2280,25 @@ Fighter.prototype.draw = function(ctx) {
     // Explosion particles
     for (const e of this.countExplosions) {
       ctx.globalAlpha = Math.min(1, e.timer / 12);
-      ctx.fillStyle = e.color;
-      ctx.beginPath();
-      ctx.arc(e.x, e.y, 3 + (1 - e.timer / 20) * 2, 0, Math.PI * 2);
-      ctx.fill();
+      if (e.text) {
+        const scale = 1 + (1 - e.timer / 30) * 0.5;
+        ctx.save();
+        ctx.translate(e.x, e.y);
+        ctx.scale(scale, scale);
+        ctx.font = 'bold 14px Arial';
+        ctx.textAlign = 'center';
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 3;
+        ctx.strokeText(e.text, 0, 0);
+        ctx.fillStyle = e.color;
+        ctx.fillText(e.text, 0, 0);
+        ctx.restore();
+      } else {
+        ctx.fillStyle = e.color;
+        ctx.beginPath();
+        ctx.arc(e.x, e.y, 3 + (1 - e.timer / 20) * 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
     ctx.globalAlpha = 1;
     ctx.restore();
