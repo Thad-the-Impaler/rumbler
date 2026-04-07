@@ -54,11 +54,16 @@ function drawPauseOverlay() {
       let yOffset = 130;
       for (let ri = 0; ri < rumbleList.length; ri++) {
         const rumble = rumbleList[ri];
-        // Rumble move name
-        ctx.font = 'bold 15px Arial';
+        // Rumble move name (supports *italic* markers)
         ctx.textAlign = 'left';
         ctx.fillStyle = winChar.accent;
-        ctx.fillText(rumble.name, 540, yOffset);
+        const nameParts = rumble.name.split('*');
+        let nameX = 540;
+        for (let np = 0; np < nameParts.length; np++) {
+          ctx.font = np % 2 === 1 ? 'bold italic 15px Arial' : 'bold 15px Arial';
+          ctx.fillText(nameParts[np], nameX, yOffset);
+          nameX += ctx.measureText(nameParts[np]).width;
+        }
 
         // Code key caps
         const codeLetters = rumble.code.toUpperCase().split('');

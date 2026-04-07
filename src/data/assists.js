@@ -73,7 +73,9 @@ function activateMasterPasskey() {
   if (!rainyCityUnlocked) { rainyCityUnlocked = true; }
   if (!glowingCityUnlocked) { glowingCityUnlocked = true; }
   if (!sunnyCityUnlocked) { sunnyCityUnlocked = true; }
+  if (!tentUnlocked) { tentUnlocked = true; }
   if (!dustUnlocked) { dustUnlocked = true; }
+  if (!pulpUnlocked) { pulpUnlocked = true; }
   rumblePracticeUnlocked = true;
   // Unlock all bosses for practice
   for (const boss of practiceBossList) {
@@ -83,5 +85,5 @@ function activateMasterPasskey() {
 }
 
 function isMasterPasskeyNeeded() {
-  return !bojdoUnlocked || !bojdobojdoUnlocked || !rubbermanUnlocked || !torrenaUnlocked || !snazzUnlocked || !haystackUnlocked || !codemaxUnlocked || !corvidaUnlocked || !golgarUnlocked || !telatrineUnlocked || !duplaireUnlocked || !bozollokUnlocked || !gourmandUnlocked || !batschUnlocked || !paletapUnlocked || !matadorUnlocked || !killawattUnlocked || !backtrackUnlocked || !exorUnlocked || !buckUnlocked || !vorticeUnlocked || !xhaustUnlocked || !weedthornUnlocked || !bojAssistUnlocked || !jazzAssistUnlocked || !cyanoAssistUnlocked || !warperAssistUnlocked || !aphidAssistUnlocked || !studAssistUnlocked || !floatAssistUnlocked || !stickerAssistUnlocked || !serpentAssistUnlocked || !snowyCityUnlocked || !foggyCityUnlocked || !rainyCityUnlocked || !glowingCityUnlocked || !sunnyCityUnlocked || !dustUnlocked;
+  return !bojdoUnlocked || !bojdobojdoUnlocked || !rubbermanUnlocked || !torrenaUnlocked || !snazzUnlocked || !haystackUnlocked || !codemaxUnlocked || !corvidaUnlocked || !golgarUnlocked || !telatrineUnlocked || !duplaireUnlocked || !bozollokUnlocked || !gourmandUnlocked || !batschUnlocked || !paletapUnlocked || !matadorUnlocked || !killawattUnlocked || !backtrackUnlocked || !exorUnlocked || !buckUnlocked || !vorticeUnlocked || !xhaustUnlocked || !weedthornUnlocked || !bojAssistUnlocked || !jazzAssistUnlocked || !cyanoAssistUnlocked || !warperAssistUnlocked || !aphidAssistUnlocked || !studAssistUnlocked || !floatAssistUnlocked || !stickerAssistUnlocked || !serpentAssistUnlocked || !snowyCityUnlocked || !foggyCityUnlocked || !rainyCityUnlocked || !glowingCityUnlocked || !sunnyCityUnlocked || !tentUnlocked || !dustUnlocked || !pulpUnlocked;
 }

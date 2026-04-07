@@ -752,7 +752,7 @@ Fighter.prototype.drawHead = function(ctx) {
 
   // Charge-up effect
   if (this.headCharging) {
-    const chargeT = 1 - (this.headChargeTimer || 0) / 40;
+    const chargeT = 1 - (this.headChargeTimer || 0) / 80;
     ctx.globalAlpha = chargeT * 0.6;
     ctx.strokeStyle = '#ff4400';
     ctx.lineWidth = 3 + chargeT * 4;

@@ -476,7 +476,7 @@ Fighter.prototype.handleAI = function(opponent) {
     // Charge roll at any range, less frequent
     if (this.headRollCooldown <= 0 && Math.random() < 0.015) {
       this.headCharging = true;
-      this.headChargeTimer = 40; // charge for ~0.67 seconds
+      this.headChargeTimer = 80; // charge for ~1.33 seconds
       return;
     }
 
@@ -892,6 +892,77 @@ Fighter.prototype.handleAI = function(opponent) {
     }
   }
 
+  // Rubberman AI: attack from long range using stretch, mix up distances
+  if (this.char.isRubberman && this.state !== 'attack') {
+    // Stretch attacks at medium-long range
+    if (dist > 80 && dist < 450 && Math.random() < 0.06) {
+      const r = Math.random();
+      if (r < 0.4) this.startAttack('jab');
+      else if (r < 0.65) this.startAttack('lowKick');
+      else if (r < 0.85) this.startAttack('highKick');
+      else this.startAttack('uppercut');
+    }
+    // Stay at medium range to use stretch advantage — don't always approach
+    if (dist > 150 && dist < 350 && this.aiAction === 'approach' && Math.random() < 0.03) {
+      this.aiAction = 'idle'; // stop and attack from range
+    }
+  }
+
+  // Vortice AI: pull tornado when far, push tornado when close
+  if (this.char.isVortice) {
+    if (this.vorticePushCooldown > 0) this.vorticePushCooldown--;
+    // Pull tornado (hold) — use when opponent is at medium range to drag them in
+    if (dist > 120 && dist < 350 && this.state !== 'attack' && !this.vorticePushing) {
+      this.vorticeTornado = Math.random() < 0.4; // hold pull ~40% of the time at range
+    } else {
+      this.vorticeTornado = false;
+    }
+    // Push tornado — use when opponent is very close to create space
+    if (dist < 80 && this.vorticePushCooldown <= 0 && !this.vorticePushing && this.state !== 'attack' && Math.random() < 0.04) {
+      this.vorticePushing = true;
+      this.vorticePushTimer = 90;
+      this.vorticePushCooldown = 180;
+    }
+  }
+
+  // X-Haust AI: leak oil while moving, ignite when opponent is on puddles
+  if (this.char.isXhaust) {
+    // Leak oil when moving and have tank — lay traps
+    if (this.xhaustOilTank > 20 && Math.abs(this.vx) > 1 && this.state !== 'attack') {
+      this.xhaustLeaking = Math.random() < 0.5; // leak about half the time while moving
+    } else {
+      this.xhaustLeaking = false;
+    }
+    // Ignite puddles when opponent is standing on or near them
+    if (this.xhaustOilPuddles.length > 0 && this.state !== 'attack') {
+      for (const puddle of this.xhaustOilPuddles) {
+        if (Math.abs(opponent.x - puddle.x) < puddle.width / 2 + 20 && opponent.grounded) {
+          // Opponent is on a puddle — ignite!
+          for (const p of this.xhaustOilPuddles) {
+            this.xhaustFlames.push({
+              x: p.x, y: p.y,
+              width: p.width,
+              timer: 90
+            });
+          }
+          this.xhaustOilPuddles = [];
+          break;
+        }
+      }
+    }
+    // Also ignite if puddles have been sitting too long (>5 seconds)
+    if (this.xhaustOilPuddles.length > 3 && Math.random() < 0.02) {
+      for (const p of this.xhaustOilPuddles) {
+        this.xhaustFlames.push({
+          x: p.x, y: p.y,
+          width: p.width,
+          timer: 90
+        });
+      }
+      this.xhaustOilPuddles = [];
+    }
+  }
+
   // Duplaire AI: create clones periodically
   if (this.char.isDuplaire && this.state !== 'attack') {
     const isDarkDup = this.char.isDarkDuplaire;
@@ -994,9 +1065,9 @@ Fighter.prototype.handleAI = function(opponent) {
     }
   }
 
-  // Killa Watt AI: zap when in range
+  // Killa Watt AI: zap when in range (can't zap phasing opponents)
   if (this.char.isKillawatt && this.kwZapCooldown <= 0 && !this.kwZapEffect && this.state !== 'attack') {
-    if (dist < 180 && Math.random() < 0.05) {
+    if (dist < 180 && !opponent.waterPhase && !opponent.quellicFirePhase && Math.random() < 0.05) {
       const zapDamage = 10;
       const stunDuration = 45;
       opponent.health -= zapDamage / opponent.char.stats.defense;
@@ -1048,26 +1119,69 @@ Fighter.prototype.handleAI = function(opponent) {
   if (this.char.isBacktrack && this.btRewindCooldown <= 0 && this.btHistoryLen > 240) {
     // Get the oldest entry in the ring buffer
     const oldestIdx = this.btHistoryLen < this.btMaxHistory ? 0 : this.btHistoryIdx;
-    const oldSnap = this.btHistory[oldestIdx];
-    if (this.health < this.maxHealth * 0.4 && oldSnap.health > this.health + 20 && Math.random() < 0.03) {
-      const snap = this.btHistory[oldestIdx];
-      const oppSnap = snap.opp;
-      this.x = snap.x;
-      this.y = snap.y;
-      this.health = snap.health;
-      this.state = 'idle';
-      this.stateTimer = 0;
-      this.vx = 0;
-      this.vy = 0;
-      if (opponent && oppSnap) {
-        opponent.x = oppSnap.x;
-        opponent.y = oppSnap.y;
-        opponent.health = oppSnap.health;
-        opponent.state = 'idle';
-        opponent.stateTimer = 0;
-        opponent.vx = 0;
-        opponent.vy = 0;
-      }
+    const entry = this.btHistory[oldestIdx];
+    const selfSnap = entry.self;
+    const oppSnap = entry.opp;
+    if (selfSnap && this.health < this.maxHealth * 0.4 && selfSnap.health > this.health + 20 && Math.random() < 0.03) {
+      // Use the same comprehensive restore as the player
+      const restoreFighter = (fighter, snap) => {
+        fighter.x = snap.x; fighter.y = snap.y; fighter.health = snap.health;
+        fighter.vx = snap.vx; fighter.vy = snap.vy;
+        fighter.state = snap.state; fighter.stateTimer = snap.stateTimer;
+        fighter.grounded = snap.grounded; fighter.facing = snap.facing;
+        fighter.crouching = snap.crouching; fighter.blocking = snap.blocking;
+        fighter.isJay = snap.isJay; fighter.isTortoise = snap.isTortoise;
+        if (snap.isWolf !== undefined) fighter.isWolf = snap.isWolf;
+        fighter.bojdoScale = snap.bojdoScale;
+        fighter.assistActive = snap.assistActive;
+        fighter.assistCooldown = snap.assistCooldown;
+        fighter.slowTimer = snap.slowTimer;
+        fighter.freezeTimer = snap.freezeTimer;
+        fighter.bojShrinkTimer = snap.bojShrinkTimer;
+        fighter.cyanoJayTimer = snap.cyanoJayTimer;
+        fighter.studTortoiseTimer = snap.studTortoiseTimer;
+        fighter.stickerSlowTimer = snap.stickerSlowTimer;
+        fighter.waterPhase = snap.waterPhase;
+        if (snap.quellicFirePhase !== undefined) {
+          fighter.quellicFirePhase = snap.quellicFirePhase;
+          fighter.quellicFireTimer = snap.quellicFireTimer;
+          fighter.quellicFireCooldown = snap.quellicFireCooldown;
+        }
+        fighter.dancing = snap.dancing; fighter.danceTimer = snap.danceTimer;
+        fighter.exploding = snap.exploding; fighter.reformTimer = snap.reformTimer;
+        fighter.buckFiring = snap.buckFiring; fighter.buckFireTimer = snap.buckFireTimer;
+        fighter.molting = snap.molting; fighter.moltHover = snap.moltHover;
+        fighter.gourmandEnergy = snap.gourmandEnergy;
+        fighter.gourmandFull = snap.gourmandFull;
+        fighter.mouthOpen = snap.mouthOpen;
+        fighter.xhaustOilTank = snap.xhaustOilTank;
+        fighter.xhaustLeaking = snap.xhaustLeaking;
+        fighter.xhaustOilPuddles = snap.xhaustOilPuddles;
+        fighter.xhaustFlames = snap.xhaustFlames;
+        if (snap.duplaireClones) {
+          fighter.duplaireClones = snap.duplaireClones;
+          fighter.duplaireOrigHealth = snap.duplaireOrigHealth;
+        }
+        fighter.flashTimer = snap.flashTimer;
+        fighter.phaseTimer = snap.phaseTimer;
+        fighter.armorActive = snap.armorActive;
+        fighter.hitEffect = null;
+        fighter.queuedAttacks = [];
+        fighter.inputBuffer = [];
+        fighter.aiComboQueue = [];
+        // Validate grounded state
+        if (fighter.grounded && fighter.y < fighter.groundY - 5) {
+          fighter.grounded = false;
+          if (fighter.vy === 0) fighter.vy = 0.5;
+        }
+        if (!fighter.grounded && fighter.y >= fighter.groundY) {
+          fighter.y = fighter.groundY;
+          fighter.grounded = true;
+          fighter.vy = 0;
+        }
+      };
+      restoreFighter(this, selfSnap);
+      if (opponent && oppSnap) restoreFighter(opponent, oppSnap);
       this.btHistoryLen = 0;
       this.btHistoryIdx = 0;
       this.btRewindCooldown = 600;

@@ -5,18 +5,35 @@ function drawRumbleAnimation() {
   const rumbleEntry = characterRumbles[winChar.name];
   const rumble = rumbleEntry ? (Array.isArray(rumbleEntry) ? rumbleEntry.find(r => r.code === rumbleSubType) : rumbleEntry) : null;
 
-  // Show rumble name at top
+  // Show rumble name at top (supports *italic* markers)
   if (rumble) {
     const nameAlpha = Math.min(1, rumbleTimer / 20);
     ctx.save();
     ctx.globalAlpha = nameAlpha;
-    ctx.font = 'bold 30px Arial';
-    ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.shadowColor = winChar.accent;
     ctx.shadowBlur = 15;
     ctx.fillStyle = winChar.accent;
-    ctx.fillText(rumble.name, 480, 45);
+    const parts = rumble.name.split('*');
+    if (parts.length > 1) {
+      // Has italic markers — measure total width to center
+      let totalW = 0;
+      for (let p = 0; p < parts.length; p++) {
+        ctx.font = p % 2 === 1 ? 'bold italic 30px Arial' : 'bold 30px Arial';
+        totalW += ctx.measureText(parts[p]).width;
+      }
+      let nx = 480 - totalW / 2;
+      for (let p = 0; p < parts.length; p++) {
+        ctx.font = p % 2 === 1 ? 'bold italic 30px Arial' : 'bold 30px Arial';
+        ctx.textAlign = 'left';
+        ctx.fillText(parts[p], nx, 45);
+        nx += ctx.measureText(parts[p]).width;
+      }
+    } else {
+      ctx.font = 'bold 30px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText(rumble.name, 480, 45);
+    }
     ctx.shadowBlur = 0;
     ctx.restore();
   }
@@ -86,6 +103,24 @@ function drawRumbleAnimation() {
   }
   if (rumbleType === 'MATADOR') {
     drawMatadorRumble(loseFighter, winFighter);
+  }
+  if (rumbleType === 'KILLA WATT') {
+    drawKillaWattRumble(loseFighter, winFighter);
+  }
+  if (rumbleType === 'BACKTRACK') {
+    drawBacktrackRumble(loseFighter, winFighter);
+  }
+  if (rumbleType === 'EXOR') {
+    drawExorRumble(loseFighter, winFighter);
+  }
+  if (rumbleType === 'BUCK') {
+    drawBuckRumble(loseFighter, winFighter);
+  }
+  if (rumbleType === 'VORTICE') {
+    drawVorticeRumble(loseFighter, winFighter);
+  }
+  if (rumbleType === 'X-HAUST') {
+    drawXhaustRumble(loseFighter, winFighter);
   }
 }
 

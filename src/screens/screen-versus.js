@@ -177,8 +177,21 @@ function drawVersusScreen() {
 
     ctx.restore();
 
-    // "Campaigner battle" label for boss fights
-    if (gameMode === 'campaign' && selectedCPU && selectedCPU.isBoss) {
+    // Infinite mode fight number
+    if (gameMode === 'campaign' && campaigns[campaignId] && campaigns[campaignId].infinite) {
+      ctx.save();
+      ctx.globalAlpha = vsEase;
+      ctx.font = 'bold 20px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#ffcc00';
+      ctx.shadowColor = '#ff8800';
+      ctx.shadowBlur = 8;
+      ctx.fillText('FIGHT #' + (campaignFightIndex + 1), splitX, H / 2 + 50);
+      ctx.shadowBlur = 0;
+      ctx.restore();
+    }
+    // "Campaigner battle" label for boss fights (skip in infinite mode — Fight # already shows)
+    if (gameMode === 'campaign' && selectedCPU && selectedCPU.isBoss && !(campaigns[campaignId] && campaigns[campaignId].infinite)) {
       ctx.save();
       ctx.globalAlpha = vsEase;
       ctx.font = 'bold 18px Arial';

@@ -15,7 +15,16 @@ function startVersusScreen() {
 
 function setupCampaignFight(index) {
   const campaign = campaigns[campaignId];
-  const fight = campaign.fights[index];
+
+  // Infinite mode: generate a random fight
+  let fight;
+  if (campaign.infinite) {
+    fight = generateRumblerFight(index);
+    // Store it so victory screen can reference it
+    campaign.fights[index] = fight;
+  } else {
+    fight = campaign.fights[index];
+  }
   if (!fight) return;
 
   // Resolve opponent
@@ -26,8 +35,9 @@ function setupCampaignFight(index) {
     selectedCPU = fight.opponent; // boss or special character object
   }
 
-  // Resolve difficulty
-  cpuDifficulty = difficulties.find(d => d.name === fight.difficulty) || difficulties[0];
+  // Resolve difficulty (case-insensitive)
+  const fightDiff = fight.difficulty.toUpperCase();
+  cpuDifficulty = difficulties.find(d => d.name === fightDiff) || difficulties[0];
 
   // Resolve level
   selectedLevel = defaultLevels.find(l => l.name === fight.level)
@@ -71,6 +81,11 @@ function startRumblePractice() {
   paused = false;
   shakeTimer = 0;
   resetRumbleState();
+  // Restart fight music if not already playing (retry from victory screen)
+  if (!currentFightMusic || currentFightMusic.paused) {
+    const level = selectedLevel ? selectedLevel.name : 'CLASSIC';
+    playFightMusic(level);
+  }
   // Set player as winner, cpu health to 0
   winner = 'player';
   cpu.health = 0;

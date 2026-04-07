@@ -478,19 +478,37 @@ function handleKeyPress(key) {
     }
 
     case 'bossSelect': {
-      const numBosses = practiceBossList.length;
-      const bossPerRow = 8;
-      if (key === 'ArrowLeft' || key === 'a') bossSelectCursor = (bossSelectCursor - 1 + numBosses) % numBosses;
-      if (key === 'ArrowRight' || key === 'd') bossSelectCursor = (bossSelectCursor + 1) % numBosses;
-      if (key === 'ArrowUp' || key === 'w') bossSelectCursor = (bossSelectCursor - bossPerRow + numBosses) % numBosses;
-      if (key === 'ArrowDown' || key === 's') bossSelectCursor = (bossSelectCursor + bossPerRow) % numBosses;
+      const numItems = practiceBossList.length + 1; // +1 for RANDOM
+      const bossPerRow = Math.min(11, Math.ceil(numItems / 2));
+      if (key === 'ArrowLeft' || key === 'a') bossSelectCursor = (bossSelectCursor - 1 + numItems) % numItems;
+      if (key === 'ArrowRight' || key === 'd') bossSelectCursor = (bossSelectCursor + 1) % numItems;
+      if (key === 'ArrowUp' || key === 'w') bossSelectCursor = (bossSelectCursor - bossPerRow + numItems) % numItems;
+      if (key === 'ArrowDown' || key === 's') bossSelectCursor = (bossSelectCursor + bossPerRow) % numItems;
       if (key === 'Enter' || key === ' ') {
-        const boss = practiceBossList[bossSelectCursor];
-        if (defeatedBosses[boss.name]) {
-          selectedCPU = boss.char;
-          // Go to difficulty select
-          difficultyCursor = 1; // default Normal
-          gameState = 'difficultySelect';
+        if (bossSelectCursor >= practiceBossList.length && !lotteryActive) {
+          // RANDOM — lottery animation then pick
+          const unlocked = practiceBossList.filter(b => defeatedBosses[b.name]);
+          if (unlocked.length > 0) {
+            lotteryFinal = Math.floor(Math.random() * unlocked.length);
+            lotteryCurrent = 0;
+            lotteryTimer = 0;
+            lotteryDuration = 90;
+            lotteryType = 'boss';
+            lotteryActive = true;
+            lotteryCallback = () => {
+              const unlocked2 = practiceBossList.filter(b => defeatedBosses[b.name]);
+              selectedCPU = unlocked2[lotteryFinal].char;
+              difficultyCursor = 1;
+              gameState = 'difficultySelect';
+            };
+          }
+        } else if (bossSelectCursor < practiceBossList.length) {
+          const boss = practiceBossList[bossSelectCursor];
+          if (defeatedBosses[boss.name]) {
+            selectedCPU = boss.char;
+            difficultyCursor = 1;
+            gameState = 'difficultySelect';
+          }
         }
       }
       if (key === 'Escape' || key === 'Backspace') {
@@ -558,6 +576,10 @@ function handleKeyPress(key) {
           } else if (gameMode === 'practice') {
             gameState = 'practiceTargetSelect';
             practiceTargetCursor = 0;
+          } else if (gameMode === 'campaign') {
+            gameState = 'charSelect';
+            charSelectScroll = 0;
+            selectingCPU = false;
           } else {
             gameState = 'charSelect';
             charSelectScroll = 0;
@@ -735,8 +757,12 @@ function handleKeyPress(key) {
       break;
 
     case 'levelSelect': {
+      if (key === 'Tab') {
+        showLockedLevels = !showLockedLevels;
+        break;
+      }
       const lvls = getLevels();
-      const totalItems = lvls.length + 1; // +1 for RANDOM
+      const totalItems = lvls.length + 1; // +1 for RANDOM (locked stages are visual only, not selectable)
       const perRow = Math.min(totalItems, 5);
 
       if (key === 'ArrowLeft' || key === 'a') levelSelectCursor = (levelSelectCursor - 1 + totalItems) % totalItems;
@@ -884,7 +910,7 @@ function handleKeyPress(key) {
           rumbleActive = false;
           campaignFightIndex++;
           const campaign = campaigns[campaignId];
-          if (campaignFightIndex < campaign.fights.length && campaign.fights[campaignFightIndex] !== null) {
+          if (campaign.infinite || (campaignFightIndex < campaign.fights.length && campaign.fights[campaignFightIndex] !== null)) {
             setupCampaignFight(campaignFightIndex);
           } else {
             gameState = 'title';
@@ -941,6 +967,7 @@ function handleKeyPress(key) {
           } else {
             // Campaign complete — unlock rewards
             if (campaignId === 'warrior') dustUnlocked = true;
+            if (campaignId === 'champion') pulpUnlocked = true;
             gameState = 'title';
             paused = false;
             stopFightMusic();
@@ -985,19 +1012,21 @@ function handleKeyPress(key) {
         if (gameMode === 'campaign') {
           resetRumbleState();
           if (winner === 'player') {
-            // Track defeated boss
+            // Track defeated boss + special unlocks
             const campaign = campaigns[campaignId];
             const justBeat = campaign.fights[campaignFightIndex];
             if (justBeat && justBeat.isBoss && typeof justBeat.opponent === 'object') {
               defeatedBosses[justBeat.opponent.name] = true;
             }
+            if (justBeat && justBeat.unlocksTent) tentUnlocked = true;
             // Advance to next fight
             campaignFightIndex++;
-            if (campaignFightIndex < campaign.fights.length && campaign.fights[campaignFightIndex] !== null) {
+            if (campaign.infinite || (campaignFightIndex < campaign.fights.length && campaign.fights[campaignFightIndex] !== null)) {
               setupCampaignFight(campaignFightIndex);
             } else {
               // Campaign complete or no more fights — unlock rewards
               if (campaignId === 'warrior') dustUnlocked = true;
+              if (campaignId === 'champion') pulpUnlocked = true;
               gameState = 'title';
               paused = false;
               testYourMightActive = false;
@@ -1018,6 +1047,22 @@ function handleKeyPress(key) {
         resetRumbleState();
       }
       if ((key === 'Escape' || key === 'Backspace') && (gameMode === 'rumblePractice' || gameMode === 'campaign')) {
+        // Apply any pending unlocks before leaving
+        if (gameMode === 'campaign' && winner === 'player') {
+          const campaign = campaigns[campaignId];
+          const justBeat = campaign && campaign.fights[campaignFightIndex];
+          if (justBeat && justBeat.unlocksTent) tentUnlocked = true;
+          if (justBeat && justBeat.isBoss && typeof justBeat.opponent === 'object') {
+            defeatedBosses[justBeat.opponent.name] = true;
+          }
+          // Campaign completion rewards (only if this was the last fight)
+          const nextIdx = campaignFightIndex + 1;
+          const isComplete = !campaign.infinite && (nextIdx >= campaign.fights.length || !campaign.fights[nextIdx]);
+          if (isComplete) {
+            if (campaignId === 'warrior') dustUnlocked = true;
+            if (campaignId === 'champion') pulpUnlocked = true;
+          }
+        }
         gameState = 'title';
         paused = false;
         testYourMightActive = false;

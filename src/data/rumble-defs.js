@@ -24,5 +24,11 @@ const characterRumbles = {
   'GOURMAND': { name: 'LAST COURSE', code: 'ingest', desc: 'Cook the opponent in a giant frying pan and swallow them whole' },
   'BATSCH': { name: 'SHELL SHOCKED', code: 'bounce', desc: 'Ricochet off the walls at blinding speed, pummeling the opponent' },
   'PALETAP': { name: 'ANYBODY HOME?', code: 'shaken', desc: 'Knock on their head until they fall apart' },
-  'MATADOR': { name: 'OLE!', code: 'torero', desc: 'Wave a red cape and let the bull do the rest' }
+  'MATADOR': { name: 'OLE!', code: 'torero', desc: 'Wave a red cape and let the bull do the rest' },
+  'KILLA WATT': { name: "WHAT'S VAULTS?", code: 'kazzap', desc: 'Electrocute the opponent into a skeleton' },
+  'BACKTRACK': { name: 'OR WAS IT JUST *ME* ME?', code: 'minute', desc: 'Rewind the opponent back to infancy and punt them' },
+  'EXOR': { name: 'SOUL SURVIVOR', code: 'spirit', desc: 'Punch the soul out and absorb it' },
+  'BUCK': { name: 'THE AMERICAN WAY', code: 'merica', desc: 'Fireworks, eagles, flags, and a bombing run' },
+  'VORTICE': { name: 'SUCKS TO BE YOU', code: 'spiral', desc: 'Suck the opponent into a tornado and fling them into the screen' },
+  'X-HAUST': { name: 'KEROMIKAZE', code: 'engine', desc: 'Drench yourself in oil and go out in a blaze of glory' }
 };

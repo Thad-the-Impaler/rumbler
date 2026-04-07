@@ -26,13 +26,14 @@ function drawCampaignSelectScreen() {
   for (let i = 0; i < keys.length; i++) {
     const campaign = campaigns[keys[i]];
     const selected = i === campaignSelectCursor;
-    const y = 160 + i * 120;
+    const cardH = 68;
+    const y = 120 + i * (cardH + 10);
     const pulse = selected ? Math.sin(Date.now() * 0.004) * 0.5 + 0.5 : 0;
 
     // Card background
     ctx.fillStyle = selected ? 'rgba(255,69,0,0.15)' : 'rgba(255,255,255,0.03)';
     ctx.beginPath();
-    ctx.roundRect(180, y, 600, 100, 10);
+    ctx.roundRect(180, y, 600, cardH, 10);
     ctx.fill();
 
     // Card border
@@ -41,34 +42,38 @@ function drawCampaignSelectScreen() {
       : 'rgba(255,255,255,0.08)';
     ctx.lineWidth = selected ? 2 : 1;
     ctx.beginPath();
-    ctx.roundRect(180, y, 600, 100, 10);
+    ctx.roundRect(180, y, 600, cardH, 10);
     ctx.stroke();
 
     // Campaign name
     ctx.font = 'bold 28px Arial';
     ctx.textAlign = 'left';
     ctx.fillStyle = selected ? `rgba(255,${150 + pulse * 105},0,1)` : '#666';
-    ctx.fillText(campaign.name, 210, y + 40);
+    ctx.fillText(campaign.name, 210, y + 28);
 
     // Description
-    ctx.font = '16px Arial';
+    ctx.font = '13px Arial';
     ctx.fillStyle = selected ? '#aaa' : '#555';
-    ctx.fillText(campaign.desc, 210, y + 65);
+    ctx.fillText(campaign.desc, 210, y + 46);
 
-    // Fight count (respect hidden count)
-    const realTotal = campaign.fights.filter(f => !f.isBonus).length;
-    const totalFights = campaign.displayFightCount || realTotal;
+    // Fight count (respect hidden count, infinite shows ∞)
     ctx.font = '14px Arial';
     ctx.textAlign = 'right';
     ctx.fillStyle = selected ? '#888' : '#444';
-    ctx.fillText(totalFights + ' fights', 760, y + 40);
+    if (campaign.infinite) {
+      ctx.fillText('∞ fights', 760, y + 28);
+    } else {
+      const realTotal = campaign.fights.filter(f => !f.isBonus).length;
+      const totalFights = campaign.displayFightCount || realTotal;
+      ctx.fillText(totalFights + ' fights', 760, y + 28);
+    }
 
     // Selection arrow
     if (selected) {
       ctx.font = 'bold 20px Arial';
       ctx.textAlign = 'right';
       ctx.fillStyle = '#ff6b35';
-      ctx.fillText('>', 200, y + 42);
+      ctx.fillText('>', 200, y + 30);
     }
   }
 

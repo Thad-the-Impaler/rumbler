@@ -278,8 +278,17 @@ function drawLotteryOverlay() {
   if (!lotteryActive) return;
   const isChar = lotteryType === 'char' || lotteryType === 'cpu';
   const isLevel = lotteryType === 'level';
-  const pool = isLevel ? getLevels() : (isChar ? characters : assists);
-  const pick = pool[lotteryCurrent];
+  const isBoss = lotteryType === 'boss';
+  const pool = isBoss ? practiceBossList.filter(b => defeatedBosses[b.name]) : (isLevel ? getLevels() : (isChar ? characters : assists));
+  const rawPick = pool[lotteryCurrent];
+  let pick;
+  if (isBoss) {
+    const darkAccentBosses = { 'ERICTHO': '#ffffff', 'RELAPMI': '#00ff44', 'ORCUS': '#00ff44', 'DARK BOJDO': '#ffcc00', 'GROOVE MCSMOOTH': '#bb77dd', 'DARK DUPLAIRE': '#00ffdd' };
+    const bossAccent = darkAccentBosses[rawPick.name] || rawPick.char.accent;
+    pick = { name: rawPick.name, accent: bossAccent, desc: rawPick.char.desc };
+  } else {
+    pick = rawPick;
+  }
   const landed = lotteryTimer >= lotteryDuration;
   const progress = Math.min(1, lotteryTimer / lotteryDuration);
 

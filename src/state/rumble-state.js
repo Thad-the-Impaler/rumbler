@@ -86,6 +86,48 @@ let rumbleBatschSparks = []; // impact spark particles { x, y, vx, vy, life }
 let rumbleBatschTrail = []; // motion blur trail { x, y, alpha }
 let rumbleBatschLaunchVy = 0; // opponent launch velocity
 let rumbleBatschLastHitFrame = 0; // frame of last hit (for cooldown)
+let rumbleXhaustPhase = 0; // 0=spray, 1=drenched walk, 2=ignite, 3=explosion, 4=hold
+let rumbleXhaustOilDrops = []; // { x, y, vy }
+let rumbleXhaustFlames = []; // { x, y, vx, vy, size, timer }
+let rumbleXhaustDrenched = false;
+
+let rumbleVorticePhase = 0; // 0=summon, 1=suck in, 2=spin, 3=fling, 4=crack, 5=hold
+let rumbleVorticeAngle = 0; // opponent orbit angle
+let rumbleVorticeSpeed = 0; // spin speed
+let rumbleVorticeRadius = 0; // orbit radius
+let rumbleVorticeTornadoR = 0; // tornado visual radius
+let rumbleVorticeFlingX = 0; // flung opponent position
+let rumbleVorticeFlingY = 0;
+let rumbleVorticeFlingVx = 0;
+let rumbleVorticeFlingVy = 0;
+let rumbleVorticeCrackSide = ''; // which edge cracked
+let rumbleVorticeCracks = []; // pre-generated crack lines
+let rumbleVorticeDebris = []; // crack debris particles
+
+let rumbleBuckPhase = 0; // 0=flex+fireworks, 1=eagles+flags, 2=bomber, 3=explosion, 4=hold
+let rumbleBuckFireworks = []; // { x, y, vx, vy, color, timer, trail }
+let rumbleBuckEagles = []; // { x, y, vx, flagTrail }
+let rumbleBuckExplosions = []; // { x, y, vx, vy, color, timer, text }
+let rumbleBuckBomberX = 0;
+let rumbleBuckMissileY = -50;
+let rumbleBuckMissileDropped = false;
+
+let rumbleExorPhase = 0; // 0=walk, 1=punch, 2=soul flies out, 3=absorb, 4=crumble, 5=hold
+let rumbleExorSoulX = 0;
+let rumbleExorSoulY = 0;
+let rumbleExorSoulAlpha = 1;
+let rumbleExorCrumbleT = 0;
+
+let rumbleBacktrackPhase = 0; // 0=rewind effect, 1=shrinking, 2=baby, 3=run+punt, 4=hold
+let rumbleBacktrackShrink = 1.0; // opponent scale (1.0 → 0.4)
+let rumbleBacktrackBabyY = 0; // baby launch Y velocity
+let rumbleBacktrackBabyX = 0; // baby X position
+let rumbleBacktrackBabyVy = 0;
+
+let rumbleKillaWattPhase = 0; // 0=strike, 1=electrocute, 2=skeleton reveal, 3=collapse, 4=hold
+let rumbleKillaWattBolts = []; // lightning bolt paths
+let rumbleKillaWattSkeleton = null; // { x, groundY, collapseT }
+
 let rumbleMatadorPhase = 0; // 0=walk+cape, 1=bull rush, 2=trample, 3=hold
 let rumbleMatadorBullX = 0; // bull position
 let rumbleMatadorBullSpeed = 0;
@@ -132,6 +174,15 @@ function resetRumbleState() {
   rumbleBatschShellVx = 0; rumbleBatschShellVy = 0; rumbleBatschSpinAngle = 0;
   rumbleBatschSpinSpeed = 0; rumbleBatschHits = 0; rumbleBatschSparks = [];
   rumbleBatschTrail = []; rumbleBatschLaunchVy = 0; rumbleBatschLastHitFrame = 0;
+  rumbleXhaustPhase = 0; rumbleXhaustOilDrops = []; rumbleXhaustFlames = []; rumbleXhaustDrenched = false;
+  rumbleVorticePhase = 0; rumbleVorticeAngle = 0; rumbleVorticeSpeed = 0; rumbleVorticeRadius = 0;
+  rumbleVorticeTornadoR = 0; rumbleVorticeFlingX = 0; rumbleVorticeFlingY = 0;
+  rumbleVorticeFlingVx = 0; rumbleVorticeFlingVy = 0; rumbleVorticeCrackSide = ''; rumbleVorticeCracks = []; rumbleVorticeDebris = [];
+  rumbleBuckPhase = 0; rumbleBuckFireworks = []; rumbleBuckEagles = []; rumbleBuckExplosions = [];
+  rumbleBuckBomberX = 0; rumbleBuckMissileY = -50; rumbleBuckMissileDropped = false;
+  rumbleExorPhase = 0; rumbleExorSoulX = 0; rumbleExorSoulY = 0; rumbleExorSoulAlpha = 1; rumbleExorCrumbleT = 0;
+  rumbleBacktrackPhase = 0; rumbleBacktrackShrink = 1.0; rumbleBacktrackBabyY = 0; rumbleBacktrackBabyX = 0; rumbleBacktrackBabyVy = 0;
+  rumbleKillaWattPhase = 0; rumbleKillaWattBolts = []; rumbleKillaWattSkeleton = null;
   rumbleMatadorPhase = 0; rumbleMatadorBullX = 0; rumbleMatadorBullSpeed = 0; rumbleMatadorDust = [];
   rumblePaletapPhase = 0; rumblePaletapVibrate = 0; rumblePaletapParts = [];
 }
