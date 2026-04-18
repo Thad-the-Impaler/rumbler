@@ -29,7 +29,14 @@ function drawLevelSelectScreen() {
   }
 
   const lvls = getLevels();
-  const totalItems = lvls.length + 1; // +1 for RANDOM
+  // When Tab toggled, show locked secret levels in the grid as "?" cards
+  const allLevels = [...lvls];
+  if (showLockedLevels) {
+    for (const sl of secretLevels) {
+      if (!sl.unlocked() && !allLevels.includes(sl)) allLevels.push(sl);
+    }
+  }
+  const totalItems = allLevels.length + 1; // all levels + RANDOM
   const perRow = Math.min(totalItems, 5);
   const rows = Math.ceil(totalItems / perRow);
   const cardW = 150;
@@ -46,20 +53,20 @@ function drawLevelSelectScreen() {
   for (let i = 0; i < totalItems; i++) {
     const row = Math.floor(i / perRow);
     const col = i % perRow;
-    // Center last row if it has fewer items
     const itemsInRow = Math.min(perRow, totalItems - row * perRow);
     const rowTotalW = itemsInRow * cardW + (itemsInRow - 1) * gap;
     const rowStartX = (960 - rowTotalW) / 2 + cardW / 2;
     const x = rowStartX + col * (cardW + gap);
     const y = startY + row * (cardH + gap + 20);
     const selected = i === levelSelectCursor;
-    const isRandom = i >= lvls.length;
+    const isRandom = i >= allLevels.length;
+    const isLocked = !isRandom && i >= lvls.length; // beyond unlocked levels = locked
 
     ctx.save();
     ctx.translate(x, y);
 
     if (isRandom) {
-      // Draw RANDOM card
+      // RANDOM card
       if (selected) {
         ctx.shadowColor = '#ffd700';
         ctx.shadowBlur = 20;
@@ -72,7 +79,6 @@ function drawLevelSelectScreen() {
       ctx.fill();
       ctx.stroke();
       ctx.shadowBlur = 0;
-
       const pulse = selected ? Math.sin(Date.now() * 0.005) * 3 : 0;
       ctx.font = `bold ${28 + pulse}px Arial`;
       ctx.textAlign = 'center';
@@ -81,15 +87,36 @@ function drawLevelSelectScreen() {
       ctx.font = 'bold 11px Arial';
       ctx.fillStyle = selected ? '#fff' : '#888';
       ctx.fillText('RANDOM', 0, 30);
+    } else if (isLocked) {
+      // Locked stage card
+      const lockedLvl = allLevels[i];
+      const hint = secretLevelHints[lockedLvl.name];
+      ctx.fillStyle = '#0d0d14';
+      ctx.strokeStyle = '#222';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(-cardW/2, -cardH/2, cardW, cardH, 8);
+      ctx.fill();
+      ctx.stroke();
+      ctx.font = 'bold 22px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#333';
+      ctx.fillText('?', 0, 0);
+      if (hint) {
+        ctx.font = 'italic 9px Arial';
+        ctx.fillStyle = '#444';
+        ctx.fillText('"' + hint + '"', 0, 22);
+      }
+      ctx.font = '8px Arial';
+      ctx.fillStyle = '#333';
+      ctx.fillText('LOCKED', 0, 35);
     } else {
-      // Draw level card
-      const lvl = lvls[i];
+      // Unlocked level card
+      const lvl = allLevels[i];
       if (selected) {
         ctx.shadowColor = lvl.accent;
         ctx.shadowBlur = 15;
       }
-
-      // Card background with level color tint (use accent for very dark base colors)
       const lr = parseInt(lvl.color.slice(1,3), 16), lg = parseInt(lvl.color.slice(3,5), 16), lb = parseInt(lvl.color.slice(5,7), 16);
       const tooD = (lr + lg + lb) < 120;
       const cardGrad = ctx.createLinearGradient(0, -cardH/2, 0, cardH/2);
@@ -103,11 +130,7 @@ function drawLevelSelectScreen() {
       ctx.fill();
       ctx.stroke();
       ctx.shadowBlur = 0;
-
-      // Mini preview icon based on level type
       drawLevelIcon(lvl.name, 0, -10, selected);
-
-      // Level name
       ctx.font = 'bold 12px Arial';
       ctx.textAlign = 'center';
       ctx.fillStyle = selected ? '#fff' : '#888';
@@ -117,47 +140,32 @@ function drawLevelSelectScreen() {
     ctx.restore();
   }
 
-  // Draw locked secret level indicators below
-  if (showLocked) {
-    const lockY = startY + rows * (cardH + gap + 20) + 10;
-    ctx.font = '12px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#444';
-    ctx.fillText(`${lockedSecrets.length} secret stage${lockedSecrets.length > 1 ? 's' : ''} locked`, 480, lockY);
-    // Show hints
-    for (let i = 0; i < lockedSecrets.length; i++) {
-      const hint = secretLevelHints[lockedSecrets[i].name];
-      if (hint) {
-        ctx.fillStyle = '#333';
-        ctx.fillText(`"${hint}"`, 480, lockY + 16 + i * 14);
-      }
-    }
-  }
-
   // Selected level info
   if (levelSelectCursor < lvls.length) {
     const current = lvls[levelSelectCursor];
-    ctx.font = 'bold 22px Arial';
+    ctx.font = 'bold 20px Arial';
     ctx.fillStyle = current.accent;
     ctx.textAlign = 'center';
-    ctx.fillText(current.name, 480, 470);
-    ctx.font = '14px Arial';
+    ctx.fillText(current.name, 480, 465);
+    ctx.font = '13px Arial';
     ctx.fillStyle = '#aaa';
-    ctx.fillText(current.desc, 480, 492);
+    ctx.fillText(current.desc, 480, 485);
   } else {
-    ctx.font = 'bold 22px Arial';
+    ctx.font = 'bold 20px Arial';
     ctx.fillStyle = '#ffd700';
     ctx.textAlign = 'center';
-    ctx.fillText('RANDOM', 480, 470);
-    ctx.font = '14px Arial';
+    ctx.fillText('RANDOM', 480, 465);
+    ctx.font = '13px Arial';
     ctx.fillStyle = '#aaa';
-    ctx.fillText('A random stage will be chosen', 480, 492);
+    ctx.fillText('A random stage will be chosen', 480, 485);
   }
 
-  ctx.font = '14px Arial';
+  // Footer
+  ctx.font = '13px Arial';
   ctx.fillStyle = '#555';
   ctx.textAlign = 'center';
-  ctx.fillText('ARROWS to browse | ENTER to select | ESC to go back', 480, 530);
+  const tabHint = lockedSecrets.length > 0 ? (showLockedLevels ? ' | TAB to hide secrets' : ' | TAB to view secrets') : '';
+  ctx.fillText('ARROWS to browse | ENTER to select | ESC to go back' + tabHint, 480, 528);
 
   // Unlock flash effects
   if (snowyCityUnlockFlash > 0) {
@@ -395,6 +403,39 @@ function drawLevelIcon(name, x, y, selected) {
       ctx.ellipse(-6, -10, 8, 3, -0.3, 0, Math.PI * 2);
       ctx.fill();
       break;
+    case 'THE TENT':
+      // Circus tent icon
+      ctx.fillStyle = '#cc3333';
+      ctx.beginPath();
+      ctx.moveTo(-15, 10);
+      ctx.lineTo(0, -15);
+      ctx.lineTo(15, 10);
+      ctx.closePath();
+      ctx.fill();
+      // Stripes
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.moveTo(-7, 10);
+      ctx.lineTo(0, -15);
+      ctx.lineTo(7, 10);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#cc3333';
+      ctx.beginPath();
+      ctx.moveTo(-3, 10);
+      ctx.lineTo(0, -15);
+      ctx.lineTo(3, 10);
+      ctx.closePath();
+      ctx.fill();
+      // Flag on top
+      ctx.fillStyle = '#ffcc00';
+      ctx.beginPath();
+      ctx.moveTo(0, -15);
+      ctx.lineTo(5, -18);
+      ctx.lineTo(0, -13);
+      ctx.closePath();
+      ctx.fill();
+      break;
     case 'THE DUST':
       // Ancient ruins icon — crumbling pillars + particles
       ctx.fillStyle = '#4a3a5a';
@@ -412,6 +453,31 @@ function drawLevelIcon(name, x, y, selected) {
         ctx.globalAlpha = alpha * (0.4 + Math.sin(t + i) * 0.3);
         ctx.beginPath();
         ctx.arc(px, py, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = alpha;
+      break;
+    case 'THE PULP':
+      // Cosmic vortex icon — swirling energy
+      const tp = Date.now() * 0.004;
+      // Central vortex
+      ctx.strokeStyle = '#aa44ff';
+      ctx.lineWidth = 1.5;
+      for (let r = 0; r < 3; r++) {
+        ctx.globalAlpha = alpha * (0.4 + Math.sin(tp + r) * 0.2);
+        ctx.beginPath();
+        ctx.arc(0, 0, 5 + r * 5, tp + r * 1.5, tp + r * 1.5 + Math.PI * 1.2);
+        ctx.stroke();
+      }
+      // Energy sparks
+      const sparkColors = ['#ff44aa', '#44aaff', '#ffaa44', '#44ffaa'];
+      for (let i = 0; i < 5; i++) {
+        const sa = tp * 2 + i * 1.3;
+        const sr = 8 + i * 2;
+        ctx.fillStyle = sparkColors[i % sparkColors.length];
+        ctx.globalAlpha = alpha * (0.5 + Math.sin(tp + i * 2) * 0.3);
+        ctx.beginPath();
+        ctx.arc(Math.cos(sa) * sr, Math.sin(sa) * sr, 1.5, 0, Math.PI * 2);
         ctx.fill();
       }
       ctx.globalAlpha = alpha;

@@ -1413,3 +1413,862 @@ function drawMatadorRumble(loseFighter, winFighter) {
     ctx.restore();
   }
 }
+
+
+function drawKillaWattRumble(loseFighter, winFighter) {
+  // Blue lightning bolts
+  if (rumbleKillaWattBolts.length > 0) {
+    ctx.save();
+    const flicker = rumbleKillaWattPhase <= 1 ? (0.6 + Math.sin(Date.now() * 0.03) * 0.3) : 0.3;
+    ctx.globalAlpha = flicker;
+
+    for (const bolt of rumbleKillaWattBolts) {
+      // Main bolt
+      ctx.strokeStyle = '#4488ff';
+      ctx.lineWidth = 4;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(bolt[0].x, bolt[0].y);
+      for (let s = 1; s < bolt.length; s++) {
+        ctx.lineTo(bolt[s].x, bolt[s].y);
+      }
+      ctx.stroke();
+      // Bright core
+      ctx.strokeStyle = '#aaccff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(bolt[0].x, bolt[0].y);
+      for (let s = 1; s < bolt.length; s++) {
+        ctx.lineTo(bolt[s].x + (Math.random() - 0.5) * 3, bolt[s].y + (Math.random() - 0.5) * 3);
+      }
+      ctx.stroke();
+      // White hot center
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(bolt[0].x, bolt[0].y);
+      for (let s = 1; s < bolt.length; s++) {
+        ctx.lineTo(bolt[s].x + (Math.random() - 0.5) * 2, bolt[s].y + (Math.random() - 0.5) * 2);
+      }
+      ctx.stroke();
+    }
+
+    // Ground flash where bolts hit
+    ctx.fillStyle = '#4488ff';
+    ctx.globalAlpha = flicker * 0.5;
+    ctx.beginPath();
+    ctx.ellipse(loseFighter.x, loseFighter.groundY, 25, 8, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  // Electric glow around opponent during electrocution
+  if (rumbleKillaWattPhase === 1) {
+    ctx.save();
+    ctx.globalAlpha = 0.3 + Math.sin(Date.now() * 0.02) * 0.15;
+    ctx.fillStyle = '#4488ff';
+    ctx.beginPath();
+    ctx.ellipse(loseFighter.x, loseFighter.y - 30, 30, 40, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Sparks
+    for (let i = 0; i < 4; i++) {
+      const sx = loseFighter.x + (Math.random() - 0.5) * 40;
+      const sy = loseFighter.y - 20 + (Math.random() - 0.5) * 50;
+      ctx.fillStyle = '#aaccff';
+      ctx.beginPath();
+      ctx.arc(sx, sy, 1 + Math.random() * 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  // Skeleton (reuse Bozollok's skeleton draw)
+  if (rumbleKillaWattSkeleton) {
+    drawBozollokSkeleton(rumbleKillaWattSkeleton.x, rumbleKillaWattSkeleton.groundY, rumbleKillaWattSkeleton.collapseT);
+  }
+}
+
+
+function drawBacktrackRumble(loseFighter, winFighter) {
+  const f = winFighter.facing;
+
+  // Rewind visual overlay
+  if (rumbleBacktrackPhase === 0 || (rumbleBacktrackPhase === 1 && winFighter.btRewindEffect > 0)) {
+    ctx.save();
+    ctx.globalAlpha = 0.15 + Math.sin(Date.now() * 0.01) * 0.08;
+    ctx.fillStyle = '#b44dff';
+    ctx.fillRect(0, 0, 960, 540);
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  // Phase 0: draw loser at full size (rewind just started)
+  if (rumbleBacktrackPhase === 0) {
+    loseFighter.draw(ctx);
+  }
+
+  // Phase 1: draw opponent at shrinking scale
+  if (rumbleBacktrackPhase === 1) {
+    ctx.save();
+    ctx.translate(loseFighter.x, loseFighter.y);
+    ctx.scale(rumbleBacktrackShrink, rumbleBacktrackShrink);
+    ctx.translate(-loseFighter.x, -loseFighter.y);
+    loseFighter.draw(ctx);
+    ctx.restore();
+  }
+
+  // Phases 2-3: baby form — tiny body, big wide-eyed head (until punted at phase 4)
+  if (rumbleBacktrackPhase === 2 || (rumbleBacktrackPhase === 3 && rumbleBacktrackBabyVy === 0)) {
+    const bx = loseFighter.x;
+    const by = loseFighter.y;
+    const loserChar = (winner === 'player' ? selectedCPU : selectedPlayer);
+    const babyColor = loserChar.color;
+    const babyAccent = loserChar.accent;
+    const babyOutline = loserChar.outline;
+
+    ctx.save();
+    ctx.translate(bx, by);
+
+    // Tiny body
+    ctx.fillStyle = babyColor;
+    ctx.strokeStyle = babyOutline;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(-6, -18, 12, 15, 3);
+    ctx.fill(); ctx.stroke();
+
+    // Tiny legs
+    ctx.strokeStyle = babyColor;
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(-3, -3); ctx.lineTo(-4, 0); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(3, -3); ctx.lineTo(4, 0); ctx.stroke();
+
+    // Tiny arms
+    ctx.beginPath(); ctx.moveTo(-6, -14); ctx.lineTo(-10, -8); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(6, -14); ctx.lineTo(10, -8); ctx.stroke();
+
+    // Big baby head
+    ctx.fillStyle = babyAccent;
+    ctx.strokeStyle = babyOutline;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(0, -32, 14, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
+
+    // Wide baby eyes
+    ctx.fillStyle = babyOutline;
+    ctx.beginPath(); ctx.arc(-5, -34, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(5, -34, 4, 0, Math.PI * 2); ctx.fill();
+    // Big white pupils (wide-eyed look)
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(-4, -35, 2.5, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(6, -35, 2.5, 0, Math.PI * 2); ctx.fill();
+    // Tiny black pupils
+    ctx.fillStyle = '#000';
+    ctx.beginPath(); ctx.arc(-4, -35, 1, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(6, -35, 1, 0, Math.PI * 2); ctx.fill();
+
+    // Little open mouth (surprised)
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.arc(0, -27, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  // Flying baby (phase 4)
+  if (rumbleBacktrackPhase >= 4 && rumbleBacktrackPhase <= 5) {
+    const bx = rumbleBacktrackBabyX;
+    const by = rumbleBacktrackBabyY;
+    if (by > -50) { // still visible
+      const loserChar = (winner === 'player' ? selectedCPU : selectedPlayer);
+      const babyColor = loserChar.color;
+      const babyAccent = loserChar.accent;
+      const babyOutline = loserChar.outline;
+      const spinAngle = Date.now() * 0.02;
+
+      ctx.save();
+      ctx.translate(bx, by);
+      ctx.rotate(spinAngle);
+      ctx.scale(0.4, 0.4); // tiny
+
+      // Body
+      ctx.fillStyle = babyColor;
+      ctx.strokeStyle = babyOutline;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect(-6, -18, 12, 15, 3);
+      ctx.fill(); ctx.stroke();
+
+      // Legs flailing
+      ctx.strokeStyle = babyColor;
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      const flail = Math.sin(Date.now() * 0.03);
+      ctx.beginPath(); ctx.moveTo(-3, -3); ctx.lineTo(-4 + flail * 4, 4); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(3, -3); ctx.lineTo(4 - flail * 4, 4); ctx.stroke();
+
+      // Arms flailing
+      ctx.beginPath(); ctx.moveTo(-6, -14); ctx.lineTo(-12 + flail * 5, -6); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(6, -14); ctx.lineTo(12 - flail * 5, -6); ctx.stroke();
+
+      // Big head
+      ctx.fillStyle = babyAccent;
+      ctx.strokeStyle = babyOutline;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, -32, 14, 0, Math.PI * 2);
+      ctx.fill(); ctx.stroke();
+
+      // Wide crying eyes
+      ctx.fillStyle = babyOutline;
+      ctx.beginPath(); ctx.arc(-5, -34, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(5, -34, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.arc(-4, -35, 2.5, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(6, -35, 2.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#000';
+      ctx.beginPath(); ctx.arc(-4, -35, 1, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(6, -35, 1, 0, Math.PI * 2); ctx.fill();
+
+      // Open crying mouth
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      ctx.ellipse(0, -26, 3, 4, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+    }
+  }
+
+  // Punt impact effect
+  if (rumbleBacktrackPhase === 4 && rumbleTimer < 310) {
+    ctx.save();
+    ctx.globalAlpha = 0.6;
+    ctx.font = 'bold 24px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText('PUNT!', loseFighter.x, loseFighter.groundY - 20);
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+}
+
+
+function drawExorRumble(loseFighter, winFighter) {
+  const f = winFighter.facing;
+  const loserChar = (winner === 'player' ? selectedCPU : selectedPlayer);
+
+  // Green energy around Exor's fists during punch
+  if (rumbleExorPhase === 1) {
+    ctx.save();
+    const fistX = winFighter.x + f * 28;
+    const fistY = winFighter.y - 45;
+    ctx.globalAlpha = 0.6 + Math.sin(Date.now() * 0.02) * 0.2;
+    ctx.fillStyle = '#00ff44';
+    ctx.beginPath();
+    ctx.arc(fistX, fistY, 12 + Math.sin(Date.now() * 0.03) * 3, 0, Math.PI * 2);
+    ctx.fill();
+    // Energy sparks
+    for (let i = 0; i < 5; i++) {
+      const sx = fistX + (Math.random() - 0.5) * 20;
+      const sy = fistY + (Math.random() - 0.5) * 20;
+      ctx.fillStyle = '#88ffaa';
+      ctx.beginPath();
+      ctx.arc(sx, sy, 1 + Math.random() * 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  // Stone body (phases 2-4): opponent recolored to limestone, with crack lines
+  if (rumbleExorPhase >= 2 && rumbleExorPhase <= 4 && !rumbleLoserHidden) {
+    ctx.save();
+    loseFighter.draw(ctx);
+    // Crack lines on stone body
+    ctx.strokeStyle = '#8a7a6a';
+    ctx.lineWidth = 1.5;
+    ctx.globalAlpha = 0.7;
+    ctx.beginPath(); ctx.moveTo(loseFighter.x - 8, loseFighter.y - 50); ctx.lineTo(loseFighter.x + 5, loseFighter.y - 25); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(loseFighter.x + 10, loseFighter.y - 45); ctx.lineTo(loseFighter.x - 3, loseFighter.y - 15); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(loseFighter.x - 5, loseFighter.y - 35); ctx.lineTo(loseFighter.x + 8, loseFighter.y - 40); ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  // Crumbling dust (phase 4)
+  if (rumbleExorPhase === 4) {
+    ctx.save();
+    const crT = rumbleExorCrumbleT;
+    // Dust particles falling from where the body was
+    for (let i = 0; i < 15; i++) {
+      const dx = loseFighter.x + (Math.random() - 0.5) * 30;
+      const dy = loseFighter.y - 50 + i * 4 + crT * 30;
+      ctx.globalAlpha = Math.max(0, (1 - crT) * 0.6);
+      ctx.fillStyle = i % 2 === 0 ? '#999' : '#777';
+      ctx.beginPath();
+      ctx.arc(dx + Math.sin(i + crT * 5) * 5, dy, 2 + Math.random() * 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // Dust cloud at base
+    ctx.globalAlpha = Math.max(0, (1 - crT * 0.7) * 0.4);
+    ctx.fillStyle = '#aaa';
+    ctx.beginPath();
+    ctx.ellipse(loseFighter.x, loseFighter.groundY, 25 + crT * 15, 6 + crT * 3, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  // Remaining dust pile (phase 5)
+  if (rumbleExorPhase === 5) {
+    ctx.save();
+    ctx.globalAlpha = 0.5;
+    ctx.fillStyle = '#888';
+    ctx.beginPath();
+    ctx.ellipse(loseFighter.x, loseFighter.groundY, 20, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  // Ghost/soul (phases 2-3)
+  if (rumbleExorSoulAlpha > 0.01) {
+    ctx.save();
+    ctx.globalAlpha = rumbleExorSoulAlpha;
+    const sx = rumbleExorSoulX;
+    const sy = rumbleExorSoulY;
+    const soulColor = loserChar.accent || '#aaa';
+
+    // Ghostly body shape
+    ctx.fillStyle = soulColor;
+    // Head
+    ctx.beginPath();
+    ctx.arc(sx, sy - 16, 12, 0, Math.PI * 2);
+    ctx.fill();
+    // Body (tapers down, wispy)
+    ctx.beginPath();
+    ctx.moveTo(sx - 10, sy - 8);
+    ctx.quadraticCurveTo(sx - 12, sy + 10, sx - 8, sy + 20);
+    ctx.quadraticCurveTo(sx - 4, sy + 25, sx, sy + 22);
+    ctx.quadraticCurveTo(sx + 4, sy + 25, sx + 8, sy + 20);
+    ctx.quadraticCurveTo(sx + 12, sy + 10, sx + 10, sy - 8);
+    ctx.closePath();
+    ctx.fill();
+
+    // Ghost eyes (wide, hollow)
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(sx - 4, sy - 18, 3.5, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(sx + 4, sy - 18, 3.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#000';
+    ctx.beginPath(); ctx.arc(sx - 4, sy - 18, 1.5, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(sx + 4, sy - 18, 1.5, 0, Math.PI * 2); ctx.fill();
+
+    // Open mouth (shocked expression)
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.ellipse(sx, sy - 10, 3, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Wispy trail
+    ctx.strokeStyle = soulColor;
+    ctx.lineWidth = 3;
+    ctx.globalAlpha = rumbleExorSoulAlpha * 0.4;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy + 22);
+    ctx.quadraticCurveTo(sx + Math.sin(Date.now() * 0.005) * 8, sy + 35, sx + Math.sin(Date.now() * 0.003) * 12, sy + 45);
+    ctx.stroke();
+
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  // Absorption glow on Exor (phase 3, late)
+  if (rumbleExorPhase === 3) {
+    const absT = Math.min(1, (rumbleTimer - 160) / 80);
+    if (absT > 0.5) {
+      ctx.save();
+      ctx.globalAlpha = (absT - 0.5) * 0.6;
+      ctx.fillStyle = '#00ff44';
+      ctx.beginPath();
+      ctx.arc(winFighter.x, winFighter.y - 30, 20 + absT * 10, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    }
+  }
+}
+
+
+function drawBuckRumble(loseFighter, winFighter) {
+  // Firework trails + heads
+  for (const fw of rumbleBuckFireworks) {
+    ctx.save();
+    for (const t of fw.trail) {
+      ctx.globalAlpha = t.t / 6 * 0.5;
+      ctx.fillStyle = fw.color;
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = fw.color;
+    ctx.beginPath();
+    ctx.arc(fw.x, fw.y, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(fw.x, fw.y, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Explosion particles + text
+  for (const e of rumbleBuckExplosions) {
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, e.timer / 15);
+    if (e.text) {
+      const scale = 1 + (1 - e.timer / 40) * 0.6;
+      ctx.translate(e.x, e.y);
+      ctx.scale(scale, scale);
+      ctx.font = 'bold 16px Arial';
+      ctx.textAlign = 'center';
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 3;
+      ctx.strokeText(e.text, 0, 0);
+      ctx.fillStyle = e.color;
+      ctx.fillText(e.text, 0, 0);
+    } else {
+      ctx.fillStyle = e.color;
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, 2 + (1 - e.timer / 25) * 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  // Bald eagles with American flag trails
+  for (const eagle of rumbleBuckEagles) {
+    if (eagle.x > 1020) continue;
+    ctx.save();
+    ctx.translate(eagle.x, eagle.y);
+
+    // Eagle body
+    ctx.fillStyle = '#3a2a1a';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 14, 7, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // White head
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(10, -2, 6, 0, Math.PI * 2);
+    ctx.fill();
+    // Beak
+    ctx.fillStyle = '#ffaa00';
+    ctx.beginPath();
+    ctx.moveTo(16, -2);
+    ctx.lineTo(22, 0);
+    ctx.lineTo(16, 2);
+    ctx.closePath();
+    ctx.fill();
+    // Eye
+    ctx.fillStyle = '#111';
+    ctx.beginPath();
+    ctx.arc(12, -3, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+    // Wings (flapping)
+    const wingFlap = Math.sin(Date.now() * 0.012 + eagle.x) * 0.5;
+    ctx.fillStyle = '#4a3a2a';
+    ctx.save();
+    ctx.rotate(wingFlap);
+    ctx.beginPath();
+    ctx.moveTo(-5, -2);
+    ctx.quadraticCurveTo(-10, -18, -20, -14);
+    ctx.lineTo(-8, -2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+    ctx.save();
+    ctx.rotate(-wingFlap);
+    ctx.beginPath();
+    ctx.moveTo(-5, 2);
+    ctx.quadraticCurveTo(-10, 18, -20, 14);
+    ctx.lineTo(-8, 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    ctx.restore();
+
+    // Flag trail — American flag using rectangles
+    if (eagle.flagTrail.length > 5) {
+      ctx.save();
+      const flagLen = Math.min(eagle.flagTrail.length, 30);
+      for (let fi = 0; fi < flagLen; fi++) {
+        const fp = eagle.flagTrail[eagle.flagTrail.length - 1 - fi];
+        const wave = Math.sin(Date.now() * 0.004 + fi * 0.3) * 3;
+        const stripeH = 2;
+        const flagW = 20;
+        ctx.globalAlpha = 0.7 * (1 - fi / flagLen);
+        // Red and white stripes
+        for (let s = 0; s < 7; s++) {
+          ctx.fillStyle = s % 2 === 0 ? '#cc0000' : '#ffffff';
+          ctx.fillRect(fp.x - flagW / 2, fp.y + wave + s * stripeH - 7, flagW, stripeH);
+        }
+        // Blue canton
+        ctx.fillStyle = '#000066';
+        ctx.fillRect(fp.x - flagW / 2, fp.y + wave - 7, 8, 8);
+        // Tiny stars
+        ctx.fillStyle = '#fff';
+        for (let si = 0; si < 4; si++) {
+          ctx.fillRect(fp.x - flagW / 2 + 2 + (si % 2) * 4, fp.y + wave - 5 + Math.floor(si / 2) * 4, 1, 1);
+        }
+      }
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    }
+  }
+
+  // Flexing effect on Buck (phase 0) — pulsing glow
+  if (rumbleBuckPhase === 0) {
+    ctx.save();
+    ctx.globalAlpha = 0.2 + Math.sin(Date.now() * 0.01) * 0.1;
+    ctx.fillStyle = '#ffaa00';
+    ctx.beginPath();
+    ctx.arc(winFighter.x, winFighter.y - 30, 30 + Math.sin(Date.now() * 0.008) * 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  // Bomber plane (phases 2-3)
+  if (rumbleBuckPhase >= 2 && rumbleBuckBomberX < 1100) {
+    ctx.save();
+    ctx.translate(rumbleBuckBomberX, 35);
+    // Fuselage
+    ctx.fillStyle = '#556b2f';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 40, 10, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Cockpit
+    ctx.fillStyle = '#88aa55';
+    ctx.beginPath();
+    ctx.ellipse(30, -3, 10, 6, 0.2, 0, Math.PI * 2);
+    ctx.fill();
+    // Wings
+    ctx.fillStyle = '#4a5a2a';
+    ctx.fillRect(-25, -4, 50, 8);
+    // Wing tips
+    ctx.fillRect(-30, -2, 8, 4);
+    ctx.fillRect(22, -2, 8, 4);
+    // Tail
+    ctx.fillStyle = '#556b2f';
+    ctx.beginPath();
+    ctx.moveTo(-38, -2);
+    ctx.lineTo(-48, -12);
+    ctx.lineTo(-42, -2);
+    ctx.closePath();
+    ctx.fill();
+    // Star insignia
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 6px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('★', 0, 3);
+    ctx.restore();
+  }
+
+  // Missile (falling)
+  if (rumbleBuckMissileDropped && rumbleBuckMissileY < loseFighter.y && rumbleBuckPhase < 4) {
+    ctx.save();
+    ctx.translate(loseFighter.x, rumbleBuckMissileY);
+    // Missile body
+    ctx.fillStyle = '#444';
+    ctx.beginPath();
+    ctx.roundRect(-4, -12, 8, 24, 3);
+    ctx.fill();
+    // Nose cone
+    ctx.fillStyle = '#cc0000';
+    ctx.beginPath();
+    ctx.moveTo(-3, -12);
+    ctx.lineTo(0, -18);
+    ctx.lineTo(3, -12);
+    ctx.closePath();
+    ctx.fill();
+    // Fins
+    ctx.fillStyle = '#555';
+    ctx.fillRect(-7, 8, 4, 6);
+    ctx.fillRect(3, 8, 4, 6);
+    // Trail
+    ctx.fillStyle = '#ffaa00';
+    ctx.globalAlpha = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(-3, 12);
+    ctx.lineTo(0, 12 + 15 + Math.random() * 5);
+    ctx.lineTo(3, 12);
+    ctx.closePath();
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  // Impact crater glow (phase 3+)
+  if (rumbleBuckPhase >= 3 && rumbleLoserHidden) {
+    ctx.save();
+    const glowT = rumbleBuckPhase === 3 ? 1 : Math.max(0, 1 - (rumbleTimer - 340) / 100);
+    ctx.globalAlpha = glowT * 0.4;
+    ctx.fillStyle = '#ff4400';
+    ctx.beginPath();
+    ctx.ellipse(loseFighter.x, loseFighter.groundY, 35, 10, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#ffaa00';
+    ctx.beginPath();
+    ctx.ellipse(loseFighter.x, loseFighter.groundY, 20, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+}
+
+
+function drawVorticeRumble(loseFighter, winFighter) {
+  const centerX = winFighter.x;
+  const centerY = winFighter.y - 50;
+
+  // Tornado visual
+  if (rumbleVorticeTornadoR > 5) {
+    ctx.save();
+    const t = Date.now() * 0.003;
+    // Multiple swirling layers
+    for (let layer = 0; layer < 4; layer++) {
+      const layerR = rumbleVorticeTornadoR * (0.4 + layer * 0.2);
+      const layerAlpha = 0.15 - layer * 0.02;
+      ctx.globalAlpha = layerAlpha;
+      ctx.strokeStyle = layer % 2 === 0 ? '#aaccff' : '#ddeeff';
+      ctx.lineWidth = 3 - layer * 0.5;
+      // Swirl rings at different heights
+      for (let ring = 0; ring < 6; ring++) {
+        const ringY = centerY + 80 - ring * 25;
+        const ringR = layerR * (0.3 + ring * 0.14);
+        const ringAngle = t * (2 + layer * 0.5) + ring * 0.8;
+        ctx.beginPath();
+        ctx.ellipse(centerX, ringY, ringR, ringR * 0.3, 0, ringAngle, ringAngle + Math.PI * 1.5);
+        ctx.stroke();
+      }
+    }
+    // Inner funnel (darker core)
+    ctx.globalAlpha = 0.1;
+    ctx.fillStyle = '#667799';
+    ctx.beginPath();
+    ctx.moveTo(centerX - rumbleVorticeTornadoR * 0.15, centerY - 40);
+    ctx.lineTo(centerX - rumbleVorticeTornadoR * 0.5, centerY + 90);
+    ctx.lineTo(centerX + rumbleVorticeTornadoR * 0.5, centerY + 90);
+    ctx.lineTo(centerX + rumbleVorticeTornadoR * 0.15, centerY - 40);
+    ctx.closePath();
+    ctx.fill();
+    // Wind particles
+    ctx.globalAlpha = 0.3;
+    ctx.fillStyle = '#fff';
+    for (let p = 0; p < 10; p++) {
+      const pa = t * 3 + p * 0.63;
+      const pr = rumbleVorticeTornadoR * (0.2 + (p % 5) * 0.15);
+      const py = centerY + 80 - (p % 6) * 25;
+      ctx.beginPath();
+      ctx.arc(centerX + Math.cos(pa) * pr, py + Math.sin(pa) * 5, 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  // Opponent being sucked in (phase 1)
+  if (rumbleVorticePhase === 1) {
+    // Opponent is still drawn normally by draw.js (not hidden yet)
+  }
+
+  // Opponent spinning in tornado (phase 2) — full size, using real draw
+  if (rumbleVorticePhase === 2) {
+    ctx.save();
+    const orbX = centerX + Math.cos(rumbleVorticeAngle) * rumbleVorticeRadius;
+    const orbY = centerY + Math.sin(rumbleVorticeAngle) * rumbleVorticeRadius * 0.4;
+    // Position loser at orbit point and rotate them
+    loseFighter.x = orbX;
+    loseFighter.y = orbY + 30; // adjust so feet are at orbY
+    ctx.translate(orbX, orbY);
+    ctx.rotate(rumbleVorticeAngle * 2);
+    ctx.translate(-orbX, -orbY);
+    loseFighter.draw(ctx);
+    ctx.restore();
+  }
+
+  // Opponent being flung (phase 3) — full size, tumbling
+  if (rumbleVorticePhase === 3) {
+    ctx.save();
+    loseFighter.x = rumbleVorticeFlingX;
+    loseFighter.y = rumbleVorticeFlingY;
+    ctx.translate(rumbleVorticeFlingX, rumbleVorticeFlingY);
+    ctx.rotate(rumbleTimer * 0.3);
+    ctx.translate(-rumbleVorticeFlingX, -rumbleVorticeFlingY);
+    loseFighter.draw(ctx);
+    // Motion blur afterimages
+    ctx.globalAlpha = 0.15;
+    for (let t = 1; t <= 3; t++) {
+      ctx.save();
+      const trailX = rumbleVorticeFlingX - rumbleVorticeFlingVx * t * 3;
+      const trailY = rumbleVorticeFlingY - rumbleVorticeFlingVy * t * 3;
+      loseFighter.x = trailX;
+      loseFighter.y = trailY;
+      ctx.translate(trailX, trailY);
+      ctx.rotate(rumbleTimer * 0.3 - t * 0.5);
+      ctx.translate(-trailX, -trailY);
+      loseFighter.draw(ctx);
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  // Screen crack (phases 4-5) — uses pre-generated crack data
+  if (rumbleVorticePhase >= 4 && rumbleVorticeCracks.length > 0) {
+    ctx.save();
+    const cx = rumbleVorticeFlingX;
+    const cy = rumbleVorticeFlingY;
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = 0.9;
+    for (const crack of rumbleVorticeCracks) {
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + crack.midX, cy + crack.midY);
+      ctx.lineTo(cx + crack.endX, cy + crack.endY);
+      ctx.stroke();
+      if (crack.subX !== undefined) {
+        ctx.beginPath();
+        ctx.moveTo(cx + crack.midX, cy + crack.midY);
+        ctx.lineTo(cx + crack.subX, cy + crack.subY);
+        ctx.stroke();
+      }
+    }
+    // Impact point
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.arc(cx, cy, 10, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 15, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  // Debris particles
+  for (const d of rumbleVorticeDebris) {
+    ctx.save();
+    ctx.globalAlpha = d.timer / 40;
+    ctx.fillStyle = '#ddd';
+    ctx.beginPath();
+    ctx.arc(d.x, d.y, d.size, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+}
+
+
+function drawXhaustRumble(loseFighter, winFighter) {
+  // Oil drops (fountain + drips)
+  for (const drop of rumbleXhaustOilDrops) {
+    ctx.save();
+    ctx.fillStyle = '#1a1a1a';
+    ctx.globalAlpha = 0.8;
+    ctx.beginPath();
+    ctx.arc(drop.x, drop.y, drop.size, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  // Drenched effect — handled by recoloring the fighter's char properties
+
+  // Oil trail on ground during walk
+  if (rumbleXhaustPhase === 2) {
+    ctx.save();
+    ctx.fillStyle = '#111';
+    ctx.globalAlpha = 0.3;
+    ctx.beginPath();
+    ctx.ellipse(winFighter.x, winFighter.y + 2, 15, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  // Ignition sparks (phase 3)
+  if (rumbleXhaustPhase === 3) {
+    ctx.save();
+    ctx.globalAlpha = 0.5 + Math.sin(Date.now() * 0.02) * 0.3;
+    ctx.fillStyle = '#ff6600';
+    ctx.beginPath();
+    ctx.arc(winFighter.x, winFighter.y - 30, 15 + Math.sin(Date.now() * 0.03) * 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  // Flames and smoke
+  for (const fl of rumbleXhaustFlames) {
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, fl.timer / 15);
+    ctx.fillStyle = fl.color;
+    ctx.beginPath();
+    ctx.arc(fl.x, fl.y, fl.size, 0, Math.PI * 2);
+    ctx.fill();
+    // Bright core for fire particles
+    if (fl.color !== '#333' && fl.size > 3) {
+      ctx.fillStyle = '#ffee88';
+      ctx.globalAlpha *= 0.5;
+      ctx.beginPath();
+      ctx.arc(fl.x, fl.y, fl.size * 0.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  // Explosion flash (phase 4, early frames)
+  if (rumbleXhaustPhase === 4 && rumbleTimer < 210) {
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, 0.5 - (rumbleTimer - 200) * 0.05);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, 960, 540);
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  // Scorch mark on ground (phases 4-5)
+  if (rumbleXhaustPhase >= 4) {
+    ctx.save();
+    const cx = (loseFighter.x + (winFighter.x > 0 ? winFighter.x : loseFighter.x)) / 2;
+    // If winner is hidden (x=-200), use loser position
+    const scorchX = winFighter.x < 0 ? loseFighter.x : cx;
+    ctx.fillStyle = '#111';
+    ctx.globalAlpha = 0.6;
+    ctx.beginPath();
+    ctx.ellipse(scorchX, loseFighter.groundY, 50, 12, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#332200';
+    ctx.globalAlpha = 0.3;
+    ctx.beginPath();
+    ctx.ellipse(scorchX, loseFighter.groundY, 35, 8, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+}

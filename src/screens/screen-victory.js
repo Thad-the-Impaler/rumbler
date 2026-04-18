@@ -50,8 +50,46 @@ function drawVictoryScreen() {
     ctx.font = '20px Arial';
     ctx.fillStyle = '#aaa';
     if (gameMode === 'campaign') {
-      if (winner === 'player') {
-        const campaign = campaigns[campaignId];
+      const campaign = campaigns[campaignId];
+      if (campaign && campaign.infinite) {
+        // Infinite mode — show win streak
+        const streak = campaignFightIndex + (winner === 'player' ? 1 : 0);
+        if (winner === 'player') {
+          ctx.font = 'bold 24px Arial';
+          ctx.fillStyle = '#ffcc00';
+          ctx.fillText('WIN STREAK: ' + streak, 480, 340);
+          // Show stage unlock notification
+          const justBeat = campaign.fights[campaignFightIndex];
+          if (justBeat && justBeat.unlocksTent) {
+            ctx.font = 'bold 16px Arial';
+            ctx.fillStyle = '#cc3333';
+            ctx.shadowColor = '#cc3333';
+            ctx.shadowBlur = 10;
+            ctx.fillText('NEW STAGE UNLOCKED: THE TENT', 480, 365);
+            ctx.shadowBlur = 0;
+            ctx.font = '18px Arial';
+            ctx.fillStyle = '#aaa';
+            ctx.fillText('Press ENTER for next fight', 480, 390);
+          } else {
+            ctx.font = '18px Arial';
+            ctx.fillStyle = '#aaa';
+            ctx.fillText('Press ENTER for next fight', 480, 375);
+          }
+        } else {
+          ctx.font = 'bold 24px Arial';
+          ctx.fillStyle = '#ff4444';
+          ctx.fillText('GAME OVER', 480, 340);
+          ctx.font = '20px Arial';
+          ctx.fillStyle = '#ffcc00';
+          ctx.fillText('FINAL STREAK: ' + streak, 480, 375);
+          ctx.font = '16px Arial';
+          ctx.fillStyle = '#888';
+          ctx.fillText('Press ENTER to return to title', 480, 405);
+        }
+        ctx.font = '14px Arial';
+        ctx.fillStyle = '#666';
+        ctx.fillText('Press ESC to return to title', 480, 435);
+      } else if (winner === 'player') {
         const nextIdx = campaignFightIndex + 1;
         // Don't count bonus fights in the progress display
         const realFights = campaign.fights.filter(f => !f.isBonus);
@@ -71,9 +109,32 @@ function drawVictoryScreen() {
         } else {
           ctx.fillStyle = '#ffcc00';
           ctx.fillText('CAMPAIGN COMPLETE!', 480, 360);
-          ctx.font = '16px Arial';
-          ctx.fillStyle = '#888';
-          ctx.fillText('Press ENTER to return to title', 480, 395);
+          // Stage unlock notification
+          if (campaignId === 'warrior') {
+            ctx.font = 'bold 16px Arial';
+            ctx.fillStyle = '#ff6b35';
+            ctx.shadowColor = '#ff6b35';
+            ctx.shadowBlur = 10;
+            ctx.fillText('NEW STAGE UNLOCKED: THE DUST', 480, 390);
+            ctx.shadowBlur = 0;
+            ctx.font = '16px Arial';
+            ctx.fillStyle = '#888';
+            ctx.fillText('Press ENTER to return to title', 480, 415);
+          } else if (campaignId === 'champion') {
+            ctx.font = 'bold 16px Arial';
+            ctx.fillStyle = '#aa44ff';
+            ctx.shadowColor = '#aa44ff';
+            ctx.shadowBlur = 10;
+            ctx.fillText('NEW STAGE UNLOCKED: THE PULP', 480, 390);
+            ctx.shadowBlur = 0;
+            ctx.font = '16px Arial';
+            ctx.fillStyle = '#888';
+            ctx.fillText('Press ENTER to return to title', 480, 415);
+          } else {
+            ctx.font = '16px Arial';
+            ctx.fillStyle = '#888';
+            ctx.fillText('Press ENTER to return to title', 480, 395);
+          }
         }
       } else {
         ctx.fillStyle = '#ff4444';
@@ -82,9 +143,11 @@ function drawVictoryScreen() {
         ctx.fillStyle = '#888';
         ctx.fillText('Press ENTER to return to title', 480, 395);
       }
-      ctx.font = '14px Arial';
-      ctx.fillStyle = '#666';
-      ctx.fillText('Press ESC to return to title', 480, 430);
+      if (!campaign.infinite) {
+        ctx.font = '14px Arial';
+        ctx.fillStyle = '#666';
+        ctx.fillText('Press ESC to return to title', 480, 430);
+      }
     } else if (gameMode === 'rumblePractice') {
       ctx.fillText('Press ENTER to retry', 480, 380);
       ctx.font = '14px Arial';

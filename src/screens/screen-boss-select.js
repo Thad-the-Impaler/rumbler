@@ -12,15 +12,15 @@ const practiceBossList = [
   { char: tubeWardenChar, name: 'TUBE WARDEN' },
   { char: orcusChar, name: 'ORCUS' },
   { char: headChar, name: 'HEAD' },
-  { char: relapmiChar, name: 'RELAPMI' },
-  { char: theCountChar, name: 'THE COUNT' },
   { char: darkBojdoChar, name: 'DARK BOJDO' },
   { char: sixDriverChar, name: 'SIX DRIVER-NINE IRON' },
   { char: printerBossChar, name: 'PRINTER' },
   { char: maneaterChar, name: 'MANEATER' },
   { char: grooveMcSmoothChar, name: 'GROOVE MCSMOOTH' },
   { char: darkDuplaireChar, name: 'DARK DUPLAIRE' },
-  { char: canisChar, name: 'CANIS' }
+  { char: canisChar, name: 'CANIS' },
+  { char: relapmiChar, name: 'RELAPMI' },
+  { char: theCountChar, name: 'THE COUNT' }
 ];
 
 function drawBossSelectScreen() {
@@ -45,16 +45,18 @@ function drawBossSelectScreen() {
   ctx.fillStyle = selectedPlayer.accent;
   ctx.fillText(selectedPlayer.name, 48, 34);
 
-  // Grid layout
-  const total = practiceBossList.length;
-  const perRow = Math.min(10, Math.ceil(total / 2)); // split roughly evenly into 2 rows
+  // Grid layout (bosses + 1 for RANDOM)
+  const totalItems = practiceBossList.length + 1;
+  const total = totalItems;
+  const perRow = Math.min(11, Math.ceil(total / 2)); // split roughly evenly into 2 rows
   const cardW = Math.min(95, Math.floor(900 / perRow));
   const cardH = 100;
   const rowGap = cardH + 18;
   const startY = 80;
 
   for (let i = 0; i < total; i++) {
-    const boss = practiceBossList[i];
+    const isRandom = i >= practiceBossList.length;
+    const boss = isRandom ? null : practiceBossList[i];
     const row = Math.floor(i / perRow);
     const col = i % perRow;
     // Center each row
@@ -65,23 +67,33 @@ function drawBossSelectScreen() {
     const y = startY + row * rowGap;
     const selected = i === bossSelectCursor;
     const pulse = selected ? Math.sin(Date.now() * 0.004) * 0.5 + 0.5 : 0;
-    const unlocked = defeatedBosses[boss.name] || false;
+    const unlocked = isRandom || (defeatedBosses[boss.name] || false);
 
     // Card background
     const pad = 4;
-    ctx.fillStyle = selected ? 'rgba(255,40,40,0.15)' : 'rgba(255,255,255,0.03)';
+    ctx.fillStyle = selected ? (isRandom ? 'rgba(255,215,0,0.15)' : 'rgba(255,40,40,0.15)') : 'rgba(255,255,255,0.03)';
     ctx.beginPath();
     ctx.roundRect(x - cardW / 2 + pad, y, cardW - pad * 2, cardH, 6);
     ctx.fill();
     ctx.strokeStyle = selected
-      ? `rgba(255,${100 + pulse * 155},0,${0.6 + pulse * 0.4})`
+      ? (isRandom ? `rgba(255,215,0,${0.6 + pulse * 0.4})` : `rgba(255,${100 + pulse * 155},0,${0.6 + pulse * 0.4})`)
       : unlocked ? '#444' : '#222';
     ctx.lineWidth = selected ? 2 : 1;
     ctx.beginPath();
     ctx.roundRect(x - cardW / 2 + pad, y, cardW - pad * 2, cardH, 6);
     ctx.stroke();
 
-    if (unlocked) {
+    if (isRandom) {
+      // RANDOM card
+      const rPulse = selected ? Math.sin(Date.now() * 0.005) * 3 : 0;
+      ctx.font = `bold ${24 + rPulse}px Arial`;
+      ctx.textAlign = 'center';
+      ctx.fillStyle = selected ? '#ffd700' : '#666';
+      ctx.fillText('?', x, y + 42);
+      ctx.font = 'bold 9px Arial';
+      ctx.fillStyle = selected ? '#ffd700' : '#888';
+      ctx.fillText('RANDOM', x, y + cardH - 6);
+    } else if (unlocked) {
       // Draw boss portrait
       drawPortraitIcon(boss.name, x, y + 35, 24);
 
@@ -105,7 +117,7 @@ function drawBossSelectScreen() {
 
     // Selection indicator
     if (selected) {
-      ctx.strokeStyle = '#ff6b35';
+      ctx.strokeStyle = isRandom ? '#ffd700' : '#ff6b35';
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.roundRect(x - cardW / 2 + pad - 2, y - 2, cardW - pad * 2 + 4, cardH + 4, 8);
@@ -116,25 +128,35 @@ function drawBossSelectScreen() {
   // Description of selected boss
   const numRows = Math.ceil(total / perRow);
   const descY = startY + numRows * rowGap + 20;
-  const selectedBoss = practiceBossList[bossSelectCursor];
-  const isUnlocked = defeatedBosses[selectedBoss.name] || false;
+  const isRandomSelected = bossSelectCursor >= practiceBossList.length;
   ctx.font = '16px Arial';
   ctx.textAlign = 'center';
-  if (isUnlocked) {
-    // Use visible colors for bosses with dark accents
-    const darkAccentBosses = { 'ERICTHO': '#ffffff', 'RELAPMI': '#00ff44', 'ORCUS': '#00ff44', 'DARK BOJDO': '#ffcc00', 'GROOVE MCSMOOTH': '#bb77dd', 'DARK DUPLAIRE': '#00ffdd' };
-    const descColor = darkAccentBosses[selectedBoss.name] || selectedBoss.char.accent || '#aaa';
-    ctx.fillStyle = descColor;
-    ctx.fillText(selectedBoss.char.desc || selectedBoss.name, 480, descY);
+  if (isRandomSelected) {
+    ctx.fillStyle = '#ffd700';
+    ctx.fillText('A random unlocked boss will be chosen', 480, descY);
   } else {
-    ctx.fillStyle = '#666';
-    ctx.fillText('Defeat this boss in Campaign Mode to unlock', 480, descY);
+    const selectedBoss = practiceBossList[bossSelectCursor];
+    const isUnlocked = defeatedBosses[selectedBoss.name] || false;
+    if (isUnlocked) {
+      const darkAccentBosses = { 'ERICTHO': '#ffffff', 'RELAPMI': '#00ff44', 'ORCUS': '#00ff44', 'DARK BOJDO': '#ffcc00', 'GROOVE MCSMOOTH': '#bb77dd', 'DARK DUPLAIRE': '#00ffdd' };
+      const descColor = darkAccentBosses[selectedBoss.name] || selectedBoss.char.accent || '#aaa';
+      ctx.fillStyle = descColor;
+      ctx.fillText(selectedBoss.char.desc || selectedBoss.name, 480, descY);
+    } else {
+      ctx.fillStyle = '#666';
+      ctx.fillText('Defeat this boss in Campaign Mode to unlock', 480, descY);
+    }
   }
 
   // Instructions
   ctx.font = '14px Arial';
   ctx.fillStyle = '#555';
   ctx.fillText('Arrow keys to browse | ENTER to select | ESC to go back', 480, descY + 40);
+
+  // Lottery overlay
+  if (lotteryActive && lotteryType === 'boss') {
+    drawLotteryOverlay();
+  }
 
   // Master passkey flash
   if (masterUnlockFlash > 0) {

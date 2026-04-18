@@ -7,7 +7,7 @@ const borgusChar = {
   accent: '#ff8800',
   outline: '#552200',
   stats: { speed: 3.5, power: 1.3, defense: 1.3 },
-  desc: 'Campaigner Boss',
+  desc: 'Brute Campaigner',
   isBorgus: true,
   isBoss: true
 };
@@ -185,7 +185,7 @@ const tubeWardenChar = {
   accent: '#00ccbb',
   outline: '#1a1a1a',
   stats: { speed: 3.5, power: 1.25, defense: 1.3 },
-  desc: 'Vial Launcher',
+  desc: 'Curator of the Clink',
   isTubeWarden: true,
   isBoss: true,
   scale: 1.2,
@@ -199,7 +199,7 @@ const orcusChar = {
   accent: '#2a2a3e',
   outline: '#00ff44',
   stats: { speed: 4.0, power: 1.2, defense: 1.1 },
-  desc: 'Otherworldly Master',
+  desc: 'Master Necromancer',
   isOrcus: true,
   isBoss: true,
   maxHealth: 240
@@ -253,7 +253,7 @@ const maneaterChar = {
   accent: '#cc6622',
   outline: '#1a0a00',
   stats: { speed: 4.0, power: 1.4, defense: 1.3 },
-  desc: 'Giant Arachnid',
+  desc: 'Supreme Bug King',
   isBirdeater: true,
   isManeater: true,
   isBoss: true,
@@ -296,7 +296,7 @@ const darkDuplaireChar = {
   accent: '#005550',
   outline: '#003a35',
   stats: { speed: 5.0, power: 0.9, defense: 0.8 },
-  desc: 'The Clone Army',
+  desc: 'Dark Clone Army',
   isDuplaire: true,
   isDarkDuplaire: true,
   isBoss: true,
@@ -310,7 +310,7 @@ const canisChar = {
   accent: '#a07040',
   outline: '#3a2a1a',
   stats: { speed: 5.0, power: 1.1, defense: 1.0 },
-  desc: 'The Shapeshifter',
+  desc: 'Wolf Shifter',
   isCanis: true,
   isBoss: true,
   maxHealth: 210
@@ -332,7 +332,7 @@ const printerBossChar = {
 const campaigns = {
   'brawler': {
     name: "BRAWLER'S CAMPAIGN",
-    desc: 'Fight through a gauntlet of 20 challengers',
+    desc: 'Beginner gauntlet for aspiring challengers',
     fights: [
       { opponent: 'VENOM', difficulty: 'Easy', level: 'CLASSIC' },
       { opponent: 'TITAN', difficulty: 'Easy', level: 'THE TEMPLE' },
@@ -359,7 +359,7 @@ const campaigns = {
   },
   'warrior': {
     name: "WARRIOR'S CAMPAIGN",
-    desc: 'A tougher gauntlet of 25 challengers',
+    desc: 'Harder assessment for real fighters',
     fights: [
       { opponent: 'SNAZZ MCJAZZ', difficulty: 'Normal', level: 'GLOWING CITY' },
       { opponent: 'DUPLAIRE', difficulty: 'Normal', level: 'CLASSIC' },
@@ -391,7 +391,7 @@ const campaigns = {
   },
   'champion': {
     name: "CHAMPION'S CAMPAIGN",
-    desc: 'The ultimate 45-fight gauntlet',
+    desc: 'Merciless trial of true gladiators',
     displayFightCount: 35, // show 35 until fight 36 is reached, then reveal true count
     revealAtFight: 35, // 0-indexed: after completing fight 35 (the 36th), reveal real count
     fights: [
@@ -442,6 +442,56 @@ const campaigns = {
       { opponent: theCountFinalChar, difficulty: 'Brutal', level: 'THE PULP', isBoss: true, music: 'THE COUNT' }
     ]
   }
+};
+
+// All possible opponents for Rumbler's Campaign (fighters + bosses)
+const rumblerOpponents = [
+  ...characters.filter(c => c !== bojdoChar), // exclude mutable bojdoChar
+  ...secretCharOrder.filter(c => c !== bojdoChar), // exclude from secret list too
+  campaignBojdoChar, campaignBojdobojdoChar, // use safe standalone versions
+  borgusChar, ericthoChar, quellicChar, bojdo3Char, scalenaChar, birdeaterChar,
+  sixIronChar, hangmanChar, twinsChar, tubeWardenChar, orcusChar, headChar,
+  relapmiChar, theCountChar, darkBojdoChar, sixDriverChar, maneaterChar,
+  grooveMcSmoothChar, darkDuplaireChar, canisChar
+];
+function getRumblerLevels() {
+  const lvls = [...defaultLevels.map(l => l.name), 'SNOWY CITY', 'FOGGY CITY', 'RAINY CITY', 'GLOWING CITY', 'SUNNY CITY'];
+  if (tentUnlocked) lvls.push('THE TENT');
+  if (dustUnlocked) lvls.push('THE DUST');
+  if (pulpUnlocked) lvls.push('THE PULP');
+  return lvls;
+}
+const rumblerDifficulties = ['EASY', 'NORMAL', 'HARD', 'BRUTAL'];
+
+function generateRumblerFight(index) {
+  let opponent = rumblerOpponents[Math.floor(Math.random() * rumblerOpponents.length)];
+  // The Count is half as likely — reroll if picked 50% of the time
+  if (opponent.isTheCount && Math.random() < 0.5) {
+    opponent = rumblerOpponents[Math.floor(Math.random() * rumblerOpponents.length)];
+  }
+  const difficulty = rumblerDifficulties[Math.floor(Math.random() * rumblerDifficulties.length)];
+  let level;
+  // Fight 15 (index 14): force The Tent if not yet unlocked
+  if (index === 14 && !tentUnlocked) {
+    level = 'THE TENT';
+  } else {
+    const lvlPool = getRumblerLevels();
+    level = lvlPool[Math.floor(Math.random() * lvlPool.length)];
+  }
+  return {
+    opponent: opponent,
+    difficulty: difficulty,
+    level: level,
+    isBoss: opponent.isBoss || false,
+    unlocksTent: (index === 14 && !tentUnlocked) // flag for unlock on win
+  };
+}
+
+campaigns['rumbler'] = {
+  name: "RUMBLER'S CAMPAIGN",
+  desc: 'Infinite random fights. How far can you go?',
+  infinite: true,
+  fights: [] // generated on the fly
 };
 
 const campaignKeys = Object.keys(campaigns);

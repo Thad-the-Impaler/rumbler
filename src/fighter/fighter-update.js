@@ -296,6 +296,10 @@ Fighter.prototype.update = function(opponent, keys) {
   if (this.stateTimer > 0) {
     this.stateTimer--;
     if (this.stateTimer === 0 && (this.state === 'attack' || this.state === 'hitstun' || this.state === 'blockstun')) {
+      // Re-face opponent when recovering from stun
+      if ((this.state === 'hitstun' || this.state === 'blockstun') && opponent) {
+        this.facing = opponent.x > this.x ? 1 : -1;
+      }
       this.state = 'idle';
       this.currentAttack = null;
       // Execute next queued attack if one was buffered
@@ -1382,6 +1386,8 @@ Fighter.prototype.update = function(opponent, keys) {
       this.matadorDashCooldown = 90;
       this.vx = 0;
       this.facing = opponent.x > this.x ? 1 : -1;
+      // Force opponent to face correct direction after dash-through
+      opponent.facing = this.x > opponent.x ? 1 : -1;
     }
   }
   // Buck firework spray update
@@ -1652,10 +1658,61 @@ Fighter.prototype.update = function(opponent, keys) {
   if (this.char.isBacktrack) {
     if (this.btRewindCooldown > 0) this.btRewindCooldown--;
     if (this.btRewindEffect > 0) this.btRewindEffect--;
-    // Record snapshot every frame using ring buffer (O(1) instead of shift)
+    // Record comprehensive snapshot every frame using ring buffer
+    const snapFighter = (f) => ({
+      x: f.x, y: f.y, health: f.health, vx: f.vx, vy: f.vy,
+      state: f.state, stateTimer: f.stateTimer, grounded: f.grounded,
+      facing: f.facing, crouching: f.crouching, blocking: f.blocking,
+      // Transformations
+      isJay: f.isJay, isTortoise: f.isTortoise, isWolf: f.isWolf || false,
+      bojdoScale: f.bojdoScale,
+      // Assist
+      assistActive: f.assistActive ? { ...f.assistActive } : null,
+      assistCooldown: f.assistCooldown,
+      // Effects on fighter
+      slowTimer: f.slowTimer || 0,
+      freezeTimer: f.freezeTimer || 0,
+      bojShrinkTimer: f.bojShrinkTimer || 0,
+      cyanoJayTimer: f.cyanoJayTimer || 0,
+      studTortoiseTimer: f.studTortoiseTimer || 0,
+      stickerSlowTimer: f.stickerSlowTimer || 0,
+      // Abilities
+      waterPhase: f.waterPhase || false,
+      quellicFirePhase: f.quellicFirePhase || false,
+      quellicFireTimer: f.quellicFireTimer || 0,
+      quellicFireCooldown: f.quellicFireCooldown || 0,
+      dancing: f.dancing || false,
+      danceTimer: f.danceTimer || 0,
+      exploding: f.exploding || false,
+      reformTimer: f.reformTimer || 0,
+      buckFiring: f.buckFiring || false,
+      buckFireTimer: f.buckFireTimer || 0,
+      molting: f.molting || false,
+      moltHover: f.moltHover || 0,
+      moltDescending: f.moltDescending || false,
+      wolfFormTimer: f.wolfFormTimer || 0,
+      wolfPouncing: f.wolfPouncing || false,
+      // Gourmand
+      gourmandEnergy: f.gourmandEnergy || 0,
+      gourmandFull: f.gourmandFull || false,
+      mouthOpen: f.mouthOpen || false,
+      // X-Haust
+      xhaustOilTank: f.xhaustOilTank || 0,
+      xhaustLeaking: f.xhaustLeaking || false,
+      xhaustOilPuddles: f.xhaustOilPuddles ? f.xhaustOilPuddles.map(p => ({ ...p })) : [],
+      xhaustFlames: f.xhaustFlames ? f.xhaustFlames.map(fl => ({ ...fl })) : [],
+      // Duplaire clones
+      duplaireClones: f.duplaireClones ? f.duplaireClones.map(c => ({ ...c })) : [],
+      duplaireOrigHealth: f.duplaireOrigHealth || 0,
+      // Misc
+      flashTimer: f.flashTimer || 0,
+      phaseTimer: f.phaseTimer || 0,
+      armorActive: f.armorActive || false,
+      comboCount: f.comboCount || 0
+    });
     this.btHistory[this.btHistoryIdx] = {
-      x: this.x, y: this.y, health: this.health,
-      opp: opponent ? { x: opponent.x, y: opponent.y, health: opponent.health } : null
+      self: snapFighter(this),
+      opp: opponent ? snapFighter(opponent) : null
     };
     this.btHistoryIdx = (this.btHistoryIdx + 1) % this.btMaxHistory;
     if (this.btHistoryLen < this.btMaxHistory) this.btHistoryLen++;
@@ -1791,6 +1848,9 @@ Fighter.prototype.update = function(opponent, keys) {
       this.molting = false;
       this.moltDescending = false;
       this.moltHover = 0;
+      // Force both fighters to face correct direction after landing
+      this.facing = opponent.x > this.x ? 1 : -1;
+      opponent.facing = this.x > opponent.x ? 1 : -1;
     }
   }
 

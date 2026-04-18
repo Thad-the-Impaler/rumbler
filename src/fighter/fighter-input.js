@@ -208,26 +208,86 @@ Fighter.prototype.handlePlayerInput = function(keys, opponent) {
   if (this.char.isBacktrack && (keys['j'] || keys['J']) && this.btRewindCooldown <= 0 && this.btHistoryLen > 0) {
     // Get the oldest entry in the ring buffer
     const oldestIdx = this.btHistoryLen < this.btMaxHistory ? 0 : this.btHistoryIdx;
-    const snap = this.btHistory[oldestIdx];
-    const oppSnap = snap.opp;
-    // Restore self
-    this.x = snap.x;
-    this.y = snap.y;
-    this.health = snap.health;
-    this.state = 'idle';
-    this.stateTimer = 0;
-    this.vx = 0;
-    this.vy = 0;
-    // Restore opponent
-    if (opponent && oppSnap) {
-      opponent.x = oppSnap.x;
-      opponent.y = oppSnap.y;
-      opponent.health = oppSnap.health;
-      opponent.state = 'idle';
-      opponent.stateTimer = 0;
-      opponent.vx = 0;
-      opponent.vy = 0;
-    }
+    const entry = this.btHistory[oldestIdx];
+    const selfSnap = entry.self;
+    const oppSnap = entry.opp;
+
+    // Restore fighter from comprehensive snapshot
+    const restoreFighter = (fighter, snap) => {
+      fighter.x = snap.x; fighter.y = snap.y; fighter.health = snap.health;
+      fighter.vx = snap.vx; fighter.vy = snap.vy;
+      fighter.state = snap.state; fighter.stateTimer = snap.stateTimer;
+      fighter.grounded = snap.grounded; fighter.facing = snap.facing;
+      fighter.crouching = snap.crouching; fighter.blocking = snap.blocking;
+      // Transformations
+      fighter.isJay = snap.isJay; fighter.isTortoise = snap.isTortoise;
+      if (snap.isWolf !== undefined) fighter.isWolf = snap.isWolf;
+      fighter.bojdoScale = snap.bojdoScale;
+      // Assist
+      fighter.assistActive = snap.assistActive;
+      fighter.assistCooldown = snap.assistCooldown;
+      // Effects
+      fighter.slowTimer = snap.slowTimer;
+      fighter.freezeTimer = snap.freezeTimer;
+      fighter.bojShrinkTimer = snap.bojShrinkTimer;
+      fighter.cyanoJayTimer = snap.cyanoJayTimer;
+      fighter.studTortoiseTimer = snap.studTortoiseTimer;
+      fighter.stickerSlowTimer = snap.stickerSlowTimer;
+      // Abilities
+      fighter.waterPhase = snap.waterPhase;
+      if (snap.quellicFirePhase !== undefined) {
+        fighter.quellicFirePhase = snap.quellicFirePhase;
+        fighter.quellicFireTimer = snap.quellicFireTimer;
+        fighter.quellicFireCooldown = snap.quellicFireCooldown;
+      }
+      fighter.dancing = snap.dancing; fighter.danceTimer = snap.danceTimer;
+      fighter.exploding = snap.exploding; fighter.reformTimer = snap.reformTimer;
+      fighter.buckFiring = snap.buckFiring; fighter.buckFireTimer = snap.buckFireTimer;
+      fighter.molting = snap.molting; fighter.moltHover = snap.moltHover;
+      fighter.moltDescending = snap.moltDescending;
+      if (snap.wolfFormTimer !== undefined) {
+        fighter.wolfFormTimer = snap.wolfFormTimer;
+        fighter.wolfPouncing = snap.wolfPouncing;
+      }
+      // Gourmand
+      fighter.gourmandEnergy = snap.gourmandEnergy;
+      fighter.gourmandFull = snap.gourmandFull;
+      fighter.mouthOpen = snap.mouthOpen;
+      // X-Haust
+      fighter.xhaustOilTank = snap.xhaustOilTank;
+      fighter.xhaustLeaking = snap.xhaustLeaking;
+      fighter.xhaustOilPuddles = snap.xhaustOilPuddles;
+      fighter.xhaustFlames = snap.xhaustFlames;
+      // Duplaire clones
+      if (snap.duplaireClones) {
+        fighter.duplaireClones = snap.duplaireClones;
+        fighter.duplaireOrigHealth = snap.duplaireOrigHealth;
+      }
+      // Misc
+      fighter.flashTimer = snap.flashTimer;
+      fighter.phaseTimer = snap.phaseTimer;
+      fighter.armorActive = snap.armorActive;
+      fighter.comboCount = snap.comboCount;
+      // Clear active projectiles/effects
+      fighter.hitEffect = null;
+      fighter.queuedAttacks = [];
+      fighter.inputBuffer = [];
+      fighter.aiComboQueue = [];
+      // Validate grounded state — prevent walking in midair
+      if (fighter.grounded && fighter.y < fighter.groundY - 5) {
+        fighter.grounded = false;
+        if (fighter.vy === 0) fighter.vy = 0.5; // ensure gravity kicks in
+      }
+      if (!fighter.grounded && fighter.y >= fighter.groundY) {
+        fighter.y = fighter.groundY;
+        fighter.grounded = true;
+        fighter.vy = 0;
+      }
+    };
+
+    restoreFighter(this, selfSnap);
+    if (opponent && oppSnap) restoreFighter(opponent, oppSnap);
+
     this.btHistoryLen = 0;
     this.btHistoryIdx = 0;
     this.btRewindCooldown = 600; // 10 second cooldown
@@ -254,7 +314,8 @@ Fighter.prototype.handlePlayerInput = function(keys, opponent) {
   // Killa Watt: press K to zap opponent when in range
   if (this.char.isKillawatt && (keys['k'] || keys['K']) && this.kwZapCooldown <= 0 && !this.kwZapEffect && this.state !== 'attack') {
     const dist = Math.abs(this.x - opponent.x);
-    if (dist < 180) {
+    // Can't zap phasing opponents (Torrena water phase, Quellic fire phase)
+    if (dist < 180 && !opponent.waterPhase && !opponent.quellicFirePhase) {
       const zapDamage = 10;
       const stunDuration = 45;
       opponent.health -= zapDamage / opponent.char.stats.defense;

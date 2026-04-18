@@ -317,6 +317,7 @@ function draw() {
         if (rumbleGolgarEntity2 && rumbleLoserHidden) drawGolgarRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
         if (rumbleTelatrinePhase === 5) drawTelatrineRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
       if (rumbleBozollokSkeleton) drawBozollokSkeleton(rumbleBozollokSkeleton.x, rumbleBozollokSkeleton.groundY, rumbleBozollokSkeleton.collapseT);
+      if (rumbleKillaWattSkeleton) drawBozollokSkeleton(rumbleKillaWattSkeleton.x, rumbleKillaWattSkeleton.groundY, rumbleKillaWattSkeleton.collapseT);
       }
       if (!(cpu && cpu.char && cpu.char.isTheCountFinal)) drawHUD();
       ctx.restore();

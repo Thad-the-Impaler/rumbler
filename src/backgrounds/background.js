@@ -675,22 +675,36 @@ function drawBackground() {
         }
       }
 
-      // --- Salesforce Tower (tallest, rounded top) ---
+      // --- Salesforce Tower (tallest, tapered top) ---
       ctx.fillStyle = '#5a5a68';
+      // Main shaft — slightly wider at bottom, tapering at top
       ctx.beginPath();
       ctx.moveTo(555, 385);
-      ctx.lineTo(562, 120);
-      ctx.lineTo(582, 120);
+      ctx.lineTo(560, 140);
+      // Tapered crown — narrows gently to a rounded point
+      ctx.quadraticCurveTo(563, 112, 572, 108);
+      ctx.quadraticCurveTo(581, 112, 584, 140);
       ctx.lineTo(589, 385);
+      ctx.closePath();
       ctx.fill();
-      ctx.beginPath();
-      ctx.arc(572, 120, 15, Math.PI, 0);
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(120,120,140,0.4)';
+      // Vertical panel lines
+      ctx.strokeStyle = 'rgba(120,120,140,0.3)';
       ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(572, 105); ctx.lineTo(572, 385); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(565, 120); ctx.lineTo(558, 385); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(579, 120); ctx.lineTo(586, 385); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(572, 110); ctx.lineTo(572, 385); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(566, 130); ctx.lineTo(560, 385); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(578, 130); ctx.lineTo(584, 385); ctx.stroke();
+      // Horizontal floor lines
+      ctx.strokeStyle = 'rgba(100,100,120,0.15)';
+      for (let fy = 150; fy < 385; fy += 20) {
+        const taperW = 14 + (fy - 140) / 385 * 3;
+        ctx.beginPath();
+        ctx.moveTo(572 - taperW, fy);
+        ctx.lineTo(572 + taperW, fy);
+        ctx.stroke();
+      }
+      // Glass sheen highlight
+      ctx.fillStyle = 'rgba(180,180,200,0.08)';
+      ctx.fillRect(564, 140, 6, 240);
 
       // --- Transamerica Pyramid ---
       ctx.fillStyle = '#6a6a78';
@@ -798,20 +812,44 @@ function drawBackground() {
       ctx.fillRect(0, 0, 960, 385);
 
       // --- Mount Rainier ---
-      ctx.fillStyle = '#3a4555';
+      ctx.fillStyle = '#1e2530';
       ctx.beginPath();
       ctx.moveTo(550, 380);
-      ctx.quadraticCurveTo(620, 200, 720, 100);
-      ctx.quadraticCurveTo(820, 200, 900, 380);
+      ctx.quadraticCurveTo(620, 210, 720, 105);
+      ctx.quadraticCurveTo(820, 210, 900, 380);
       ctx.fill();
-      ctx.fillStyle = '#8a9aaa';
+      // Ridge detail
+      ctx.fillStyle = '#222a35';
       ctx.beginPath();
-      ctx.moveTo(670, 180);
-      ctx.quadraticCurveTo(695, 120, 720, 100);
-      ctx.quadraticCurveTo(745, 120, 770, 175);
-      ctx.quadraticCurveTo(750, 165, 740, 150);
-      ctx.quadraticCurveTo(720, 130, 700, 150);
-      ctx.quadraticCurveTo(685, 165, 670, 180);
+      ctx.moveTo(600, 380);
+      ctx.quadraticCurveTo(650, 240, 720, 105);
+      ctx.quadraticCurveTo(760, 180, 780, 250);
+      ctx.lineTo(850, 380);
+      ctx.fill();
+      // Snow cap — irregular, natural-looking patches
+      ctx.fillStyle = '#7a8898';
+      ctx.beginPath();
+      ctx.moveTo(690, 160);
+      ctx.quadraticCurveTo(700, 130, 720, 105);
+      ctx.quadraticCurveTo(740, 125, 755, 150);
+      ctx.lineTo(745, 155);
+      ctx.quadraticCurveTo(735, 140, 720, 135);
+      ctx.quadraticCurveTo(705, 140, 695, 158);
+      ctx.closePath();
+      ctx.fill();
+      // Lower snow patches (drifts on ridges)
+      ctx.fillStyle = '#6a7888';
+      ctx.beginPath();
+      ctx.moveTo(680, 180);
+      ctx.quadraticCurveTo(695, 165, 705, 160);
+      ctx.lineTo(700, 170);
+      ctx.quadraticCurveTo(690, 175, 680, 180);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(740, 165);
+      ctx.quadraticCurveTo(750, 155, 758, 158);
+      ctx.lineTo(752, 170);
+      ctx.quadraticCurveTo(745, 168, 740, 165);
       ctx.fill();
 
       // --- Background buildings ---
@@ -1270,6 +1308,268 @@ function drawBackground() {
       ctx.moveTo(0, 387);
       ctx.lineTo(960, 387);
       ctx.stroke();
+      break;
+    }
+    case 'THE TENT': {
+      // Interior of a huge circus tent
+      // Tent ceiling — red and white striped canopy converging to center top
+      const ceilGrad = ctx.createRadialGradient(480, -100, 50, 480, 200, 600);
+      ceilGrad.addColorStop(0, '#4a2020');
+      ceilGrad.addColorStop(1, '#2a1515');
+      ctx.fillStyle = ceilGrad;
+      ctx.fillRect(0, 0, 960, 385);
+
+      // Tent fabric stripes (converging to center peak)
+      for (let stripe = 0; stripe < 12; stripe++) {
+        const angle = (stripe / 12) * Math.PI;
+        ctx.fillStyle = stripe % 2 === 0 ? 'rgba(180,40,40,0.15)' : 'rgba(255,255,255,0.05)';
+        ctx.beginPath();
+        ctx.moveTo(480, -20);
+        ctx.lineTo(480 + Math.cos(angle) * 600, 400);
+        ctx.lineTo(480 + Math.cos(angle + Math.PI / 12) * 600, 400);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // Tent support ropes
+      ctx.strokeStyle = 'rgba(100,80,60,0.3)';
+      ctx.lineWidth = 2;
+      for (let r = 0; r < 4; r++) {
+        ctx.beginPath();
+        ctx.moveTo(480, -20);
+        ctx.quadraticCurveTo(100 + r * 250, 150, r * 320, 385);
+        ctx.stroke();
+      }
+
+      // Half-filled stands (left and right)
+      // Left stands
+      ctx.fillStyle = '#3a2a1a';
+      ctx.beginPath();
+      ctx.moveTo(0, 200);
+      ctx.lineTo(0, 385);
+      ctx.lineTo(120, 385);
+      ctx.lineTo(100, 200);
+      ctx.closePath();
+      ctx.fill();
+      // Rows of seats
+      for (let row = 0; row < 5; row++) {
+        const ry = 220 + row * 33;
+        const rw = 100 + row * 4;
+        ctx.fillStyle = '#4a3a2a';
+        ctx.fillRect(0, ry, rw, 4);
+        // Sparse crowd — some seats filled
+        for (let seat = 0; seat < 4; seat++) {
+          if (Math.sin(row * 7 + seat * 3) > -0.2) {
+            const sx = 10 + seat * 22 + row * 2;
+            const sy = ry - 10;
+            // Head
+            const crowdColors = ['#cc6644', '#aa8866', '#996644', '#bb7755', '#ddaa88'];
+            ctx.fillStyle = crowdColors[(row + seat) % crowdColors.length];
+            ctx.beginPath();
+            ctx.arc(sx, sy, 4, 0, Math.PI * 2);
+            ctx.fill();
+            // Body
+            ctx.fillRect(sx - 3, sy + 4, 6, 6);
+          }
+        }
+      }
+      // Right stands
+      ctx.fillStyle = '#3a2a1a';
+      ctx.beginPath();
+      ctx.moveTo(960, 200);
+      ctx.lineTo(960, 385);
+      ctx.lineTo(840, 385);
+      ctx.lineTo(860, 200);
+      ctx.closePath();
+      ctx.fill();
+      for (let row = 0; row < 5; row++) {
+        const ry = 220 + row * 33;
+        const rw = 100 + row * 4;
+        ctx.fillStyle = '#4a3a2a';
+        ctx.fillRect(960 - rw, ry, rw, 4);
+        for (let seat = 0; seat < 4; seat++) {
+          if (Math.sin(row * 5 + seat * 4 + 2) > -0.3) {
+            const sx = 950 - seat * 22 - row * 2;
+            const sy = ry - 10;
+            const crowdColors = ['#cc6644', '#aa8866', '#996644', '#bb7755', '#ddaa88'];
+            ctx.fillStyle = crowdColors[(row + seat + 2) % crowdColors.length];
+            ctx.beginPath();
+            ctx.arc(sx, sy, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillRect(sx - 3, sy + 4, 6, 6);
+          }
+        }
+      }
+
+      // Wide podium/stage for band and announcer
+      ctx.fillStyle = '#5a4030';
+      ctx.strokeStyle = '#3a2a1a';
+      ctx.lineWidth = 2;
+      // Main platform
+      ctx.beginPath();
+      ctx.roundRect(260, 290, 440, 30, 4);
+      ctx.fill();
+      ctx.stroke();
+      // Front face (gives depth)
+      ctx.fillStyle = '#4a3525';
+      ctx.fillRect(264, 316, 432, 12);
+      ctx.strokeStyle = '#3a2a1a';
+      ctx.strokeRect(264, 316, 432, 12);
+      // Top surface highlight
+      ctx.fillStyle = 'rgba(255,255,255,0.04)';
+      ctx.fillRect(264, 290, 432, 6);
+      // Decorative trim along front
+      ctx.fillStyle = '#cc3333';
+      ctx.fillRect(270, 318, 420, 3);
+      // Support legs visible at sides
+      ctx.fillStyle = '#3a2a1a';
+      ctx.fillRect(280, 328, 8, 57);
+      ctx.fillRect(672, 328, 8, 57);
+
+      // Band in the back (small figures with instruments)
+      const bandY = 280; // standing on podium (top at 290, feet at ~290)
+      const bandColors = ['#cc3333', '#3333cc', '#33cc33', '#cccc33'];
+      for (let b = 0; b < 4; b++) {
+        const bx = 340 + b * 70;
+        ctx.fillStyle = bandColors[b];
+        // Body
+        ctx.fillRect(bx - 3, bandY - 5, 6, 10);
+        // Head
+        ctx.fillStyle = '#ddaa88';
+        ctx.beginPath();
+        ctx.arc(bx, bandY - 10, 4, 0, Math.PI * 2);
+        ctx.fill();
+        // Instrument
+        ctx.strokeStyle = '#888';
+        ctx.lineWidth = 1;
+        if (b === 0) { // trumpet
+          ctx.beginPath(); ctx.moveTo(bx + 3, bandY - 6); ctx.lineTo(bx + 12, bandY - 8); ctx.stroke();
+        } else if (b === 1) { // trombone
+          ctx.beginPath(); ctx.moveTo(bx + 3, bandY - 4); ctx.lineTo(bx + 15, bandY - 2 + Math.sin(t * 0.003) * 3); ctx.stroke();
+        } else if (b === 2) { // tuba
+          ctx.beginPath(); ctx.arc(bx + 6, bandY, 5, 0, Math.PI * 2); ctx.stroke();
+        } else { // drums
+          ctx.fillStyle = '#666';
+          ctx.fillRect(bx - 5, bandY + 2, 10, 6);
+          ctx.strokeStyle = '#aaa';
+          ctx.beginPath(); ctx.moveTo(bx - 1, bandY - 4); ctx.lineTo(bx - 3, bandY + 2); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(bx + 1, bandY - 4); ctx.lineTo(bx + 3, bandY + 2); ctx.stroke();
+        }
+      }
+
+      // Announcer — small fighter figure far in background, jumping around with megaphone
+      const annX = 480 + Math.sin(t * 0.003) * 60;
+      const annJump = Math.abs(Math.sin(t * 0.005)) * 12;
+      const annY = 282 - annJump; // standing on podium
+      ctx.save();
+      ctx.translate(annX, annY);
+      const annScale = 0.5;
+      ctx.scale(annScale, annScale);
+      // Body
+      ctx.fillStyle = '#cc3333';
+      ctx.strokeStyle = '#881111';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect(-12, -30, 24, 28, 4);
+      ctx.fill(); ctx.stroke();
+      // Chest
+      ctx.fillStyle = '#ffcc00';
+      ctx.beginPath();
+      ctx.roundRect(-8, -24, 16, 14, 2);
+      ctx.fill();
+      // Head
+      ctx.fillStyle = '#ddaa88';
+      ctx.strokeStyle = '#aa7755';
+      ctx.beginPath();
+      ctx.arc(0, -44, 12, 0, Math.PI * 2);
+      ctx.fill(); ctx.stroke();
+      // Red hat
+      ctx.fillStyle = '#cc2222';
+      ctx.beginPath();
+      ctx.ellipse(0, -52, 16, 4, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(-8, -52);
+      ctx.lineTo(-6, -64);
+      ctx.lineTo(6, -64);
+      ctx.lineTo(8, -52);
+      ctx.closePath();
+      ctx.fill();
+      // Eyes
+      ctx.fillStyle = '#333';
+      ctx.beginPath(); ctx.arc(4, -46, 2, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(10, -46, 2, 0, Math.PI * 2); ctx.fill();
+      // Megaphone
+      ctx.fillStyle = '#888';
+      ctx.beginPath();
+      ctx.moveTo(14, -44);
+      ctx.lineTo(30, -50);
+      ctx.lineTo(30, -38);
+      ctx.closePath();
+      ctx.fill();
+      // Open mouth (shouting)
+      ctx.fillStyle = '#333';
+      ctx.beginPath();
+      ctx.ellipse(7, -39, 3, 2, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // Legs
+      ctx.strokeStyle = '#cc3333';
+      ctx.lineWidth = 4;
+      ctx.lineCap = 'round';
+      const legKick = Math.sin(t * 0.008) * 8;
+      ctx.beginPath(); ctx.moveTo(-5, -2); ctx.lineTo(-6 + legKick, 10); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(5, -2); ctx.lineTo(6 - legKick, 10); ctx.stroke();
+      // Arms
+      ctx.beginPath(); ctx.moveTo(-12, -24); ctx.lineTo(-18, -16); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(12, -24); ctx.lineTo(14, -44); ctx.stroke(); // arm holds megaphone
+      ctx.restore();
+
+      // Two circling spotlights
+      for (let sp = 0; sp < 2; sp++) {
+        const spAngle = t * 0.002 + sp * Math.PI;
+        const spX = 480 + Math.cos(spAngle) * 300;
+        const spY = 300 + Math.sin(spAngle * 0.7) * 50;
+        ctx.save();
+        ctx.globalAlpha = 0.08;
+        // Spotlight cone from above
+        ctx.fillStyle = '#ffffcc';
+        ctx.beginPath();
+        ctx.moveTo(spX - 5, 0);
+        ctx.lineTo(spX - 40, spY);
+        ctx.lineTo(spX + 40, spY);
+        ctx.lineTo(spX + 5, 0);
+        ctx.closePath();
+        ctx.fill();
+        // Ground circle
+        ctx.globalAlpha = 0.06;
+        ctx.beginPath();
+        ctx.ellipse(spX, 387, 40, 10, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.restore();
+      }
+
+      // Dusty floor
+      ctx.fillStyle = '#3a2a1a';
+      ctx.fillRect(0, 385, 960, 155);
+      // Sawdust texture
+      ctx.fillStyle = '#4a3a2a';
+      for (let d = 0; d < 20; d++) {
+        const dx = (d * 53) % 960;
+        ctx.fillRect(dx, 388 + (d % 3) * 2, 15 + d % 7, 2);
+      }
+      // Ring border
+      ctx.strokeStyle = '#cc3333';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(150, 387);
+      ctx.lineTo(810, 387);
+      ctx.stroke();
+      // Corner posts
+      ctx.fillStyle = '#cc3333';
+      ctx.fillRect(147, 375, 6, 15);
+      ctx.fillRect(807, 375, 6, 15);
+
       break;
     }
     case 'THE DUST': {

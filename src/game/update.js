@@ -7,7 +7,8 @@ function update() {
     const interval = Math.max(2, Math.floor(2 + progress * progress * 20));
     const isChar = lotteryType === 'char' || lotteryType === 'cpu';
     const isLevel = lotteryType === 'level';
-    const pool = isLevel ? getLevels() : (isChar ? characters : assists);
+    const isBoss = lotteryType === 'boss';
+    const pool = isBoss ? practiceBossList.filter(b => defeatedBosses[b.name]) : (isLevel ? getLevels() : (isChar ? characters : assists));
     if (lotteryTimer % interval === 0) {
       // Cycle to a random different index
       let next;
@@ -2246,6 +2247,704 @@ function update() {
 
         if (rumbleTimer >= endFrame) {
           winFighter.isTortoise = false;
+          gameState = 'victory';
+        }
+      }
+
+      if (rumbleType === 'X-HAUST') {
+        // X-Haust "Keromikaze": ~400 frames
+        // 0-80: Spray oil fountain upward, oil rains down on self
+        // 80-100: Pause, drenched in oil
+        // 100-180: Walk toward opponent, dripping oil
+        // 180-200: Ignition — sparks, then fire
+        // 200-260: Massive fiery explosion engulfs both
+        // 260-400: Hold on scorched aftermath
+        const sprayEnd = 80;
+        const pauseEnd = 100;
+        const walkEnd = 180;
+        const igniteEnd = 200;
+        const explosionEnd = 260;
+        const endFrame = 400;
+
+        const dir = loseFighter.x > winFighter.x ? 1 : -1;
+        winFighter.facing = dir;
+
+        if (rumbleTimer <= sprayEnd) {
+          // Phase 0: Spray oil fountain
+          rumbleXhaustPhase = 0;
+          winFighter.vx = 0;
+          winFighter.state = 'idle';
+          // Spawn oil drops going up then falling down
+          if (rumbleTimer % 2 === 0) {
+            for (let i = 0; i < 3; i++) {
+              rumbleXhaustOilDrops.push({
+                x: winFighter.x + (Math.random() - 0.5) * 15,
+                y: winFighter.y - 40,
+                vx: (Math.random() - 0.5) * 3,
+                vy: -8 - Math.random() * 6,
+                size: 2 + Math.random() * 3
+              });
+            }
+          }
+          // Drench — recolor to oil colors
+          if (rumbleTimer > 40 && !rumbleXhaustDrenched) {
+            rumbleXhaustDrenched = true;
+            // Save original colors
+            winFighter._origColor = winFighter.char.color;
+            winFighter._origAccent = winFighter.char.accent;
+            winFighter._origOutline = winFighter.char.outline;
+            // Apply oil colors
+            winFighter.char = { ...winFighter.char, color: '#1a1a1a', accent: '#0d0d0d', outline: '#111111' };
+          }
+        } else if (rumbleTimer <= pauseEnd) {
+          // Phase 1: Drenched pause
+          rumbleXhaustPhase = 1;
+          winFighter.vx = 0;
+          winFighter.state = 'idle';
+        } else if (rumbleTimer <= walkEnd) {
+          // Phase 2: Walk toward opponent, dripping
+          rumbleXhaustPhase = 2;
+          const targetX = loseFighter.x - dir * 25;
+          winFighter.x += (targetX - winFighter.x) * 0.04;
+          winFighter.animTimer++;
+          if (winFighter.animTimer > 8) { winFighter.animTimer = 0; winFighter.animFrame = (winFighter.animFrame + 1) % 4; }
+          // Drip oil while walking
+          if (rumbleTimer % 6 === 0) {
+            rumbleXhaustOilDrops.push({
+              x: winFighter.x + (Math.random() - 0.5) * 16,
+              y: winFighter.y - 20 - Math.random() * 30,
+              vx: 0,
+              vy: 1 + Math.random() * 2,
+              size: 1.5 + Math.random() * 2
+            });
+          }
+        } else if (rumbleTimer <= igniteEnd) {
+          // Phase 3: Ignition — sparks then fire
+          rumbleXhaustPhase = 3;
+          winFighter.vx = 0;
+          winFighter.state = 'idle';
+          if (rumbleTimer % 2 === 0) { shakeTimer = 2; shakeIntensity = 3 + (rumbleTimer - walkEnd) * 0.3; }
+          // Sparks
+          if (rumbleTimer % 3 === 0) {
+            rumbleXhaustFlames.push({
+              x: winFighter.x + (Math.random() - 0.5) * 10,
+              y: winFighter.y - 20 - Math.random() * 30,
+              vx: (Math.random() - 0.5) * 2,
+              vy: -1 - Math.random() * 2,
+              size: 2 + Math.random() * 3,
+              timer: 10 + Math.floor(Math.random() * 5),
+              color: '#ffaa00'
+            });
+          }
+          // Flash
+          winFighter.flashTimer = 3;
+        } else if (rumbleTimer <= explosionEnd) {
+          // Phase 4: EXPLOSION
+          rumbleXhaustPhase = 4;
+          if (rumbleTimer === igniteEnd + 1) {
+            shakeTimer = 30;
+            shakeIntensity = 16;
+            rumbleLoserHidden = true;
+            // Massive fire burst
+            const cx = (winFighter.x + loseFighter.x) / 2;
+            const cy = winFighter.y - 30;
+            for (let e = 0; e < 60; e++) {
+              const ea = Math.random() * Math.PI * 2;
+              const es = 2 + Math.random() * 10;
+              const colors = ['#ff4400', '#ff6600', '#ffaa00', '#ffcc00', '#ff2200', '#ff8800'];
+              rumbleXhaustFlames.push({
+                x: cx + (Math.random() - 0.5) * 40,
+                y: cy + (Math.random() - 0.5) * 40,
+                vx: Math.cos(ea) * es,
+                vy: Math.sin(ea) * es - 3,
+                size: 4 + Math.random() * 8,
+                timer: 30 + Math.floor(Math.random() * 30),
+                color: colors[Math.floor(Math.random() * colors.length)]
+              });
+            }
+            // Smoke
+            for (let s = 0; s < 15; s++) {
+              rumbleXhaustFlames.push({
+                x: cx + (Math.random() - 0.5) * 60,
+                y: cy + (Math.random() - 0.5) * 30,
+                vx: (Math.random() - 0.5) * 3,
+                vy: -2 - Math.random() * 3,
+                size: 8 + Math.random() * 12,
+                timer: 40 + Math.floor(Math.random() * 30),
+                color: '#333'
+              });
+            }
+            // Hide winner too — they sacrifice themselves
+            winFighter.x = -200;
+          }
+        } else {
+          // Phase 5: Hold on scorched aftermath
+          rumbleXhaustPhase = 5;
+        }
+
+        // Update oil drops
+        for (let i = rumbleXhaustOilDrops.length - 1; i >= 0; i--) {
+          const drop = rumbleXhaustOilDrops[i];
+          drop.x += drop.vx;
+          drop.vy += 0.3; // gravity
+          drop.y += drop.vy;
+          if (drop.y > winFighter.y + 5) {
+            rumbleXhaustOilDrops.splice(i, 1);
+          }
+        }
+
+        // Update flames/sparks
+        for (let i = rumbleXhaustFlames.length - 1; i >= 0; i--) {
+          const fl = rumbleXhaustFlames[i];
+          fl.x += fl.vx;
+          fl.y += fl.vy;
+          fl.vy += 0.05;
+          fl.vx *= 0.98;
+          fl.size *= 0.98;
+          fl.timer--;
+          if (fl.timer <= 0) rumbleXhaustFlames.splice(i, 1);
+        }
+
+        if (rumbleTimer >= endFrame) {
+          gameState = 'victory';
+        }
+      }
+
+      if (rumbleType === 'VORTICE') {
+        // Vortice "Sucks to be you": ~420 frames
+        // 0-40: Summon tornado (grows)
+        // 40-100: Suck opponent in (pull toward center)
+        // 100-240: Spin opponent around, accelerating
+        // 240-260: Fling opponent outward at high speed
+        // 260-300: Opponent hits screen edge, crack appears
+        // 300-420: Hold on cracked screen
+        const summonEnd = 40;
+        const suckEnd = 100;
+        const spinEnd = 240;
+        const flingEnd = 260;
+        const crackEnd = 300;
+        const endFrame = 420;
+
+        const centerX = winFighter.x;
+        const centerY = winFighter.y - 50;
+        winFighter.vx = 0;
+        winFighter.state = 'idle';
+
+        if (rumbleTimer <= summonEnd) {
+          // Phase 0: Tornado grows
+          rumbleVorticePhase = 0;
+          rumbleVorticeTornadoR = (rumbleTimer / summonEnd) * 200;
+          if (rumbleTimer % 6 === 0) { shakeTimer = 2; shakeIntensity = 2; }
+        } else if (rumbleTimer <= suckEnd) {
+          // Phase 1: Suck opponent toward center
+          rumbleVorticePhase = 1;
+          rumbleVorticeTornadoR = 200;
+          const pullT = (rumbleTimer - summonEnd) / (suckEnd - summonEnd);
+          loseFighter.x += (centerX - loseFighter.x) * 0.05;
+          loseFighter.y += (centerY - loseFighter.y) * 0.03;
+          rumbleVorticeRadius = Math.abs(loseFighter.x - centerX);
+          rumbleVorticeAngle = Math.atan2(loseFighter.y - centerY, loseFighter.x - centerX);
+          rumbleVorticeSpeed = 0.03;
+        } else if (rumbleTimer <= spinEnd) {
+          // Phase 2: Spin around center, accelerating
+          rumbleVorticePhase = 2;
+          rumbleLoserHidden = true;
+          const spinT = (rumbleTimer - suckEnd) / (spinEnd - suckEnd);
+          rumbleVorticeSpeed = 0.05 + spinT * 0.25; // ramps from 0.05 to 0.30
+          rumbleVorticeAngle += rumbleVorticeSpeed;
+          rumbleVorticeRadius = 140 - spinT * 70; // tightens from 140 to 70
+          if (rumbleTimer % 4 === 0) { shakeTimer = 2; shakeIntensity = 2 + spinT * 6; }
+        } else if (rumbleVorticePhase < 4) {
+          // Phase 3: Fling outward
+          if (rumbleVorticePhase !== 3) {
+            rumbleVorticePhase = 3;
+            // Launch in current direction at high speed
+            rumbleVorticeFlingVx = Math.cos(rumbleVorticeAngle) * 20;
+            rumbleVorticeFlingVy = Math.sin(rumbleVorticeAngle) * 20;
+            rumbleVorticeFlingX = centerX + Math.cos(rumbleVorticeAngle) * rumbleVorticeRadius;
+            rumbleVorticeFlingY = centerY + Math.sin(rumbleVorticeAngle) * rumbleVorticeRadius * 0.4;
+          }
+          rumbleVorticeFlingX += rumbleVorticeFlingVx;
+          rumbleVorticeFlingY += rumbleVorticeFlingVy;
+          // Check screen edge hit (only after a few frames of visible flight)
+          if (rumbleTimer > spinEnd + 3 && (rumbleVorticeFlingX <= 0 || rumbleVorticeFlingX >= 960 || rumbleVorticeFlingY <= 0 || rumbleVorticeFlingY >= 540)) {
+            rumbleVorticePhase = 4;
+            // Determine which edge
+            if (rumbleVorticeFlingX <= 0) rumbleVorticeCrackSide = 'left';
+            else if (rumbleVorticeFlingX >= 960) rumbleVorticeCrackSide = 'right';
+            else if (rumbleVorticeFlingY <= 0) rumbleVorticeCrackSide = 'top';
+            else rumbleVorticeCrackSide = 'bottom';
+            // Clamp position
+            rumbleVorticeFlingX = Math.max(0, Math.min(960, rumbleVorticeFlingX));
+            rumbleVorticeFlingY = Math.max(0, Math.min(540, rumbleVorticeFlingY));
+            shakeTimer = 20;
+            shakeIntensity = 14;
+            // Pre-generate crack pattern
+            for (let c = 0; c < 10; c++) {
+              const angle = (c / 10) * Math.PI * 2 + Math.random() * 0.3;
+              const len = 40 + Math.random() * 60;
+              const midX = Math.cos(angle) * len * 0.5 + (Math.random() - 0.5) * 12;
+              const midY = Math.sin(angle) * len * 0.5 + (Math.random() - 0.5) * 12;
+              const endX = Math.cos(angle) * len + (Math.random() - 0.5) * 15;
+              const endY = Math.sin(angle) * len + (Math.random() - 0.5) * 15;
+              const crack = { midX, midY, endX, endY };
+              // Sub-crack
+              if (c % 2 === 0) {
+                const subAngle = angle + (Math.random() - 0.5) * 1;
+                crack.subX = midX + Math.cos(subAngle) * 25;
+                crack.subY = midY + Math.sin(subAngle) * 25;
+              }
+              rumbleVorticeCracks.push(crack);
+            }
+            // Spawn debris
+            for (let d = 0; d < 20; d++) {
+              rumbleVorticeDebris.push({
+                x: rumbleVorticeFlingX,
+                y: rumbleVorticeFlingY,
+                vx: (Math.random() - 0.5) * 8,
+                vy: (Math.random() - 0.5) * 8,
+                size: 2 + Math.random() * 4,
+                timer: 30 + Math.floor(Math.random() * 20)
+              });
+            }
+          }
+        }
+
+        // Tornado shrinks after impact
+        if (rumbleVorticePhase === 4) {
+          rumbleVorticeTornadoR = Math.max(0, rumbleVorticeTornadoR - 4);
+          // Transition to hold after tornado gone and debris settled
+          if (rumbleVorticeTornadoR <= 0 && rumbleVorticeDebris.length === 0) {
+            rumbleVorticePhase = 5;
+          }
+        }
+
+        // Update debris
+        for (let i = rumbleVorticeDebris.length - 1; i >= 0; i--) {
+          const d = rumbleVorticeDebris[i];
+          d.x += d.vx; d.y += d.vy;
+          d.vy += 0.15; d.vx *= 0.98;
+          d.timer--;
+          if (d.timer <= 0) rumbleVorticeDebris.splice(i, 1);
+        }
+
+        if (rumbleTimer >= endFrame) {
+          gameState = 'victory';
+        }
+      }
+
+      if (rumbleType === 'BUCK') {
+        // Buck "The American Way": ~480 frames
+        // 0-120: Flex + fireworks in all directions
+        // 120-220: Eagles fly overhead with flags
+        // 220-300: Bomber flies across, drops missile
+        // 300-340: Missile falls on opponent, massive explosion
+        // 340-480: Hold on glorious aftermath
+        const flexEnd = 120;
+        const eagleEnd = 220;
+        const bomberEnd = 300;
+        const explosionEnd = 340;
+        const endFrame = 480;
+
+        const patrioticColors = ['#ff0000', '#ffffff', '#0044cc', '#ff4444', '#ffaa00', '#ff6666', '#aaaaff'];
+        const phrases = ['LIBERTY!', 'FREEDOM!', "'MERICA!", 'USA! USA!', 'JUSTICE!', 'GLORY!', 'BOOM!', 'YEEHAW!'];
+
+        winFighter.vx = 0;
+        winFighter.state = 'idle';
+
+        if (rumbleTimer <= flexEnd) {
+          // Phase 0: Flexing + fireworks
+          rumbleBuckPhase = 0;
+          // Spawn fireworks from Buck
+          if (rumbleTimer % 3 === 0) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 4 + Math.random() * 5;
+            rumbleBuckFireworks.push({
+              x: winFighter.x + (Math.random() - 0.5) * 20,
+              y: winFighter.y - 30 + (Math.random() - 0.5) * 20,
+              vx: Math.cos(angle) * speed,
+              vy: Math.sin(angle) * speed - 2,
+              color: patrioticColors[Math.floor(Math.random() * patrioticColors.length)],
+              timer: 20 + Math.floor(Math.random() * 15),
+              trail: []
+            });
+          }
+          if (rumbleTimer % 12 === 0) { shakeTimer = 2; shakeIntensity = 2; }
+        } else if (rumbleTimer <= eagleEnd) {
+          // Phase 1: Eagles with flags
+          rumbleBuckPhase = 1;
+          // Spawn eagles
+          if (rumbleTimer === flexEnd + 1) {
+            for (let e = 0; e < 3; e++) {
+              rumbleBuckEagles.push({
+                x: -60 - e * 80,
+                y: 60 + e * 30,
+                vx: 4 + Math.random() * 2,
+                flagTrail: []
+              });
+            }
+          }
+          // Continue some fireworks
+          if (rumbleTimer % 8 === 0) {
+            rumbleBuckFireworks.push({
+              x: Math.random() * 960,
+              y: 200 + Math.random() * 200,
+              vx: (Math.random() - 0.5) * 3,
+              vy: -3 - Math.random() * 3,
+              color: patrioticColors[Math.floor(Math.random() * patrioticColors.length)],
+              timer: 15 + Math.floor(Math.random() * 10),
+              trail: []
+            });
+          }
+        } else if (rumbleBuckPhase < 3) {
+          // Phase 2: Bomber flies across
+          rumbleBuckPhase = 2;
+          if (rumbleTimer === eagleEnd + 1) {
+            rumbleBuckBomberX = -80;
+          }
+          rumbleBuckBomberX += 5;
+          // Drop missile when over opponent
+          if (!rumbleBuckMissileDropped && Math.abs(rumbleBuckBomberX - loseFighter.x) < 30) {
+            rumbleBuckMissileDropped = true;
+            rumbleBuckMissileY = 40; // start from bomber altitude
+          }
+        }
+
+        // Missile falls continuously once dropped (any phase)
+        if (rumbleBuckMissileDropped && rumbleBuckPhase < 3) {
+          rumbleBuckMissileY += 4;
+          // Impact when missile reaches opponent
+          if (rumbleBuckMissileY >= loseFighter.y - 20) {
+            rumbleBuckPhase = 3;
+            rumbleBuckMissileDropped = false; // hide missile
+            rumbleLoserHidden = true;
+            shakeTimer = 25;
+            shakeIntensity = 16;
+            // Massive patriotic explosion
+            for (let e = 0; e < 50; e++) {
+              const ea = (e / 50) * Math.PI * 2;
+              const es = 2 + Math.random() * 8;
+              rumbleBuckExplosions.push({
+                x: loseFighter.x, y: loseFighter.y - 20,
+                vx: Math.cos(ea) * es, vy: Math.sin(ea) * es - 2,
+                color: patrioticColors[Math.floor(Math.random() * patrioticColors.length)],
+                timer: 25 + Math.floor(Math.random() * 25)
+              });
+            }
+            // Text explosions
+            for (let t = 0; t < 5; t++) {
+              rumbleBuckExplosions.push({
+                x: loseFighter.x + (Math.random() - 0.5) * 80,
+                y: loseFighter.y - 30 + (Math.random() - 0.5) * 40,
+                vx: (Math.random() - 0.5) * 4, vy: -2 - Math.random() * 3,
+                color: patrioticColors[Math.floor(Math.random() * patrioticColors.length)],
+                timer: 40,
+                text: phrases[Math.floor(Math.random() * phrases.length)]
+              });
+            }
+          }
+        }
+
+        // Phase 4: hold after explosion settles
+        if (rumbleBuckPhase === 3 && rumbleBuckExplosions.length === 0) {
+          rumbleBuckPhase = 4;
+        }
+
+        // Update fireworks
+        for (let i = rumbleBuckFireworks.length - 1; i >= 0; i--) {
+          const fw = rumbleBuckFireworks[i];
+          fw.trail.push({ x: fw.x, y: fw.y, t: 6 });
+          fw.x += fw.vx; fw.y += fw.vy; fw.vy += 0.12; fw.timer--;
+          for (let t = fw.trail.length - 1; t >= 0; t--) {
+            fw.trail[t].t--;
+            if (fw.trail[t].t <= 0) fw.trail.splice(t, 1);
+          }
+          if (fw.timer <= 0) {
+            // Explode into particles
+            for (let e = 0; e < 6; e++) {
+              const ea = Math.random() * Math.PI * 2;
+              rumbleBuckExplosions.push({
+                x: fw.x, y: fw.y,
+                vx: Math.cos(ea) * 2, vy: Math.sin(ea) * 2,
+                color: fw.color, timer: 10
+              });
+            }
+            rumbleBuckFireworks.splice(i, 1);
+          }
+        }
+
+        // Update eagles
+        for (const eagle of rumbleBuckEagles) {
+          eagle.x += eagle.vx;
+          eagle.flagTrail.push({ x: eagle.x - 15, y: eagle.y + 5 });
+          if (eagle.flagTrail.length > 40) eagle.flagTrail.shift();
+        }
+
+        // Update explosions
+        for (let i = rumbleBuckExplosions.length - 1; i >= 0; i--) {
+          const e = rumbleBuckExplosions[i];
+          e.x += e.vx; e.y += e.vy; e.vy += 0.05; e.timer--;
+          if (e.timer <= 0) rumbleBuckExplosions.splice(i, 1);
+        }
+
+        // Bomber continues offscreen
+        if (rumbleBuckPhase >= 2) rumbleBuckBomberX += 3;
+
+        if (rumbleTimer >= endFrame) {
+          gameState = 'victory';
+        }
+      }
+
+      if (rumbleType === 'EXOR') {
+        // Exor "Soul Survivor": ~400 frames
+        // 0-60: Walk up to opponent
+        // 60-80: Punch with green energy
+        // 80-160: Soul flies out the back, body turns to stone
+        // 160-240: Exor sucks in and absorbs the soul
+        // 240-300: Stone body crumbles to dust
+        // 300-400: Hold, then end
+        const walkEnd = 60;
+        const punchEnd = 80;
+        const soulFlyEnd = 160;
+        const absorbEnd = 240;
+        const crumbleEnd = 300;
+        const endFrame = 400;
+
+        const dir = loseFighter.x > winFighter.x ? 1 : -1;
+        winFighter.facing = dir;
+
+        if (rumbleTimer <= walkEnd) {
+          // Phase 0: Walk up to opponent
+          rumbleExorPhase = 0;
+          const targetX = loseFighter.x - dir * 40;
+          winFighter.x += (targetX - winFighter.x) * 0.06;
+          winFighter.animTimer++;
+          if (winFighter.animTimer > 8) { winFighter.animTimer = 0; winFighter.animFrame = (winFighter.animFrame + 1) % 4; }
+        } else if (rumbleTimer <= punchEnd) {
+          // Phase 1: Punch — green energy around fist
+          rumbleExorPhase = 1;
+          winFighter.state = 'attack';
+          winFighter.currentAttack = attacks.uppercut;
+          winFighter.attackFrame = Math.min(rumbleTimer - walkEnd, 15);
+          if (rumbleTimer === walkEnd + 10) {
+            shakeTimer = 10;
+            shakeIntensity = 8;
+            loseFighter.flashTimer = 15;
+          }
+        } else if (rumbleTimer <= soulFlyEnd) {
+          // Phase 2: Soul flies out the back, body turns to stone
+          rumbleExorPhase = 2;
+          winFighter.state = 'idle';
+          winFighter.currentAttack = null;
+          if (rumbleTimer === punchEnd + 1) {
+            // Initialize soul position at opponent's body
+            rumbleExorSoulX = loseFighter.x;
+            rumbleExorSoulY = loseFighter.y - 30;
+            rumbleExorSoulAlpha = 0.8;
+            // Turn body to limestone
+            loseFighter.char = { ...loseFighter.char, color: '#b8a88a', accent: '#cdbfa0', outline: '#8a7a6a' };
+          }
+          // Soul drifts backward (away from Exor)
+          const soulT = (rumbleTimer - punchEnd) / (soulFlyEnd - punchEnd);
+          rumbleExorSoulX = loseFighter.x - dir * soulT * 80;
+          rumbleExorSoulY = loseFighter.y - 30 - soulT * 40;
+          rumbleExorSoulAlpha = 0.7;
+        } else if (rumbleTimer <= absorbEnd) {
+          // Phase 3: Exor sucks in the soul — soul curves toward Exor
+          rumbleExorPhase = 3;
+          const absT = (rumbleTimer - soulFlyEnd) / (absorbEnd - soulFlyEnd);
+          // Curve from current soul position toward Exor
+          const startSoulX = loseFighter.x - dir * 80;
+          const startSoulY = loseFighter.y - 70;
+          rumbleExorSoulX = startSoulX + (winFighter.x - startSoulX) * absT;
+          rumbleExorSoulY = startSoulY + ((winFighter.y - 30) - startSoulY) * absT - Math.sin(absT * Math.PI) * 40;
+          rumbleExorSoulAlpha = 0.7 * (1 - absT * 0.8);
+          // Green glow on Exor as soul approaches
+          if (absT > 0.7) {
+            winFighter.flashTimer = 3;
+          }
+          if (rumbleTimer === absorbEnd) {
+            rumbleExorSoulAlpha = 0;
+            shakeTimer = 4;
+            shakeIntensity = 4;
+          }
+        } else if (rumbleTimer <= crumbleEnd) {
+          // Phase 4: Stone body crumbles to dust
+          rumbleExorPhase = 4;
+          rumbleExorSoulAlpha = 0;
+          const crT = (rumbleTimer - absorbEnd) / (crumbleEnd - absorbEnd);
+          rumbleExorCrumbleT = crT;
+          if (crT > 0.3 && !rumbleLoserHidden) {
+            rumbleLoserHidden = true;
+          }
+          if (rumbleTimer === crumbleEnd) { shakeTimer = 4; shakeIntensity = 3; }
+        } else {
+          // Phase 5: Hold
+          rumbleExorPhase = 5;
+        }
+
+        if (rumbleTimer >= endFrame) {
+          gameState = 'victory';
+        }
+      }
+
+      if (rumbleType === 'BACKTRACK') {
+        // Backtrack "Or was it just me me?": ~420 frames
+        // 0-40: Rewind visual effect on screen (purple flash, screen warps)
+        // 40-180: Opponent gradually shrinks, becoming younger
+        // 180-240: Opponent is now a baby (tiny body, big head, wide eyes)
+        // 240-300: Backtrack runs to baby and kicks
+        // 300-340: Baby flies into sky
+        // 340-420: Hold, then end
+        const rewindEnd = 40;
+        const shrinkEnd = 180;
+        const babyEnd = 240;
+        const puntEnd = 300;
+        const flyEnd = 340;
+        const endFrame = 420;
+
+        const dir = loseFighter.x > winFighter.x ? 1 : -1;
+        winFighter.facing = dir;
+        // Hide normal loser draw — rumble function handles custom drawing
+        if (rumbleTimer === 1) rumbleLoserHidden = true;
+
+        if (rumbleTimer <= rewindEnd) {
+          // Phase 0: Rewind effect — purple screen flash, time distortion
+          rumbleBacktrackPhase = 0;
+          winFighter.vx = 0;
+          winFighter.state = 'idle';
+          winFighter.btRewindEffect = 20;
+          if (rumbleTimer % 6 === 0) { shakeTimer = 2; shakeIntensity = 3; }
+        } else if (rumbleTimer <= shrinkEnd) {
+          // Phase 1: Opponent shrinks progressively
+          rumbleBacktrackPhase = 1;
+          winFighter.btRewindEffect = 0;
+          const shrinkT = (rumbleTimer - rewindEnd) / (shrinkEnd - rewindEnd);
+          rumbleBacktrackShrink = 1.0 - shrinkT * 0.6; // 1.0 → 0.4
+          // Occasional rewind flashes
+          if (rumbleTimer % 20 === 0) {
+            winFighter.btRewindEffect = 8;
+            shakeTimer = 2;
+            shakeIntensity = 2;
+          }
+        } else if (rumbleTimer <= babyEnd) {
+          // Phase 2: Baby form — tiny body, big head
+          rumbleBacktrackPhase = 2;
+          rumbleBacktrackShrink = 0.4;
+          winFighter.btRewindEffect = 0;
+          // Baby just stands there looking around
+        } else if (rumbleTimer <= puntEnd) {
+          // Phase 3: Backtrack runs toward baby and kicks
+          rumbleBacktrackPhase = 3;
+          const runT = (rumbleTimer - babyEnd) / (puntEnd - babyEnd);
+          const targetX = loseFighter.x - dir * 30;
+          winFighter.x += (targetX - winFighter.x) * 0.08;
+          winFighter.animTimer++;
+          if (winFighter.animTimer > 6) { winFighter.animTimer = 0; winFighter.animFrame = (winFighter.animFrame + 1) % 4; }
+          // Kick at the end
+          if (rumbleTimer === puntEnd - 5) {
+            rumbleLoserHidden = true;
+            rumbleBacktrackBabyX = loseFighter.x;
+            rumbleBacktrackBabyY = loseFighter.y;
+            rumbleBacktrackBabyVy = -16;
+            shakeTimer = 6;
+            shakeIntensity = 6;
+          }
+        } else if (rumbleTimer <= flyEnd) {
+          // Phase 4: Baby flies into sky
+          rumbleBacktrackPhase = 4;
+          rumbleBacktrackBabyVy += 0.1; // slight gravity but mostly up
+          rumbleBacktrackBabyY += rumbleBacktrackBabyVy;
+          rumbleBacktrackBabyX += dir * 3;
+          winFighter.state = 'idle';
+          winFighter.vx = 0;
+        } else {
+          rumbleBacktrackPhase = 5;
+        }
+
+        if (rumbleTimer >= endFrame) {
+          gameState = 'victory';
+        }
+      }
+
+      if (rumbleType === 'KILLA WATT') {
+        // Killa Watt "What's Vaults?": ~340 frames
+        // 0-20: Lightning strikes from sky onto opponent
+        // 20-120: Lightning lingers, electrocuting opponent (vibrate + flash)
+        // 120-160: Opponent fades, skeleton revealed
+        // 160-220: Skeleton collapses
+        // 220-340: Hold, then end
+        const strikeEnd = 20;
+        const electrocuteEnd = 120;
+        const revealEnd = 160;
+        const collapseStart = 170;
+        const collapseEnd = 210;
+        const endFrame = 340;
+
+        winFighter.vx = 0;
+        winFighter.state = 'idle';
+
+        if (rumbleTimer <= strikeEnd) {
+          // Phase 0: Lightning strikes down onto opponent
+          rumbleKillaWattPhase = 0;
+          if (rumbleTimer === 1) {
+            // Generate bolt paths from sky to opponent
+            for (let b = 0; b < 3; b++) {
+              const bolt = [];
+              const segs = 10;
+              for (let s = 0; s <= segs; s++) {
+                bolt.push({
+                  x: loseFighter.x + (s > 0 && s < segs ? (Math.random() - 0.5) * 40 : 0),
+                  y: s * (loseFighter.y - 30) / segs + (s > 0 && s < segs ? (Math.random() - 0.5) * 20 : 0)
+                });
+              }
+              rumbleKillaWattBolts.push(bolt);
+            }
+            shakeTimer = 15;
+            shakeIntensity = 10;
+            loseFighter.flashTimer = 20;
+          }
+        } else if (rumbleTimer <= electrocuteEnd) {
+          // Phase 1: Electrocution — lightning lingers, opponent vibrates
+          rumbleKillaWattPhase = 1;
+          // Regenerate bolt paths periodically for flickering effect
+          if (rumbleTimer % 4 === 0) {
+            rumbleKillaWattBolts = [];
+            for (let b = 0; b < 2; b++) {
+              const bolt = [];
+              const segs = 10;
+              for (let s = 0; s <= segs; s++) {
+                bolt.push({
+                  x: loseFighter.x + (s > 0 && s < segs ? (Math.random() - 0.5) * 35 : 0),
+                  y: s * (loseFighter.y - 30) / segs + (s > 0 && s < segs ? (Math.random() - 0.5) * 15 : 0)
+                });
+              }
+              rumbleKillaWattBolts.push(bolt);
+            }
+          }
+          loseFighter.flashTimer = 3;
+          if (rumbleTimer % 10 === 0) { shakeTimer = 3; shakeIntensity = 4; }
+        } else if (rumbleTimer <= revealEnd) {
+          // Phase 2: Opponent fades, skeleton appears
+          rumbleKillaWattPhase = 2;
+          rumbleKillaWattBolts = []; // lightning fades
+          if (!rumbleKillaWattSkeleton) {
+            rumbleLoserHidden = true;
+            rumbleKillaWattSkeleton = { x: loseFighter.x, groundY: loseFighter.groundY, collapseT: 0 };
+          }
+        } else if (rumbleTimer <= collapseEnd + 10) {
+          // Phase 3: Skeleton collapses
+          rumbleKillaWattPhase = 3;
+          if (rumbleTimer >= collapseStart && rumbleKillaWattSkeleton) {
+            rumbleKillaWattSkeleton.collapseT = Math.min(1, (rumbleTimer - collapseStart) / (collapseEnd - collapseStart));
+            if (rumbleTimer === collapseEnd) { shakeTimer = 6; shakeIntensity = 4; }
+          }
+        } else {
+          // Phase 4: Hold
+          rumbleKillaWattPhase = 4;
+        }
+
+        if (rumbleTimer >= endFrame) {
           gameState = 'victory';
         }
       }
