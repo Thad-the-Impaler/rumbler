@@ -110,7 +110,7 @@ function drawPauseOverlay() {
   ctx.font = 'bold 18px Arial';
   ctx.textAlign = 'center';
   ctx.fillStyle = selectedPlayer.accent;
-  const hasSpecialAbility = selectedPlayer.isBojdo || selectedPlayer.isRubberman || selectedPlayer.isTorrena || selectedPlayer.isSnazz || selectedPlayer.isHaystack || selectedPlayer.isCodemax || selectedPlayer.isCorvida || selectedPlayer.isGolgar || selectedPlayer.isTelatrine || selectedPlayer.isDuplaire || selectedPlayer.isBozollok || selectedPlayer.isGourmand || selectedPlayer.isBatsch || selectedPlayer.isPaletap || selectedPlayer.isMatador || selectedPlayer.isKillawatt || selectedPlayer.isBacktrack || selectedPlayer.isExor || selectedPlayer.isBuck;
+  const hasSpecialAbility = selectedPlayer.isBojdo || selectedPlayer.isRubberman || selectedPlayer.isTorrena || selectedPlayer.isSnazz || selectedPlayer.isHaystack || selectedPlayer.isCodemax || selectedPlayer.isCorvida || selectedPlayer.isGolgar || selectedPlayer.isTelatrine || selectedPlayer.isDuplaire || selectedPlayer.isBozollok || selectedPlayer.isGourmand || selectedPlayer.isBatsch || selectedPlayer.isPaletap || selectedPlayer.isMatador || selectedPlayer.isKillawatt || selectedPlayer.isBacktrack || selectedPlayer.isExor || selectedPlayer.isBuck || selectedPlayer.isDryad || selectedPlayer.isKavak || selectedPlayer.isAether;
   ctx.fillText(`${selectedPlayer.name} ${hasSpecialAbility ? 'ABILITIES' : 'COMBOS'}`, 700, 100);
 
   const combos = characterCombos[selectedPlayer.name];
@@ -820,6 +820,109 @@ function drawPauseOverlay() {
       ctx.fillText(abilities[a][1], 580, ay + 5);
       ctx.fillStyle = '#888';
       ctx.fillText(details[a], 543, ay + 25);
+    }
+  }
+
+  if (selectedPlayer.isDryad) {
+    ctx.font = 'bold 16px Arial';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = selectedPlayer.accent;
+    ctx.fillText('PLANT WALL', 540, 135);
+
+    const ay = 160;
+    ctx.fillStyle = '#333';
+    ctx.strokeStyle = '#777';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(541, ay - 14, 28, 28, 5);
+    ctx.fill();
+    ctx.stroke();
+    ctx.font = 'bold 15px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#fff';
+    ctx.fillText('P', 555, ay + 5);
+    ctx.font = '13px Arial';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#aaa';
+    ctx.fillText('Plant a seed at your feet', 580, ay + 5);
+
+    const tips = [
+      'Grows into a thick wall in 1.5s',
+      'Tall enough to block jumps',
+      '30 HP — destroyed by either fighter',
+      'Up to 3 walls at once',
+    ];
+    for (let t = 0; t < tips.length; t++) {
+      ctx.fillStyle = '#888';
+      ctx.fillText(tips[t], 543, ay + 28 + t * 18);
+    }
+  }
+
+  if (selectedPlayer.isAether) {
+    ctx.font = 'bold 16px Arial';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = selectedPlayer.accent;
+    ctx.fillText('CHARGED LASER', 540, 135);
+
+    const ay = 160;
+    ctx.fillStyle = '#333';
+    ctx.strokeStyle = '#777';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(541, ay - 14, 28, 28, 5);
+    ctx.fill();
+    ctx.stroke();
+    ctx.font = 'bold 15px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#fff';
+    ctx.fillText('L', 555, ay + 5);
+    ctx.font = '13px Arial';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#aaa';
+    ctx.fillText('Hold to charge an orb, release to fire', 580, ay + 5);
+
+    const tips = [
+      'Tap for a quick weak laser',
+      'Hold up to 1.5s for full power',
+      'Charge cancels if you get hit',
+    ];
+    for (let t = 0; t < tips.length; t++) {
+      ctx.fillStyle = '#888';
+      ctx.fillText(tips[t], 543, ay + 28 + t * 18);
+    }
+  }
+
+  if (selectedPlayer.isKavak) {
+    ctx.font = 'bold 16px Arial';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = selectedPlayer.accent;
+    ctx.fillText('PUNCH FLURRY', 540, 135);
+
+    const ay = 160;
+    ctx.fillStyle = '#333';
+    ctx.strokeStyle = '#777';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(541, ay - 14, 28, 28, 5);
+    ctx.fill();
+    ctx.stroke();
+    ctx.font = 'bold 15px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#fff';
+    ctx.fillText('K', 555, ay + 5);
+    ctx.font = '13px Arial';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#aaa';
+    ctx.fillText('Storm of fast punches up and down', 580, ay + 5);
+
+    const tips = [
+      '8 hits in under a second',
+      'Short range — get up close first',
+      'Locked in place during the flurry',
+    ];
+    for (let t = 0; t < tips.length; t++) {
+      ctx.fillStyle = '#888';
+      ctx.fillText(tips[t], 543, ay + 28 + t * 18);
     }
   }
 

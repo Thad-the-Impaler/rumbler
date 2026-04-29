@@ -106,6 +106,18 @@ function startFight() {
   player = new Fighter(selectedPlayer, 250, 1, true, selectedAssist);
   cpu = new Fighter(selectedCPU, 710, -1, false, assists[cpuAssistIndex]);
 
+  // Clear printer boss state from previous fights
+  printerBossInkSplats = [];
+  printerBossPapers = [];
+  if (cpu.char.isPrinterBoss) {
+    // Practice mode: skip cutscene, go straight to boss phase
+    if (printerBossPhase === -1) printerBossPhase = 5;
+  } else if (printerBossPhase !== 0) {
+    // Not a printer boss fight (and not mid-campaign-cutscene): reset phase
+    printerBossPhase = -1;
+    printerBossTimer = 0;
+  }
+
   // The Count on Brutal: upgrade to final version
   if (cpu.char.isTheCount && !cpu.char.isTheCountFinal && cpuDifficulty && cpuDifficulty.name === 'BRUTAL') {
     cpu.char = { ...cpu.char, isTheCountFinal: true, stats: { speed: 6.0, power: 1.5, defense: 1.3 } };
@@ -135,6 +147,10 @@ function startFight() {
         rumbleCodemaxLaser = false; rumbleCodemaxPixelLevel = 0; rumbleCodemaxGlitch = 0; rumbleCodemaxLaserParticles = [];
         rumbleCorvidaPhase = 0; rumbleCorvidaNestX = 0; rumbleCorvidaEggs = []; rumbleCorvidaGulpChick = -1;
         rumbleGolgarEntity2 = null; rumbleGolgarPhase = 0; rumbleGolgarLaunchVy = 0; rumbleGolgarOpX = 0;
+        rumbleDryadPhase = 0; rumbleDryadVines = []; rumbleDryadSinkProgress = 0; rumbleDryadCracks = []; rumbleDryadLeaves = [];
+        rumbleKavakPhase = 0; rumbleKavakGrabX = 0; rumbleKavakSlamX = 0; rumbleKavakPunchT = 0; rumbleKavakStuck = false; rumbleKavakDust = [];
+        rumbleAetherPhase = 0; rumbleAetherChainT = 0; rumbleAetherLaserT = 0; rumbleAetherCharFade = 1;
+        rumbleAetherFireballs = []; rumbleAetherImpacts = []; rumbleAetherSmoke = []; rumbleAetherSparks = [];
         if (player) { player.rubberArmReach = 0; player._hideFrontArm = false; player._hideBackArm = false; player._rumbleRotation = 0; }
         if (cpu) { cpu.rubberArmReach = 0; cpu._hideFrontArm = false; cpu._hideBackArm = false; cpu._rumbleRotation = 0; }
         if (player) { player._brushArmT = undefined; player._rumbleAlpha = undefined; }

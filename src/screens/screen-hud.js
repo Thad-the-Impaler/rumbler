@@ -691,19 +691,21 @@ function drawHUD() {
   ctx.fillStyle = '#aaa';
   ctx.fillText(selectedAssist.name + (pAssistReady ? ' READY' : ''), 30, barY + barHeight + 26);
 
-  // CPU assist
-  const cpuAssist = assists[cpuAssistIndex];
-  ctx.fillStyle = '#222';
-  ctx.fillRect(830, barY + barHeight + 6, assistBarW, assistBarH);
-  const cAssistReady = cpu.assistCooldown <= 0;
-  const cAssistFill = cAssistReady ? 1 : 1 - (cpu.assistCooldown / cpuAssist.cooldownTime);
-  ctx.fillStyle = cAssistReady ? cpuAssist.color : '#555';
-  ctx.fillRect(830, barY + barHeight + 6, assistBarW * cAssistFill, assistBarH);
-  ctx.strokeStyle = '#888';
-  ctx.strokeRect(830, barY + barHeight + 6, assistBarW, assistBarH);
-  ctx.textAlign = 'right';
-  ctx.fillStyle = '#aaa';
-  ctx.fillText(cpuAssist.name + (cAssistReady ? ' READY' : ''), 930, barY + barHeight + 26);
+  // CPU assist (skip for Test Your Might)
+  if (!testYourMightActive) {
+    const cpuAssist = assists[cpuAssistIndex];
+    ctx.fillStyle = '#222';
+    ctx.fillRect(830, barY + barHeight + 6, assistBarW, assistBarH);
+    const cAssistReady = cpu.assistCooldown <= 0;
+    const cAssistFill = cAssistReady ? 1 : 1 - (cpu.assistCooldown / cpuAssist.cooldownTime);
+    ctx.fillStyle = cAssistReady ? cpuAssist.color : '#555';
+    ctx.fillRect(830, barY + barHeight + 6, assistBarW * cAssistFill, assistBarH);
+    ctx.strokeStyle = '#888';
+    ctx.strokeRect(830, barY + barHeight + 6, assistBarW, assistBarH);
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#aaa';
+    ctx.fillText(cpuAssist.name + (cAssistReady ? ' READY' : ''), 930, barY + barHeight + 26);
+  }
 
   // X-haust oil tank indicator
   if (selectedPlayer.isXhaust) {
@@ -775,8 +777,8 @@ function drawHUD() {
     const secondsLeft = Math.ceil(testYourMightTimer / 60);
     const timePct = testYourMightTimer / testYourMightMaxTime;
 
-    // Fade out if printer boss phase 1 is starting
-    const tymFade = printerBossPhase === 0 ? 1 : 0;
+    // Full alpha normally, fades during printer boss transition (phase 0)
+    const tymFade = printerBossPhase === -1 ? 1 : (printerBossPhase === 0 ? 1 : 0);
     ctx.globalAlpha = tymFade;
 
     // "TEST YOUR MIGHT" banner

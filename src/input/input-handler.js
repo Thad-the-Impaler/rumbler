@@ -9,7 +9,7 @@ window.addEventListener('wheel', e => {
 
 window.addEventListener('keydown', e => {
   keys[e.key] = true;
-  handleKeyPress(e.key);
+  handleKeyPress(e.key, e.repeat);
   if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' ','Tab'].includes(e.key)) e.preventDefault();
 });
 window.addEventListener('keyup', e => { keys[e.key] = false; });
@@ -19,7 +19,7 @@ window.addEventListener('click', () => {
   if (menuState && titleMusic.paused) playTitleMusic();
 });
 
-function handleKeyPress(key) {
+function handleKeyPress(key, isRepeat) {
   // Keep title music playing during menu screens
   const menuState = gameState === 'title' || gameState === 'charSelect' || gameState === 'practiceTargetSelect' || gameState === 'bossSelect' || gameState === 'assistSelect' || gameState === 'difficultySelect' || gameState === 'levelSelect';
   if (menuState && titleMusic.paused) {
@@ -937,6 +937,23 @@ function handleKeyPress(key) {
           player.lastCrouchPress = 0;
         } else {
           player.lastCrouchPress = frameCount;
+        }
+      }
+      // Kavak: detect double-tap left/right for secret dash (ignore OS auto-repeat from holding the key)
+      if (!isRepeat && (key === 'ArrowLeft' || key === 'a' || key === 'A') && player && player.char.isKavak) {
+        if (frameCount - player.kavakLastLeftPress < 14) {
+          player.kavakDashLeftPending = true;
+          player.kavakLastLeftPress = -100;
+        } else {
+          player.kavakLastLeftPress = frameCount;
+        }
+      }
+      if (!isRepeat && (key === 'ArrowRight' || key === 'd' || key === 'D') && player && player.char.isKavak) {
+        if (frameCount - player.kavakLastRightPress < 14) {
+          player.kavakDashRightPending = true;
+          player.kavakLastRightPress = -100;
+        } else {
+          player.kavakLastRightPress = frameCount;
         }
       }
       break;

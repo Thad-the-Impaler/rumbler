@@ -80,6 +80,7 @@ let rumbleBatschShellY = 0;
 let rumbleBatschShellVx = 0;
 let rumbleBatschShellVy = 0;
 let rumbleBatschSpinAngle = 0;
+let rumbleBatschPopTimer = 0;
 let rumbleBatschSpinSpeed = 0; // radians per frame
 let rumbleBatschHits = 0; // ricochet hits landed
 let rumbleBatschSparks = []; // impact spark particles { x, y, vx, vy, life }
@@ -137,6 +138,28 @@ let rumblePaletapPhase = 0; // 0=walk, 1=slam fist, 2=vibrate, 3=disassemble, 4=
 let rumblePaletapVibrate = 0; // vibration intensity (ramps up)
 let rumblePaletapParts = []; // disassembled body parts { type, x, y, vy, rot, rotSpeed }
 
+let rumbleDryadPhase = 0;        // 0=windup, 1=sprout, 2=wrap, 3=sink, 4=settle
+let rumbleDryadVines = [];       // [{ baseAngle, length, sway, swayPhase, thickness, leafSeed }]
+let rumbleDryadSinkProgress = 0; // 0..1
+let rumbleDryadCracks = [];      // ground crack lines around opponent { angle, length, jitterSeed }
+let rumbleDryadLeaves = [];      // { x, y, vx, vy, rot, rotSpeed, color, size, timer }
+
+let rumbleKavakPhase = 0;        // 0=approach, 1=grab, 2=lift, 3=punch1, 4=punch2, 5=slamWind, 6=slam, 7=stuck
+let rumbleKavakGrabX = 0;        // x position where Kavak ends up after approach
+let rumbleKavakSlamX = 0;        // x where opponent gets buried
+let rumbleKavakPunchT = 0;       // 0..1 punch animation progress
+let rumbleKavakStuck = false;    // opponent buried face-first
+let rumbleKavakDust = [];        // { x, y, vx, vy, alpha, size }
+
+let rumbleAetherPhase = 0;          // 0=chains, 1=charge, 2=barrage, 3=fade, 4=ash
+let rumbleAetherChainT = 0;         // 0..1 chain emergence
+let rumbleAetherLaserT = 0;         // 0..1 laser intensity
+let rumbleAetherCharFade = 1;       // opponent alpha during disintegration
+let rumbleAetherFireballs = [];     // { x, y, vx, vy, size, timer }
+let rumbleAetherImpacts = [];       // { x, y, timer, size }
+let rumbleAetherSmoke = [];         // { x, y, vx, vy, alpha, size }
+let rumbleAetherSparks = [];        // { x, y, vx, vy, alpha }
+
 let rumbleSnazzConfetti = []; // confetti particles
 let rumbleSnazzPunchLanded = false; // final punch connected
 let rumbleHailShards = []; // ice shards from hailstone cracking
@@ -171,7 +194,7 @@ function resetRumbleState() {
   rumbleGourmandPlateX = 0; rumbleGourmandLeafPlaced = false;
   rumbleGourmandTongueT = 0; rumbleGourmandSwallowT = 0;
   rumbleBatschPhase = 0; rumbleBatschShellX = 0; rumbleBatschShellY = 0;
-  rumbleBatschShellVx = 0; rumbleBatschShellVy = 0; rumbleBatschSpinAngle = 0;
+  rumbleBatschShellVx = 0; rumbleBatschShellVy = 0; rumbleBatschSpinAngle = 0; rumbleBatschPopTimer = 0;
   rumbleBatschSpinSpeed = 0; rumbleBatschHits = 0; rumbleBatschSparks = [];
   rumbleBatschTrail = []; rumbleBatschLaunchVy = 0; rumbleBatschLastHitFrame = 0;
   rumbleXhaustPhase = 0; rumbleXhaustOilDrops = []; rumbleXhaustFlames = []; rumbleXhaustDrenched = false;
@@ -185,4 +208,8 @@ function resetRumbleState() {
   rumbleKillaWattPhase = 0; rumbleKillaWattBolts = []; rumbleKillaWattSkeleton = null;
   rumbleMatadorPhase = 0; rumbleMatadorBullX = 0; rumbleMatadorBullSpeed = 0; rumbleMatadorDust = [];
   rumblePaletapPhase = 0; rumblePaletapVibrate = 0; rumblePaletapParts = [];
+  rumbleDryadPhase = 0; rumbleDryadVines = []; rumbleDryadSinkProgress = 0; rumbleDryadCracks = []; rumbleDryadLeaves = [];
+  rumbleKavakPhase = 0; rumbleKavakGrabX = 0; rumbleKavakSlamX = 0; rumbleKavakPunchT = 0; rumbleKavakStuck = false; rumbleKavakDust = [];
+  rumbleAetherPhase = 0; rumbleAetherChainT = 0; rumbleAetherLaserT = 0; rumbleAetherCharFade = 1;
+  rumbleAetherFireballs = []; rumbleAetherImpacts = []; rumbleAetherSmoke = []; rumbleAetherSparks = [];
 }

@@ -118,6 +118,34 @@ function drawCharacterPreview(char, x, y, size, selected, label) {
     ctx.arc(0, -100 + 22 + bob / sc, 14, 0, Math.PI * 2);
     ctx.fill();
   }
+  // Aether silver crown on character select
+  if (char.isAether) {
+    const headCY = -100 + 22 + bob / sc;
+    const baseY = headCY - 12;
+    const topY = headCY - 22;
+    ctx.fillStyle = '#c8c8d0';
+    ctx.strokeStyle = '#5a5a64';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(-13, baseY - 4, 26, 6, 1.5);
+    ctx.fill(); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(-13, baseY - 4);
+    ctx.lineTo(-9, topY + 2);
+    ctx.lineTo(-6, baseY - 4);
+    ctx.lineTo(-2, topY - 2);
+    ctx.lineTo(2, baseY - 4);
+    ctx.lineTo(6, topY + 2);
+    ctx.lineTo(9, baseY - 4);
+    ctx.lineTo(13, topY + 2);
+    ctx.lineTo(13, baseY - 4);
+    ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#ffd54a';
+    ctx.beginPath();
+    ctx.arc(0, baseY - 1, 1.4, 0, Math.PI * 2);
+    ctx.fill();
+  }
   // Snazz McJazz fedora on character select
   if (char.isSnazz) {
     const headCY = -100 + 22 + bob / sc;
@@ -174,7 +202,7 @@ function drawCharacterPreview(char, x, y, size, selected, label) {
   }
   // Eyes
   const cardEyeY = char.isPaletap ? -100 + 4 + bob / sc : -100 + 20 + bob / sc;
-  ctx.fillStyle = char.outline;
+  ctx.fillStyle = char.isKavak ? '#ff2222' : char.isAether ? '#ffffff' : char.outline;
   if (char.isPaletap) {
     ctx.save();
     ctx.translate(0, cardEyeY);
@@ -529,10 +557,50 @@ function drawCharSelectScreen() {
       ctx.strokeRect(sx + 8, sy, 140, 12);
     }
 
-    // Combos / abilities preview (right side)
+    // Combos / abilities / rumbles preview (right side)
     const abilStart = compact ? statStart : infoBaseY + 55;
     const abilLine1 = abilStart + (compact ? 12 : 17);
     const abilLine2 = abilLine1 + (compact ? 14 : 18);
+
+    // In Rumble Practice: show rumble info instead of combos/abilities
+    const rumbleEntry = gameMode === 'rumblePractice' ? characterRumbles[current.name] : null;
+    if (rumbleEntry) {
+      const rumbleList = Array.isArray(rumbleEntry) ? rumbleEntry : [rumbleEntry];
+      ctx.font = 'bold 12px Arial';
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#888';
+      ctx.fillText('RUMBLES:', 530, abilStart);
+      for (let r = 0; r < rumbleList.length; r++) {
+        const rumble = rumbleList[r];
+        const ry = abilLine1 + r * (compact ? 42 : 52);
+        // Rumble name
+        ctx.fillStyle = current.accent;
+        ctx.beginPath();
+        ctx.arc(537, ry - 3, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.font = 'bold 13px Arial';
+        ctx.fillStyle = '#ccc';
+        ctx.fillText(rumble.name.replace(/\*/g, ''), 547, ry);
+        // Code keycaps
+        const codeLetters = rumble.code.toUpperCase().split('');
+        for (let k = 0; k < codeLetters.length; k++) {
+          ctx.fillStyle = '#444';
+          ctx.fillRect(547 + k * 20, ry + 6, 17, 17);
+          ctx.strokeStyle = '#777';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(547 + k * 20, ry + 6, 17, 17);
+          ctx.font = 'bold 11px Arial';
+          ctx.textAlign = 'center';
+          ctx.fillStyle = '#ddd';
+          ctx.fillText(codeLetters[k], 547 + k * 20 + 8.5, ry + 19);
+          ctx.textAlign = 'left';
+        }
+        // Description
+        ctx.font = '12px Arial';
+        ctx.fillStyle = '#888';
+        ctx.fillText(rumble.desc, 547, ry + 35);
+      }
+    } else {
     const combos = characterCombos[current.name];
     if (combos) {
       ctx.font = 'bold 12px Arial';
@@ -577,6 +645,9 @@ function drawCharSelectScreen() {
         isBuck: ['FIREWORK SPRAY', 'L', 'Spray red, white & blue fireworks'],
         isVortice: ['TORNADO', 'H / J', 'Pull foes in or blast them away'],
         isXhaust: ['OIL IGNITE', 'L / K', 'Leak oil trail, then ignite it'],
+        isDryad: ['PLANT WALL', 'P', 'Drop a seed; grows into a 30HP plant wall'],
+        isKavak: ['PUNCH FLURRY', 'K', 'Storm of fast punches up and down at short range'],
+        isAether: ['CHARGED LASER', 'L', 'Hold to charge a yellow orb, release to fire'],
       };
       for (const [flag, info] of Object.entries(abilityMap)) {
         if (!current[flag]) continue;
@@ -595,6 +666,7 @@ function drawCharSelectScreen() {
         break;
       }
     }
+    } // end else (not rumble practice)
   }
 
   // Instructions

@@ -262,6 +262,8 @@ function draw() {
             drawMeltingFighter(loserF);
           } else if (rumbleType === 'TITAN' && rumbleSinkProgress > 0) {
             drawSinkingFighter(loserF);
+          } else if (rumbleType === 'DRYAD' && rumbleDryadSinkProgress > 0) {
+            drawDryadSinkingFighter(loserF);
           } else {
             loserF.draw(ctx);
           }
@@ -276,6 +278,9 @@ function draw() {
       if (rumbleCorvidaGulpChick >= 0 && rumbleLoserHidden) drawCorvidaRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
       if (rumbleGolgarEntity2 && rumbleLoserHidden) drawGolgarRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
       if (rumbleTelatrinePhase === 5) drawTelatrineRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
+      if (rumbleType === 'DRYAD') drawDryadRumble(winner === 'player' ? cpu : player);
+      if (rumbleType === 'KAVAK' && rumbleKavakStuck) drawKavakRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
+      if (rumbleType === 'AETHER') drawAetherRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
       ctx.restore();
       drawFinishHimScreen();
       if (paused) drawPauseOverlay();
@@ -300,6 +305,8 @@ function draw() {
           if (!rumbleLoserHidden) {
             if (rumbleType === 'VENOM' && rumbleVenomMeltPct > 0) {
               drawMeltingFighter(loserF);
+            } else if (rumbleType === 'DRYAD' && rumbleDryadSinkProgress > 0) {
+              drawDryadSinkingFighter(loserF);
             } else {
               loserF.draw(ctx);
             }
@@ -316,6 +323,9 @@ function draw() {
         if (rumbleCorvidaGulpChick >= 0 && rumbleLoserHidden) drawCorvidaRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
         if (rumbleGolgarEntity2 && rumbleLoserHidden) drawGolgarRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
         if (rumbleTelatrinePhase === 5) drawTelatrineRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
+        if (rumbleType === 'DRYAD') drawDryadRumble(winner === 'player' ? cpu : player);
+        if (rumbleType === 'KAVAK' && rumbleKavakStuck) drawKavakRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
+        if (rumbleType === 'AETHER') drawAetherRumble(winner === 'player' ? cpu : player, winner === 'player' ? player : cpu);
       if (rumbleBozollokSkeleton) drawBozollokSkeleton(rumbleBozollokSkeleton.x, rumbleBozollokSkeleton.groundY, rumbleBozollokSkeleton.collapseT);
       if (rumbleKillaWattSkeleton) drawBozollokSkeleton(rumbleKillaWattSkeleton.x, rumbleKillaWattSkeleton.groundY, rumbleKillaWattSkeleton.collapseT);
       }

@@ -3,7 +3,7 @@ const characterRumbles = {
   'BLAZE': { name: 'SCORCHED EARTH', code: 'cinder', desc: 'Pillar of fire incinerates the opponent' },
   'ARTIK': { name: 'OPPSICLE', code: 'frozen', desc: 'Freeze solid, then shatter with a punch' },
   'VENOM': { name: "YOU'VE BEEN PARDONED", code: 'acidic', desc: 'Spit acid that melts the opponent into goo' },
-  'SURGE': { name: 'MR. ELECTRIC BOOM', code: 'battery', desc: 'Overcharge the opponent until they explode in light' },
+  'SURGE': { name: 'MR. ELECTRIC BOOM', code: 'teslas', desc: 'Overcharge the opponent until they explode in light' },
   'TITAN': { name: 'AND WHAT ARE YOU SINKING ABOUT?', code: 'soiled', desc: 'Summon a sinkhole that swallows the opponent' },
   'SHADE': { name: 'WANTED THE SMOKE, GOT THE SMOKE', code: 'shadow', desc: 'Martial arts combo finishes opponent into a puff of smoke' },
   'RUBBERMAN': { name: 'TETHERBALL', code: 'slinky', desc: 'Grab and slam the opponent back and forth into the ground' },
@@ -30,5 +30,8 @@ const characterRumbles = {
   'EXOR': { name: 'SOUL SURVIVOR', code: 'spirit', desc: 'Punch the soul out and absorb it' },
   'BUCK': { name: 'THE AMERICAN WAY', code: 'merica', desc: 'Fireworks, eagles, flags, and a bombing run' },
   'VORTICE': { name: 'SUCKS TO BE YOU', code: 'spiral', desc: 'Suck the opponent into a tornado and fling them into the screen' },
-  'X-HAUST': { name: 'KEROMIKAZE', code: 'engine', desc: 'Drench yourself in oil and go out in a blaze of glory' }
+  'X-HAUST': { name: 'KEROMIKAZE', code: 'engine', desc: 'Drench yourself in oil and go out in a blaze of glory' },
+  'DRYAD': { name: 'ROOT PROBLEM', code: 'thorns', desc: 'Vines wrap the opponent and pull them beneath the surface' },
+  'KAVAK': { name: "DON'T GET UP", code: 'bounty', desc: 'Choke-lift, double punch, and slam them face-first into the dirt' },
+  'AETHER': { name: 'BACK FROM WHENCE YOU CAME', code: 'punish', desc: 'Golden chains, a massive laser, and a rain of fire reduce them to ash' }
 };

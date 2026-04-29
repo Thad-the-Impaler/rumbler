@@ -57,6 +57,154 @@ Fighter.prototype.draw = function(ctx) {
     return; // don't draw normal body
   }
 
+  // Dryad: draw plant walls (world space, behind fighter)
+  if (this.char.isDryad && this.dryadWalls && this.dryadWalls.length > 0) {
+    for (const w of this.dryadWalls) {
+      this.drawDryadWall(ctx, w);
+    }
+  }
+
+  // Aether: charging orb (world space) and laser beam (world space)
+  if (this.char.isAether) {
+    // Charging orb in front of his hands
+    if (this.aetherCharging && this.aetherChargeT > 0) {
+      const f = this.facing;
+      const chargeFrac = Math.min(1, this.aetherChargeT / this.aetherMaxCharge);
+      const orbX = this.x + f * 26;
+      const orbY = this.centerY + 4;
+      const orbR = 4 + chargeFrac * 14;
+      const pulse = 1 + Math.sin(Date.now() * 0.015) * 0.08;
+      ctx.save();
+      // Outer glow
+      ctx.globalAlpha = 0.35 + chargeFrac * 0.35;
+      ctx.fillStyle = '#ffe066';
+      ctx.beginPath();
+      ctx.arc(orbX, orbY, orbR * pulse * 1.6, 0, Math.PI * 2);
+      ctx.fill();
+      // Mid orb
+      ctx.globalAlpha = 0.85;
+      ctx.fillStyle = '#ffd84a';
+      ctx.beginPath();
+      ctx.arc(orbX, orbY, orbR * pulse, 0, Math.PI * 2);
+      ctx.fill();
+      // Bright core
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#fffce8';
+      ctx.beginPath();
+      ctx.arc(orbX, orbY, orbR * 0.45, 0, Math.PI * 2);
+      ctx.fill();
+      // Sparks at full charge
+      if (chargeFrac >= 1) {
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1.5;
+        for (let s = 0; s < 6; s++) {
+          const a = (s / 6) * Math.PI * 2 + Date.now() * 0.01;
+          ctx.beginPath();
+          ctx.moveTo(orbX + Math.cos(a) * orbR, orbY + Math.sin(a) * orbR);
+          ctx.lineTo(orbX + Math.cos(a) * (orbR + 6), orbY + Math.sin(a) * (orbR + 6));
+          ctx.stroke();
+        }
+      }
+      ctx.restore();
+    }
+    // Laser beam (instant flash, fades out)
+    if (this.aetherLaser) {
+      const lz = this.aetherLaser;
+      const fadeIn = Math.min(1, lz.fireT / 2);
+      const fadeOut = 1 - lz.fireT / lz.maxFireT;
+      const alpha = fadeIn * fadeOut;
+      const thickness = 4 + lz.charge * 14;
+      const startX = this.x + lz.dir * 26;
+      const endX = lz.dir === 1 ? 960 : 0;
+      const y = lz.beamY;
+      ctx.save();
+      // Outer glow
+      ctx.globalAlpha = alpha * 0.4;
+      ctx.fillStyle = '#ffe066';
+      ctx.fillRect(Math.min(startX, endX), y - thickness, Math.abs(endX - startX), thickness * 2);
+      // Core beam
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = '#ffd84a';
+      ctx.fillRect(Math.min(startX, endX), y - thickness * 0.55, Math.abs(endX - startX), thickness * 1.1);
+      // Bright center line
+      ctx.fillStyle = '#fffce8';
+      ctx.fillRect(Math.min(startX, endX), y - thickness * 0.2, Math.abs(endX - startX), thickness * 0.4);
+      ctx.restore();
+    }
+  }
+
+  // Kavak: dash motion-blur trail (world space, behind body)
+  if (this.char.isKavak && this.kavakDash) {
+    const t = Math.min(1, this.kavakDash.frame / this.kavakDash.frames);
+    const trailCount = 5;
+    ctx.save();
+    for (let i = 0; i < trailCount; i++) {
+      const tt = Math.max(0, t - i * 0.07);
+      const ghostX = this.kavakDash.startX + (this.kavakDash.endX - this.kavakDash.startX) * tt;
+      ctx.globalAlpha = (1 - i / trailCount) * 0.35;
+      ctx.fillStyle = this.char.color;
+      ctx.beginPath();
+      ctx.arc(ghostX, this.y - 45, 14, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillRect(ghostX - 14, this.y - 70, 28, 50);
+    }
+    ctx.restore();
+  }
+
+  // Kavak: flurry punch overlay (world space, in front of body)
+  if (this.char.isKavak && this.kavakFlurry) {
+    const f = this.facing;
+    const idx = this.kavakFlurry.hitsTotal - this.kavakFlurry.hitsLeft;
+    const phase = this.kavakFlurry.hitTimer / this.kavakFlurry.hitInterval; // 0..1
+    const isUpHit = idx % 2 === 0;
+    const fistDist = 30 + phase * 50; // extends from 30 to 80
+    const fistX = this.x + f * fistDist;
+    const fistY = this.centerY + (isUpHit ? -22 : 22);
+    ctx.save();
+    // Motion lines extending back toward body
+    ctx.strokeStyle = '#ffffff';
+    ctx.globalAlpha = 0.6;
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 3; i++) {
+      const lineY = fistY + (i - 1) * 5;
+      ctx.beginPath();
+      ctx.moveTo(this.x + f * 18, lineY);
+      ctx.lineTo(fistX - f * 8, lineY);
+      ctx.stroke();
+    }
+    // Trailing ghost fists (previous strikes fading)
+    ctx.globalAlpha = 0.35;
+    ctx.fillStyle = this.char.outline;
+    for (let g = 1; g <= 2; g++) {
+      const gFistX = this.x + f * (fistDist - g * 18);
+      ctx.beginPath();
+      ctx.arc(gFistX, fistY, 6 - g, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // Main fist
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = this.char.outline;
+    ctx.beginPath();
+    ctx.arc(fistX, fistY, 8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = this.char.accent;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    // Impact burst at fist tip
+    ctx.globalAlpha = 0.7;
+    ctx.fillStyle = '#ffd54a';
+    ctx.beginPath();
+    for (let s = 0; s < 6; s++) {
+      const a = (s / 6) * Math.PI * 2;
+      ctx.moveTo(fistX, fistY);
+      ctx.lineTo(fistX + Math.cos(a) * 9, fistY + Math.sin(a) * 9);
+    }
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = '#ffd54a';
+    ctx.stroke();
+    ctx.restore();
+  }
+
   // Buck: draw fireworks and explosions (world space)
   if (this.char.isBuck) {
     ctx.save();
@@ -1147,6 +1295,68 @@ Fighter.prototype.draw = function(ctx) {
     ctx.restore();
   }
 
+  // Kavak: shotgun strapped diagonally across his back (drawn BEFORE the body so the body covers the middle)
+  if (this.char.isKavak) {
+    const bodyH_pre = (40 - crouch) * ptScale;
+    const shoulderY = -legLen - bodyH_pre;
+    // Top (barrel tip) clearly above the head; bottom (stock butt) clearly behind the heel.
+    // -f side = behind facing direction. Diagonal so both ends are visible past the body silhouette.
+    const topX = -f * 4;
+    const topY = shoulderY - 38;       // ~y=-86 (head top is at -80, so barrel pokes above)
+    const botX = -f * 30;
+    const botY = -legLen + 12;         // ~y=+4 (just past the heel)
+    ctx.save();
+    ctx.translate(topX, topY);
+    const dx = botX - topX, dy = botY - topY;
+    const angle = Math.atan2(dy, dx);
+    const gunLen = Math.sqrt(dx * dx + dy * dy);
+    ctx.rotate(angle);
+    // 0..gunLen along x-axis, with 0 = barrel tip, gunLen = stock butt
+    const barrelLen = gunLen * 0.55;
+    // Barrel (metallic gray)
+    ctx.fillStyle = '#3a3a3e';
+    ctx.strokeStyle = '#0a0a0c';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.rect(0, -2.2, barrelLen, 4.4);
+    ctx.fill();
+    ctx.stroke();
+    // Muzzle ring at barrel tip
+    ctx.fillStyle = '#1a1a1c';
+    ctx.beginPath();
+    ctx.rect(0, -2.6, 2, 5.2);
+    ctx.fill();
+    // Pump/forend (lighter gray segment near front of stock)
+    ctx.fillStyle = '#5a5a5e';
+    ctx.strokeStyle = '#1a1a1c';
+    ctx.beginPath();
+    ctx.rect(barrelLen - 8, -3, 8, 6);
+    ctx.fill();
+    ctx.stroke();
+    // Stock (wood) — slightly thicker, tapers slightly
+    ctx.fillStyle = '#6b3f1f';
+    ctx.strokeStyle = '#2a160a';
+    ctx.beginPath();
+    ctx.moveTo(barrelLen, -3);
+    ctx.lineTo(gunLen, -4);
+    ctx.lineTo(gunLen, 4);
+    ctx.lineTo(barrelLen, 3);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    // Wood grain
+    ctx.strokeStyle = '#3a200a';
+    ctx.lineWidth = 0.6;
+    for (let i = 0; i < 3; i++) {
+      const sx = barrelLen + 3 + i * 4;
+      ctx.beginPath();
+      ctx.moveTo(sx, -2.5);
+      ctx.lineTo(sx + 1, 2.5);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
   // Body
   ctx.fillStyle = color;
   ctx.strokeStyle = outline;
@@ -1437,7 +1647,7 @@ Fighter.prototype.draw = function(ctx) {
 
     // Eyes
     const eyeBaseY = isPaletap ? 0 : headY;
-    ctx.fillStyle = this.char.isErictho ? '#9944dd' : this.char.isRelapmi ? '#ff2222' : this.char.isDarkBojdo ? '#ffcc00' : this.char.isDarkDuplaire ? '#00ffdd' : outline;
+    ctx.fillStyle = this.char.isErictho ? '#9944dd' : this.char.isRelapmi ? '#ff2222' : this.char.isDarkBojdo ? '#ffcc00' : this.char.isDarkDuplaire ? '#00ffdd' : this.char.isKavak ? '#ff2222' : this.char.isAether ? '#ffffff' : outline;
     ctx.beginPath();
     ctx.arc(f * 5, eyeBaseY - 2, 3, 0, Math.PI * 2);
     ctx.fill();
@@ -1445,8 +1655,8 @@ Fighter.prototype.draw = function(ctx) {
     ctx.arc(f * 12, eyeBaseY - 2, 3, 0, Math.PI * 2);
     ctx.fill();
 
-    // Eye highlights (skip for Paletap and Erictho)
-    if (!isPaletap && !this.char.isErictho) {
+    // Eye highlights (skip for Paletap, Erictho, and Aether — Aether's eyes are pure white)
+    if (!isPaletap && !this.char.isErictho && !this.char.isAether) {
       ctx.fillStyle = '#fff';
       ctx.beginPath();
       ctx.arc(f * 6, eyeBaseY - 3, 1.5, 0, Math.PI * 2);
@@ -1459,6 +1669,46 @@ Fighter.prototype.draw = function(ctx) {
 
   if (isPaletap) ctx.restore(); // end tilted head transform
   if (isPaletap) ctx.restore(); // end forward lean
+
+  // Aether: silver crown sitting on top of his head
+  if (this.char.isAether) {
+    const crownBaseY = headY - 12;
+    const crownTopY = headY - 24;
+    // Band (silver gradient via two colors for shading)
+    ctx.fillStyle = '#c8c8d0';
+    ctx.strokeStyle = '#5a5a64';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.roundRect(-13, crownBaseY - 4, 26, 7, 1.5);
+    ctx.fill(); ctx.stroke();
+    // Highlight band
+    ctx.fillStyle = '#f0f0f6';
+    ctx.fillRect(-12, crownBaseY - 3, 24, 1.5);
+    // Five points (triangular teeth) on top of band
+    ctx.fillStyle = '#c8c8d0';
+    ctx.strokeStyle = '#5a5a64';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(-13, crownBaseY - 4);
+    ctx.lineTo(-9, crownTopY + 2);
+    ctx.lineTo(-6, crownBaseY - 4);
+    ctx.lineTo(-2, crownTopY - 2);
+    ctx.lineTo(2, crownBaseY - 4);
+    ctx.lineTo(6, crownTopY + 2);
+    ctx.lineTo(9, crownBaseY - 4);
+    ctx.lineTo(13, crownTopY + 2);
+    ctx.lineTo(13, crownBaseY - 4);
+    ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    // Center gem (small gold dot)
+    ctx.fillStyle = '#ffd54a';
+    ctx.beginPath();
+    ctx.arc(0, crownBaseY - 1, 1.6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#8a6a18';
+    ctx.lineWidth = 0.6;
+    ctx.stroke();
+  }
 
   // Relapmi: pharaoh headpiece
   if (this.char.isRelapmi) {

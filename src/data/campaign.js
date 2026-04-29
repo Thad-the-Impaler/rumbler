@@ -180,12 +180,12 @@ const twinsChar = {
 
 // Boss: Tube Warden (non-playable)
 const tubeWardenChar = {
-  name: 'TUBE WARDEN',
+  name: 'TUBEWARDEN',
   color: '#3a3a3a',
   accent: '#00ccbb',
   outline: '#1a1a1a',
   stats: { speed: 3.5, power: 1.25, defense: 1.3 },
-  desc: 'Curator of the Clink',
+  desc: 'Curator of the House',
   isTubeWarden: true,
   isBoss: true,
   scale: 1.2,

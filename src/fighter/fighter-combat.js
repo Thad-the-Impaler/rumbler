@@ -124,6 +124,29 @@ Fighter.prototype.callAssist = function(opponent) {
 };
 
 
+Fighter.prototype.fireAetherLaser = function(opponent, chargeT) {
+  const chargeFrac = Math.min(1, chargeT / this.aetherMaxCharge);
+  // Damage: 6 base (weak tap) → 32 at full charge
+  const damage = 6 + chargeFrac * 26;
+  const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+  const finalDmg = damage * this.char.stats.power * diffMult;
+  const beamY = this.centerY;
+  // Hit if opponent is in front and roughly aligned with the beam height
+  const xInFront = this.facing === 1 ? opponent.x > this.x : opponent.x < this.x;
+  const yAligned = Math.abs(beamY - opponent.centerY) < 50 + chargeFrac * 18;
+  if (xInFront && yAligned) {
+    const launch = chargeFrac > 0.7;
+    opponent.takeDamage(finalDmg, {
+      hitstun: Math.round(10 + chargeFrac * 16),
+      blockstun: 8,
+      launch,
+      knockbackForce: 4 + chargeFrac * 6
+    }, this.facing, false, { x: opponent.x, y: opponent.centerY });
+  }
+  this.aetherLaser = { fireT: 0, maxFireT: 14, charge: chargeFrac, beamY, dir: this.facing };
+  playSfx(sfx_kick); // placeholder zap sound
+};
+
 Fighter.prototype.isHitAt = function(px, py, radiusX, radiusY) {
   if (this.ericthoHidden) return false;
   if (this.hangmanHidden) return false;

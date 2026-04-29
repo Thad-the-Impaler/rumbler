@@ -421,14 +421,16 @@ function update() {
           winFighter.vx = 0;
           winFighter.state = 'idle';
         } else if (rumbleTimer <= walkEnd) {
-          // Walk toward opponent
+          // Walk toward opponent — smooth interpolation to ensure arrival
           const dir = loseFighter.x > winFighter.x ? 1 : -1;
-          const dist = Math.abs(winFighter.x - loseFighter.x);
+          const targetX = loseFighter.x - dir * 45;
+          const dist = Math.abs(winFighter.x - targetX);
           winFighter.facing = dir;
-          if (dist > 50) {
-            winFighter.vx = dir * 2.5;
-            winFighter.x += winFighter.vx;
+          if (dist > 5) {
+            winFighter.x += (targetX - winFighter.x) * 0.08;
             winFighter.state = 'walk';
+            winFighter.animTimer++;
+            if (winFighter.animTimer > 8) { winFighter.animTimer = 0; winFighter.animFrame = (winFighter.animFrame + 1) % 4; }
           } else {
             winFighter.vx = 0;
             winFighter.state = 'idle';
@@ -504,15 +506,29 @@ function update() {
         // impact: splash, opponent starts melting
         // impact+120: fully melted Wicked Witch style
         // last 90 frames: goo puddle bubbles
-        const spitFrame = 30;
+        const walkEnd = 40;
+        const spitFrame = walkEnd + 10;
         const endFrame = 330;
 
         const dir = loseFighter.x > winFighter.x ? 1 : -1;
         winFighter.facing = dir;
-        winFighter.vx = 0;
 
-        if (rumbleTimer < spitFrame) {
+        if (rumbleTimer <= walkEnd) {
+          // Walk to good spit range
+          const targetX = loseFighter.x - dir * 150;
+          const dist = Math.abs(winFighter.x - targetX);
+          if (dist > 10) {
+            winFighter.x += (targetX - winFighter.x) * 0.08;
+            winFighter.state = 'walk';
+            winFighter.animTimer++;
+            if (winFighter.animTimer > 8) { winFighter.animTimer = 0; winFighter.animFrame = (winFighter.animFrame + 1) % 4; }
+          } else {
+            winFighter.vx = 0;
+            winFighter.state = 'idle';
+          }
+        } else if (rumbleTimer < spitFrame) {
           // Wind up
+          winFighter.vx = 0;
           winFighter.state = 'idle';
         } else if (rumbleTimer === spitFrame) {
           // Spit blob
@@ -813,6 +829,625 @@ function update() {
         }
       }
 
+      if (rumbleType === 'KAVAK') {
+        // Kavak "Don't Get Up": 360 frames total
+        // 0-50:    Approach — Kavak walks toward opponent
+        // 50-80:   Grab — front arm extends, opponent lifted by the throat
+        // 80-110:  Hold — opponent dangles
+        // 110-140: Punch 1 — back arm jabs the face
+        // 140-170: Punch 2 — back arm jabs again
+        // 170-200: Slam wind-up — opponent arcs from in-front to overhead
+        // 200-208: Slam — fast face-plant into the ground (8 frames)
+        // 208-360: Stuck + walk away (Kavak pauses, turns around, walks off)
+        const approachEnd = 50;
+        const grabEnd = 80;
+        const holdEnd = 110;
+        const punch1End = 140;
+        const punch2End = 170;
+        const windupEnd = 200;
+        const slamFrame = 208;       // 8-frame slam — much snappier
+        const turnStart = 224;       // brief pause looking at the burial
+        const walkStart = 234;
+        const endFrame = 360;
+
+        const dir = loseFighter.x > winFighter.x ? 1 : -1;
+
+        if (rumbleTimer === 1) {
+          rumbleKavakPhase = 0;
+          rumbleKavakDust = [];
+          rumbleKavakStuck = false;
+          // Front arm ONLY hidden once we start the grab — keep it visible during approach
+          winFighter._hideFrontArm = false;
+          winFighter._hideBackArm = false;
+        }
+
+        // Reset arm-hide flags each frame; phase blocks below set them when needed
+        winFighter._hideFrontArm = false;
+        winFighter._hideBackArm = false;
+
+        const groundY = loseFighter.groundY;
+        const gap = 50;                  // opponent dangles 50 px in front of Kavak
+        const liftY = groundY - 28;      // feet just barely off the ground — modest chokehold
+        const overheadY = groundY - 70;  // overhead lift before slam (modest)
+
+        if (rumbleTimer < approachEnd) {
+          rumbleKavakPhase = 0;
+          winFighter.facing = dir;
+          // Walk toward opponent, stop `gap` short
+          const targetX = loseFighter.x - dir * gap;
+          winFighter.x = winFighter.x + (targetX - winFighter.x) * 0.12;
+          winFighter.state = 'walk';
+          winFighter.animTimer++;
+          if (winFighter.animTimer > 6) { winFighter.animTimer = 0; winFighter.animFrame = (winFighter.animFrame + 1) % 4; }
+          loseFighter.vx = 0;
+        } else if (rumbleTimer < grabEnd) {
+          rumbleKavakPhase = 1;
+          winFighter.facing = dir;
+          if (rumbleTimer === approachEnd) {
+            rumbleKavakGrabX = winFighter.x;
+            shakeTimer = 4; shakeIntensity = 2;
+          }
+          winFighter.state = 'attack';
+          winFighter.x = rumbleKavakGrabX;
+          winFighter._hideFrontArm = true; // grab arm overrides the normal one
+          const liftT = (rumbleTimer - approachEnd) / (grabEnd - approachEnd);
+          loseFighter.x = winFighter.x + dir * gap;
+          loseFighter.y = groundY + (liftY - groundY) * liftT;
+          loseFighter.grounded = false;
+          loseFighter.vx = 0;
+          loseFighter.state = 'hitstun';
+          loseFighter._rumbleRotation = 0;
+        } else if (rumbleTimer < holdEnd) {
+          rumbleKavakPhase = 2;
+          winFighter.facing = dir;
+          winFighter.state = 'idle';
+          winFighter._hideFrontArm = true;
+          loseFighter.x = winFighter.x + dir * gap;
+          loseFighter.y = liftY + Math.sin((rumbleTimer - grabEnd) * 0.2) * 1.2;
+          loseFighter.grounded = false;
+          loseFighter.state = 'hitstun';
+          loseFighter._rumbleRotation = -dir * 0.08;
+        } else if (rumbleTimer < punch1End) {
+          rumbleKavakPhase = 3;
+          winFighter.facing = dir;
+          winFighter.state = 'attack';
+          // Both arms hidden — grab arm + punch arm are drawn
+          winFighter._hideFrontArm = true;
+          winFighter._hideBackArm = true;
+          loseFighter.x = winFighter.x + dir * gap;
+          loseFighter.y = liftY;
+          loseFighter.grounded = false;
+          rumbleKavakPunchT = (rumbleTimer - holdEnd) / (punch1End - holdEnd);
+          if (rumbleTimer === holdEnd + 12) {
+            loseFighter.flashTimer = 8;
+            shakeTimer = 8; shakeIntensity = 4;
+            loseFighter._rumbleRotation = -dir * 0.18;
+            playSfx(sfx_uppercut);
+          } else if (rumbleTimer > holdEnd + 14) {
+            loseFighter._rumbleRotation = -dir * 0.08;
+          }
+        } else if (rumbleTimer < punch2End) {
+          rumbleKavakPhase = 4;
+          winFighter.facing = dir;
+          winFighter.state = 'attack';
+          winFighter._hideFrontArm = true;
+          winFighter._hideBackArm = true;
+          loseFighter.x = winFighter.x + dir * gap;
+          loseFighter.y = liftY;
+          loseFighter.grounded = false;
+          rumbleKavakPunchT = (rumbleTimer - punch1End) / (punch2End - punch1End);
+          if (rumbleTimer === punch1End + 12) {
+            loseFighter.flashTimer = 8;
+            shakeTimer = 10; shakeIntensity = 5;
+            loseFighter._rumbleRotation = -dir * 0.22;
+            playSfx(sfx_uppercut);
+          } else if (rumbleTimer > punch1End + 14) {
+            loseFighter._rumbleRotation = -dir * 0.1;
+          }
+        } else if (rumbleTimer < windupEnd) {
+          rumbleKavakPhase = 5;
+          winFighter.facing = dir;
+          winFighter.state = 'idle';
+          winFighter._hideFrontArm = true;
+          const t = (rumbleTimer - punch2End) / (windupEnd - punch2End);
+          const ease = t * t;
+          const startX = winFighter.x + dir * gap;
+          const endX = winFighter.x + dir * 4;
+          loseFighter.x = startX + (endX - startX) * ease;
+          loseFighter.y = liftY + (overheadY - liftY) * ease - Math.sin(t * Math.PI) * 14;
+          loseFighter.grounded = false;
+          loseFighter._rumbleRotation = (1 - ease) * (-dir * 0.1) + ease * Math.PI;
+        } else if (rumbleTimer < slamFrame) {
+          rumbleKavakPhase = 6;
+          winFighter.facing = dir;
+          winFighter.state = 'attack';
+          winFighter._hideFrontArm = true;
+          // Snappy slam — 8 frames from overhead to ground with cubic acceleration
+          const t = (rumbleTimer - windupEnd) / (slamFrame - windupEnd);
+          const accel = t * t * t;
+          const startX = winFighter.x + dir * 4;
+          const endX = winFighter.x + dir * 46;
+          loseFighter.x = startX + (endX - startX) * t;
+          loseFighter.y = overheadY + (groundY - overheadY) * accel;
+          loseFighter.grounded = false;
+          loseFighter._rumbleRotation = Math.PI;
+
+          if (rumbleTimer === slamFrame - 1) {
+            // Impact!
+            rumbleKavakSlamX = winFighter.x + dir * 46;
+            rumbleKavakStuck = true;
+            rumbleLoserHidden = true;
+            shakeTimer = 30; shakeIntensity = 16;
+            playSfx(sfx_uppercut);
+            for (let i = 0; i < 18; i++) {
+              const angle = -Math.PI * (0.15 + Math.random() * 0.7);
+              const speed = 3 + Math.random() * 5;
+              rumbleKavakDust.push({
+                x: rumbleKavakSlamX + (Math.random() - 0.5) * 36,
+                y: groundY,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed - 2,
+                size: 3 + Math.random() * 5,
+                alpha: 1,
+                color: ['#7a5028', '#5a3a1a', '#a08060', '#3a2010'][Math.floor(Math.random() * 4)]
+              });
+            }
+          }
+        } else {
+          // Phase 7 — stuck + walk away
+          rumbleKavakPhase = 7;
+          rumbleLoserHidden = true;
+          // Arms back to normal — grab is over
+          winFighter._hideFrontArm = false;
+          winFighter._hideBackArm = false;
+
+          if (rumbleTimer < turnStart) {
+            // Brief pause looking at the buried opponent
+            winFighter.facing = dir;
+            winFighter.state = 'idle';
+          } else if (rumbleTimer < walkStart) {
+            // Turn around
+            winFighter.facing = -dir;
+            winFighter.state = 'idle';
+          } else {
+            // Walk away
+            winFighter.facing = -dir;
+            winFighter.state = 'walk';
+            winFighter.x -= dir * 1.8;
+            winFighter.animTimer++;
+            if (winFighter.animTimer > 6) { winFighter.animTimer = 0; winFighter.animFrame = (winFighter.animFrame + 1) % 4; }
+            if (winFighter.x < 40) winFighter.x = 40;
+            if (winFighter.x > 920) winFighter.x = 920;
+          }
+        }
+
+        // Update dust particles
+        for (let i = rumbleKavakDust.length - 1; i >= 0; i--) {
+          const d = rumbleKavakDust[i];
+          d.x += d.vx;
+          d.y += d.vy;
+          d.vy += 0.25;
+          d.vx *= 0.97;
+          if (d.y > groundY) { d.y = groundY; d.vy = 0; d.vx *= 0.7; d.alpha -= 0.04; }
+          if (d.y > groundY + 4 || d.alpha <= 0) rumbleKavakDust.splice(i, 1);
+        }
+
+        if (rumbleTimer >= endFrame) {
+          winFighter._hideFrontArm = false;
+          winFighter._hideBackArm = false;
+          gameState = 'victory';
+        }
+      }
+
+      if (rumbleType === 'AETHER') {
+        // Aether "Back From Whence You Came": 360 frames
+        // 0-40:    Chains erupt — golden chains shoot from ground, latch onto opponent's wrists
+        // 40-90:   Charge — Aether forms a massive orb, opponent struggles, chains taut
+        // 90-280:  Barrage — laser fires continuously, fireballs rain from above, opponent burns
+        // 280-330: Fade — opponent disintegrates, laser tapers
+        // 330-360: Ash — only smoking ash remains
+        const chainEnd = 40;
+        const chargeEnd = 90;
+        const barrageEnd = 280;
+        const fadeEnd = 330;
+        const endFrame = 360;
+
+        const dir = loseFighter.x > winFighter.x ? 1 : -1;
+        winFighter.facing = dir;
+        winFighter.vx = 0;
+        loseFighter.vx = 0;
+        loseFighter.vy = 0;
+
+        const groundY = loseFighter.groundY;
+
+        if (rumbleTimer < chainEnd) {
+          rumbleAetherPhase = 0;
+          winFighter.state = 'idle';
+          loseFighter.state = 'hitstun';
+          rumbleAetherChainT = rumbleTimer / chainEnd;
+          // Earth rumble + small dirt bursts where chains emerge
+          if (rumbleTimer % 4 === 0) {
+            shakeTimer = 4; shakeIntensity = 2;
+            const sides = [-1, 1];
+            for (const s of sides) {
+              const baseX = loseFighter.x + s * 28;
+              for (let i = 0; i < 2; i++) {
+                rumbleDirtParticles.push({
+                  x: baseX + (Math.random() - 0.5) * 12,
+                  y: groundY,
+                  vx: (Math.random() - 0.5) * 3,
+                  vy: -2 - Math.random() * 3,
+                  size: 2 + Math.random() * 2,
+                  alpha: 1,
+                  color: ['#7a5028', '#5a3a1a', '#a08060'][Math.floor(Math.random() * 3)]
+                });
+              }
+            }
+          }
+          if (rumbleTimer === chainEnd - 1) {
+            shakeTimer = 14; shakeIntensity = 5;
+            playSfx(sfx_uppercut);
+          }
+        } else if (rumbleTimer < chargeEnd) {
+          rumbleAetherPhase = 1;
+          winFighter.state = 'attack';
+          loseFighter.state = 'hitstun';
+          rumbleAetherChainT = 1;
+          // Aether charges: orb radius scales with rumbleAetherLaserT
+          rumbleAetherLaserT = (rumbleTimer - chainEnd) / (chargeEnd - chainEnd) * 0.7;
+          // Smoke wisps from chain attachment points (opponent's arms)
+          if (rumbleTimer % 6 === 0) {
+            const sides = [-22, 22];
+            for (const sx of sides) {
+              rumbleAetherSmoke.push({
+                x: loseFighter.x + sx + (Math.random() - 0.5) * 6,
+                y: loseFighter.centerY + 4,
+                vx: (Math.random() - 0.5) * 0.6,
+                vy: -0.6 - Math.random() * 0.6,
+                alpha: 0.6 + Math.random() * 0.3,
+                size: 4 + Math.random() * 3
+              });
+            }
+          }
+          // First fireballs spawn near end of charge
+          if (rumbleTimer > chargeEnd - 20 && rumbleTimer % 8 === 0) {
+            rumbleAetherFireballs.push({
+              x: loseFighter.x + (Math.random() - 0.5) * 80,
+              y: -20,
+              vx: (Math.random() - 0.5) * 0.6,
+              vy: 4 + Math.random() * 2,
+              size: 8 + Math.random() * 5,
+              timer: 90
+            });
+          }
+        } else if (rumbleTimer < barrageEnd) {
+          rumbleAetherPhase = 2;
+          winFighter.state = 'attack';
+          loseFighter.state = 'hitstun';
+          rumbleAetherChainT = 1;
+          // Laser at full intensity, slight pulse
+          rumbleAetherLaserT = 0.85 + Math.sin(rumbleTimer * 0.3) * 0.15;
+          // Continuous shake
+          if (rumbleTimer % 3 === 0) { shakeTimer = 4; shakeIntensity = 3; }
+          // Opponent flashes from continuous damage
+          if (rumbleTimer % 5 === 0) loseFighter.flashTimer = 4;
+          // Fireballs raining
+          if (rumbleTimer % 6 === 0) {
+            rumbleAetherFireballs.push({
+              x: loseFighter.x + (Math.random() - 0.5) * 110,
+              y: -20,
+              vx: (Math.random() - 0.5) * 0.8,
+              vy: 4 + Math.random() * 3,
+              size: 8 + Math.random() * 6,
+              timer: 110
+            });
+          }
+          // Smoke pouring off opponent
+          if (rumbleTimer % 4 === 0) {
+            rumbleAetherSmoke.push({
+              x: loseFighter.x + (Math.random() - 0.5) * 40,
+              y: loseFighter.y - 30 - Math.random() * 40,
+              vx: (Math.random() - 0.5) * 0.6,
+              vy: -0.8 - Math.random() * 0.6,
+              alpha: 0.6 + Math.random() * 0.3,
+              size: 5 + Math.random() * 4
+            });
+          }
+          // Sparks from laser hit
+          if (rumbleTimer % 3 === 0) {
+            rumbleAetherSparks.push({
+              x: loseFighter.x + (Math.random() - 0.5) * 30,
+              y: loseFighter.centerY + (Math.random() - 0.5) * 30,
+              vx: -dir * (2 + Math.random() * 4),
+              vy: (Math.random() - 0.5) * 4,
+              alpha: 1
+            });
+          }
+        } else if (rumbleTimer < fadeEnd) {
+          rumbleAetherPhase = 3;
+          winFighter.state = 'attack';
+          loseFighter.state = 'hitstun';
+          // Opponent disintegrates
+          const fadeT = (rumbleTimer - barrageEnd) / (fadeEnd - barrageEnd);
+          rumbleAetherCharFade = 1 - fadeT;
+          loseFighter._rumbleAlpha = Math.max(0, 1 - fadeT);
+          // Laser tapers
+          rumbleAetherLaserT = 0.85 * (1 - fadeT);
+          // More smoke as opponent crumbles
+          if (rumbleTimer % 3 === 0) {
+            rumbleAetherSmoke.push({
+              x: loseFighter.x + (Math.random() - 0.5) * 40,
+              y: loseFighter.y - 20 - Math.random() * 50,
+              vx: (Math.random() - 0.5) * 0.8,
+              vy: -1 - Math.random() * 0.8,
+              alpha: 0.7,
+              size: 6 + Math.random() * 5
+            });
+          }
+          // Continuing fireballs early in fade
+          if (rumbleTimer < barrageEnd + 30 && rumbleTimer % 8 === 0) {
+            rumbleAetherFireballs.push({
+              x: loseFighter.x + (Math.random() - 0.5) * 90,
+              y: -20,
+              vx: (Math.random() - 0.5) * 0.6,
+              vy: 4 + Math.random() * 2,
+              size: 7 + Math.random() * 4,
+              timer: 90
+            });
+          }
+          // At the moment of full fade, drop the ash pile
+          if (fadeT >= 0.99 && !rumbleAshes) {
+            rumbleAshes = { x: loseFighter.x, y: groundY };
+            rumbleLoserHidden = true;
+          }
+        } else {
+          rumbleAetherPhase = 4;
+          rumbleLoserHidden = true;
+          winFighter.state = 'idle';
+          rumbleAetherLaserT = 0;
+          if (!rumbleAshes) rumbleAshes = { x: loseFighter.x, y: groundY };
+          // Final smoke wisps
+          if (rumbleTimer % 6 === 0) {
+            rumbleAetherSmoke.push({
+              x: rumbleAshes.x + (Math.random() - 0.5) * 18,
+              y: groundY - 4,
+              vx: (Math.random() - 0.5) * 0.4,
+              vy: -0.6 - Math.random() * 0.5,
+              alpha: 0.5,
+              size: 4 + Math.random() * 3
+            });
+          }
+        }
+
+        // Update fireballs (impact when reaching the opponent / ground area)
+        for (let i = rumbleAetherFireballs.length - 1; i >= 0; i--) {
+          const fb = rumbleAetherFireballs[i];
+          fb.x += fb.vx;
+          fb.y += fb.vy;
+          fb.vy += 0.12;
+          fb.timer--;
+          // Impact with ground or opponent area
+          const hitY = rumbleAetherPhase >= 4 ? groundY : (loseFighter.y - 30);
+          if (fb.y >= hitY || fb.timer <= 0) {
+            rumbleAetherImpacts.push({ x: fb.x, y: hitY, timer: 18, size: fb.size });
+            if (rumbleAetherPhase < 3) {
+              loseFighter.flashTimer = 4;
+              shakeTimer = Math.max(shakeTimer, 4); shakeIntensity = Math.max(shakeIntensity, 3);
+            }
+            rumbleAetherFireballs.splice(i, 1);
+          }
+        }
+        // Update impacts
+        for (let i = rumbleAetherImpacts.length - 1; i >= 0; i--) {
+          rumbleAetherImpacts[i].timer--;
+          if (rumbleAetherImpacts[i].timer <= 0) rumbleAetherImpacts.splice(i, 1);
+        }
+        // Update smoke
+        for (let i = rumbleAetherSmoke.length - 1; i >= 0; i--) {
+          const sm = rumbleAetherSmoke[i];
+          sm.x += sm.vx; sm.y += sm.vy;
+          sm.alpha -= 0.012; sm.size += 0.15;
+          if (sm.alpha <= 0) rumbleAetherSmoke.splice(i, 1);
+        }
+        // Update sparks
+        for (let i = rumbleAetherSparks.length - 1; i >= 0; i--) {
+          const sp = rumbleAetherSparks[i];
+          sp.x += sp.vx; sp.y += sp.vy;
+          sp.vx *= 0.95; sp.vy += 0.12;
+          sp.alpha -= 0.04;
+          if (sp.alpha <= 0) rumbleAetherSparks.splice(i, 1);
+        }
+
+        if (rumbleTimer >= endFrame) {
+          gameState = 'victory';
+        }
+      }
+
+      if (rumbleType === 'DRYAD') {
+        // Dryad "Root Problem": 360 frames total
+        // 0-30:    Windup — Dryad raises arms, ground cracks form under the opponent
+        // 30-90:   Sprout — vines erupt from the ground around the opponent
+        // 90-180:  Wrap — vines coil up the opponent, holding them still
+        // 180-280: Sink — opponent is pulled down beneath the surface
+        // 280-360: Settle — vines retract, leaves drift, soil heals over
+        const windupEnd = 30;
+        const sproutStart = 30;
+        const sproutEnd = 90;
+        const wrapStart = 90;
+        const wrapEnd = 180;
+        const sinkStart = 180;
+        const sinkEnd = 280;
+        const settleStart = 280;
+        const endFrame = 360;
+
+        const dir = loseFighter.x > winFighter.x ? 1 : -1;
+        winFighter.facing = dir;
+        winFighter.vx = 0;
+        loseFighter.vx = 0;
+        loseFighter.vy = 0;
+
+        if (rumbleDryadCracks.length === 0) {
+          rumbleDryadPhase = 0;
+          rumbleDryadVines = [];
+          rumbleDryadLeaves = [];
+          rumbleDryadSinkProgress = 0;
+          // Pre-generate ground cracks around opponent
+          const crackCount = 7;
+          for (let i = 0; i < crackCount; i++) {
+            const angle = (i / crackCount) * Math.PI * 2 + Math.random() * 0.4;
+            rumbleDryadCracks.push({
+              angle,
+              length: 30 + Math.random() * 35,
+              jitterSeed: Math.random() * 1000
+            });
+          }
+        }
+
+        if (rumbleTimer < windupEnd) {
+          // Windup: Dryad poses, slight rumble
+          rumbleDryadPhase = 0;
+          winFighter.state = 'idle';
+          if (rumbleTimer % 6 === 0) { shakeTimer = 4; shakeIntensity = 1.5; }
+        } else if (rumbleTimer >= sproutStart && rumbleTimer < sproutEnd) {
+          // Sprout: vines burst from ground in a circle around opponent
+          rumbleDryadPhase = 1;
+          winFighter.state = 'attack';
+          if (rumbleTimer === sproutStart) {
+            // Spawn vines
+            const vineCount = 7;
+            for (let i = 0; i < vineCount; i++) {
+              const a = -Math.PI + (i / (vineCount - 1)) * Math.PI; // arc above ground from -PI to 0
+              rumbleDryadVines.push({
+                baseAngle: a,
+                length: 0,
+                targetLength: 90 + Math.random() * 30,
+                sway: 0.1 + Math.random() * 0.15,
+                swayPhase: Math.random() * Math.PI * 2,
+                thickness: 4 + Math.random() * 3,
+                leafSeed: Math.random() * 1000
+              });
+            }
+            shakeTimer = 14;
+            shakeIntensity = 6;
+          }
+          const sproutT = (rumbleTimer - sproutStart) / (sproutEnd - sproutStart);
+          for (const v of rumbleDryadVines) {
+            v.length = v.targetLength * sproutT;
+          }
+          // Dirt particles erupting upward
+          if (rumbleTimer % 3 === 0) {
+            for (let i = 0; i < 3; i++) {
+              const angle = -Math.PI * (0.2 + Math.random() * 0.6);
+              const speed = 3 + Math.random() * 4;
+              rumbleDirtParticles.push({
+                x: loseFighter.x + (Math.random() - 0.5) * 50,
+                y: loseFighter.groundY,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed - 2,
+                size: 2 + Math.random() * 3,
+                alpha: 1,
+                color: ['#5a3a1a', '#3a6a2e', '#7a5028', '#2d6020'][Math.floor(Math.random() * 4)]
+              });
+            }
+          }
+          // Loser starts looking trapped
+          loseFighter.state = 'idle';
+          loseFighter.blocking = true;
+        } else if (rumbleTimer >= wrapStart && rumbleTimer < wrapEnd) {
+          // Wrap: vines coil tighter, opponent struggles
+          rumbleDryadPhase = 2;
+          winFighter.state = 'idle';
+          loseFighter.state = 'hitstun';
+          if (rumbleTimer % 14 === 0) { shakeTimer = 4; shakeIntensity = 2; }
+          // Subtle tug — slight horizontal jitter on loser
+          loseFighter.x += (Math.random() - 0.5) * 1.2;
+          // Spawn occasional leaves drifting from vines
+          if (rumbleTimer % 8 === 0) {
+            const lvCount = 1 + Math.floor(Math.random() * 2);
+            for (let i = 0; i < lvCount; i++) {
+              rumbleDryadLeaves.push({
+                x: loseFighter.x + (Math.random() - 0.5) * 60,
+                y: loseFighter.groundY - 30 - Math.random() * 60,
+                vx: (Math.random() - 0.5) * 1.2,
+                vy: -0.5 - Math.random() * 0.6,
+                rot: Math.random() * Math.PI * 2,
+                rotSpeed: (Math.random() - 0.5) * 0.1,
+                color: Math.random() > 0.5 ? '#8fc965' : '#5fa340',
+                size: 4 + Math.random() * 3,
+                timer: 80
+              });
+            }
+          }
+        } else if (rumbleTimer >= sinkStart && rumbleTimer < sinkEnd) {
+          // Sink: opponent dragged down
+          rumbleDryadPhase = 3;
+          winFighter.state = 'idle';
+          loseFighter.state = 'hitstun';
+          rumbleDryadSinkProgress = Math.min(1, (rumbleTimer - sinkStart) / (sinkEnd - sinkStart));
+          if (rumbleDryadSinkProgress >= 1) rumbleLoserHidden = true;
+          if (rumbleTimer % 12 === 0) { shakeTimer = 5; shakeIntensity = 2.5; }
+          // Continuous dirt at the sink point
+          if (rumbleTimer % 4 === 0) {
+            const angle = -Math.PI * (0.3 + Math.random() * 0.4);
+            const speed = 1 + Math.random() * 2;
+            rumbleDirtParticles.push({
+              x: loseFighter.x + (Math.random() - 0.5) * 40,
+              y: loseFighter.groundY,
+              vx: Math.cos(angle) * speed,
+              vy: Math.sin(angle) * speed - 1,
+              size: 2 + Math.random() * 2,
+              alpha: 0.8,
+              color: ['#5a3a1a', '#3a6a2e', '#7a5028'][Math.floor(Math.random() * 3)]
+            });
+          }
+        } else if (rumbleTimer >= settleStart) {
+          // Settle: vines retract, leaves drift down
+          rumbleDryadPhase = 4;
+          rumbleLoserHidden = true;
+          const settleT = (rumbleTimer - settleStart) / (endFrame - settleStart);
+          for (const v of rumbleDryadVines) {
+            v.length = Math.max(0, v.targetLength * (1 - settleT));
+          }
+          if (rumbleTimer === settleStart) {
+            shakeTimer = 8;
+            shakeIntensity = 3;
+          }
+        }
+
+        // Animate vine sway every frame
+        for (const v of rumbleDryadVines) {
+          v.swayPhase += 0.06;
+        }
+
+        // Update dirt particles (shared array, but DRYAD writes to it)
+        for (let i = rumbleDirtParticles.length - 1; i >= 0; i--) {
+          const d = rumbleDirtParticles[i];
+          d.x += d.vx;
+          d.y += d.vy;
+          d.vy += 0.2;
+          d.vx *= 0.98;
+          if (d.y > loseFighter.groundY + 5) d.alpha = Math.max(0, d.alpha - 0.05);
+          if (d.alpha <= 0) rumbleDirtParticles.splice(i, 1);
+        }
+
+        // Update leaves
+        for (let i = rumbleDryadLeaves.length - 1; i >= 0; i--) {
+          const lf = rumbleDryadLeaves[i];
+          lf.x += lf.vx;
+          lf.y += lf.vy;
+          lf.vy += 0.04;
+          lf.rot += lf.rotSpeed;
+          lf.timer--;
+          if (lf.timer <= 0 || lf.y > loseFighter.groundY + 10) {
+            rumbleDryadLeaves.splice(i, 1);
+          }
+        }
+
+        if (rumbleTimer >= endFrame) {
+          gameState = 'victory';
+        }
+      }
+
       if (rumbleType === 'SHADE') {
         // Shade "Wanted the smoke, got the smoke": 360 frames total
         // 0-30: Shade walks toward opponent
@@ -837,12 +1472,14 @@ function update() {
         const comboHits = [0, 15, 28, 39, 48, 56, 63, 69, 74, 79, 84, 89, 94, 99, 104, 109, 114, 118, 122, 126];
 
         if (rumbleTimer < walkEnd) {
-          // Walk toward opponent — stop at 85px so punches/kicks are visible
-          const dist = Math.abs(winFighter.x - loseFighter.x);
-          if (dist > 85) {
-            winFighter.vx = dir * 3;
-            winFighter.x += winFighter.vx;
+          // Walk toward opponent — smooth interpolation to 85px range
+          const targetX = loseFighter.x - dir * 85;
+          const dist = Math.abs(winFighter.x - targetX);
+          if (dist > 5) {
+            winFighter.x += (targetX - winFighter.x) * 0.1;
             winFighter.state = 'walk';
+            winFighter.animTimer++;
+            if (winFighter.animTimer > 6) { winFighter.animTimer = 0; winFighter.animFrame = (winFighter.animFrame + 1) % 4; }
           } else {
             winFighter.vx = 0;
             winFighter.state = 'idle';
@@ -972,14 +1609,13 @@ function update() {
           const t = rumbleTimer / shrinkEnd;
           winFighter.bojdoScale = Math.max(0.15, 1 - t * 0.85);
         } else if (rumbleTimer <= scurryEnd) {
-          // Scurry phase: tiny Bojdo runs toward opponent
+          // Scurry phase: tiny Bojdo runs toward opponent — smooth interpolation
           winFighter.state = 'walk';
           winFighter.bojdoScale = 0.15;
           const targetX = loseFighter.x;
           const dist = targetX - winFighter.x;
           if (Math.abs(dist) > 5) {
-            const speed = 4;
-            winFighter.x += dist > 0 ? speed : -speed;
+            winFighter.x += (targetX - winFighter.x) * 0.1;
             winFighter.facing = dist > 0 ? 1 : -1;
           } else {
             winFighter.x = targetX;
@@ -1042,10 +1678,7 @@ function update() {
         // +100-+200: Foot on ground, opponent flattened
         // +200-+260: Lifts foot, shrinks back to normal
         // +260-+300: Stands triumphant
-        const walkSpeed = 3;
-        const distToOpponent = Math.abs(loseFighter.x - winFighter.x);
-        const walkFrames = Math.max(10, Math.ceil(distToOpponent / walkSpeed));
-        const walkEnd = walkFrames;
+        const walkEnd = 50; // fixed walk phase
         const growEnd2 = walkEnd + 60;
         const raiseEnd = growEnd2 + 30;
         const stompFrame = raiseEnd + 10;
@@ -1058,11 +1691,13 @@ function update() {
         winFighter.vx = 0;
 
         if (rumbleTimer <= walkEnd) {
-          // Walk toward opponent
+          // Walk toward opponent — smooth interpolation
           winFighter.state = 'walk';
+          winFighter.animTimer++;
+          if (winFighter.animTimer > 8) { winFighter.animTimer = 0; winFighter.animFrame = (winFighter.animFrame + 1) % 4; }
           const dist = loseFighter.x - winFighter.x;
           if (Math.abs(dist) > 5) {
-            winFighter.x += dist > 0 ? walkSpeed : -walkSpeed;
+            winFighter.x += (loseFighter.x - winFighter.x) * 0.08;
             winFighter.facing = dist > 0 ? 1 : -1;
           } else {
             winFighter.x = loseFighter.x;
@@ -2070,8 +2705,8 @@ function update() {
           if (rumbleTimer % 10 === 0) { shakeTimer = 2; shakeIntensity = 1 + spinT * 2; }
         }
 
-        // Phase 2: Ricochet (80-340)
-        if (rumbleTimer > spinUpEnd && rumbleTimer <= ricochetEnd) {
+        // Phase 2: Ricochet (80 until all hits landed and opponent gone, or max ricochetEnd)
+        if (rumbleTimer > spinUpEnd && (rumbleBatschPhase === 2 || (rumbleBatschPhase < 2 && rumbleTimer <= ricochetEnd))) {
           rumbleBatschPhase = 2;
 
           // Launch on first frame
@@ -2101,11 +2736,16 @@ function update() {
             }
           } else if (framesSinceHit > hitCooldown) {
             // Steer shell toward opponent (only after cooldown)
-            const dx = loseFighter.x - rumbleBatschShellX;
-            const dy = (loseFighter.y - 20) - rumbleBatschShellY;
+            let targetX = loseFighter.x;
+            let targetY = loseFighter.y - 20;
+            // If shell is near a wall, steer toward center first to avoid corner traps
+            if (rumbleBatschShellX < 80) targetX = Math.max(targetX, 300);
+            if (rumbleBatschShellX > 880) targetX = Math.min(targetX, 660);
+            const dx = targetX - rumbleBatschShellX;
+            const dy = targetY - rumbleBatschShellY;
             const dist = Math.sqrt(dx * dx + dy * dy);
             if (dist > 1) {
-              const steer = 0.6 + rumbleBatschHits * 0.15;
+              const steer = 0.7 + rumbleBatschHits * 0.2;
               rumbleBatschShellVx += (dx / dist) * steer;
               rumbleBatschShellVy += (dy / dist) * steer;
             }
@@ -2146,12 +2786,12 @@ function update() {
             rumbleBatschShellVy = -Math.abs(rumbleBatschShellVy);
           }
 
-          // Check hit on opponent (only if we haven't finished all hits)
-          if (rumbleBatschHits < totalHits) {
+          // Check hit on opponent (only if we haven't finished all hits and cooldown has passed)
+          if (rumbleBatschHits < totalHits && framesSinceHit > 8) {
             const hdx = rumbleBatschShellX - loseFighter.x;
             const hdy = rumbleBatschShellY - (loseFighter.y - 20);
             const hitDist = Math.sqrt(hdx * hdx + hdy * hdy);
-            if (hitDist < 45) {
+            if (hitDist < 50) {
               rumbleBatschHits++;
               loseFighter.flashTimer = 8;
 
@@ -2167,10 +2807,14 @@ function update() {
                 }
                 loseFighter.x += Math.sign(rumbleBatschShellVx) * 20;
                 loseFighter.x = Math.max(80, Math.min(880, loseFighter.x));
-                // Bounce shell hard away from opponent
-                rumbleBatschShellVx = -Math.sign(rumbleBatschShellVx) * (10 + rumbleBatschHits * 1.5);
-                rumbleBatschShellVy = -5 - Math.random() * 3;
-                rumbleBatschLastHitFrame = rumbleTimer; // record hit frame for cooldown
+                // Bounce shell away — aim toward center of stage to avoid corner traps
+                const centerDir = rumbleBatschShellX < 480 ? 1 : -1;
+                const awayDir = -Math.sign(rumbleBatschShellVx);
+                // Prefer bouncing toward center, but always away from opponent
+                const bounceDir = (awayDir === centerDir) ? awayDir : (Math.abs(rumbleBatschShellX - 480) > 200 ? centerDir : awayDir);
+                rumbleBatschShellVx = bounceDir * (12 + rumbleBatschHits * 2);
+                rumbleBatschShellVy = -6 - Math.random() * 3;
+                rumbleBatschLastHitFrame = rumbleTimer;
                 rumbleBatschSpinSpeed = Math.min(1.2, rumbleBatschSpinSpeed + 0.12);
               } else {
                 // 5th hit — launch opponent skyward
@@ -2188,13 +2832,12 @@ function update() {
             }
           }
 
-          // Opponent launch after 5th hit
-          if (rumbleBatschHits >= totalHits && rumbleBatschLaunchVy !== 0) {
+          // Opponent launch after 5th hit — continuous upward acceleration
+          if (rumbleBatschHits >= totalHits && !rumbleLoserHidden) {
             loseFighter.y += rumbleBatschLaunchVy;
-            rumbleBatschLaunchVy -= 0.5;
+            rumbleBatschLaunchVy -= 0.3; // accelerate upward (more negative = faster up)
             if (loseFighter.y < -100) {
               rumbleLoserHidden = true;
-              rumbleBatschLaunchVy = 0;
             }
           }
 
@@ -2206,25 +2849,56 @@ function update() {
           }
         }
 
-        // Phase 3: Pop out (340-400)
-        if (rumbleTimer > ricochetEnd && rumbleTimer <= popOutEnd) {
+        // Transition from ricochet to pop-out when all hits done and opponent launched
+        if (rumbleBatschPhase === 2 && rumbleLoserHidden && rumbleBatschHits >= totalHits) {
+          // Shell decelerating — transition to phase 3 after settling
+          const shellSpeed = Math.sqrt(rumbleBatschShellVx * rumbleBatschShellVx + rumbleBatschShellVy * rumbleBatschShellVy);
+          if (shellSpeed < 2 || rumbleTimer > ricochetEnd) {
+            rumbleBatschPhase = 3;
+            rumbleBatschPopTimer = 0;
+          }
+        }
+        // Also force transition if ricochet goes too long
+        if (rumbleBatschPhase === 2 && rumbleTimer > ricochetEnd + 60) {
           rumbleBatschPhase = 3;
+          rumbleBatschPopTimer = 0;
+          rumbleLoserHidden = true;
+        }
+
+        // Phase 3: Pop out
+        if (rumbleBatschPhase === 3) {
+          if (!rumbleBatschPopTimer) rumbleBatschPopTimer = 0;
+          rumbleBatschPopTimer++;
           rumbleBatschSpinSpeed = Math.max(0, rumbleBatschSpinSpeed - 0.03);
-          if (rumbleTimer === ricochetEnd + 15) {
+          // Settle shell to ground
+          if (rumbleBatschShellY < loseFighter.groundY) {
+            rumbleBatschShellVy = (rumbleBatschShellVy || 0) + 0.5;
+            rumbleBatschShellY += rumbleBatschShellVy;
+            if (rumbleBatschShellY >= loseFighter.groundY) {
+              rumbleBatschShellY = loseFighter.groundY;
+              rumbleBatschShellVy = 0;
+            }
+          }
+          rumbleBatschShellVx = (rumbleBatschShellVx || 0) * 0.9;
+          rumbleBatschShellX += rumbleBatschShellVx;
+          if (rumbleBatschPopTimer === 20) {
             winFighter.isTortoise = false;
             winFighter.x = rumbleBatschShellX;
-            winFighter.y = rumbleBatschShellY;
+            winFighter.y = loseFighter.groundY;
+            winFighter.grounded = true;
             winFighter.state = 'idle';
             winFighter.facing = dir;
           }
-          if (rumbleTimer > ricochetEnd + 15) {
+          if (rumbleBatschPopTimer > 20) {
             winFighter.state = 'idle';
+          }
+          if (rumbleBatschPopTimer > 50) {
+            rumbleBatschPhase = 4;
           }
         }
 
-        // Phase 4: Hold (400-480)
-        if (rumbleTimer > popOutEnd) {
-          rumbleBatschPhase = 4;
+        // Phase 4: Hold
+        if (rumbleBatschPhase === 4) {
           winFighter.state = 'idle';
         }
 
@@ -2245,8 +2919,14 @@ function update() {
         // Update spin angle
         rumbleBatschSpinAngle += rumbleBatschSpinSpeed;
 
-        if (rumbleTimer >= endFrame) {
+        if (rumbleBatschPhase === 4 && rumbleTimer >= endFrame) {
           winFighter.isTortoise = false;
+          gameState = 'victory';
+        }
+        // Safety: if somehow stuck, force victory after a long time
+        if (rumbleTimer > endFrame + 200) {
+          winFighter.isTortoise = false;
+          rumbleLoserHidden = true;
           gameState = 'victory';
         }
       }
@@ -3932,7 +4612,8 @@ function update() {
     const rubberSwinging = rumbleType === 'RUBBERMAN' && rumbleActive;
     const golgarLaunching = rumbleType === 'GOLGAR' && rumbleActive;
     const telatrineCarrying = rumbleType === 'TELATRINE' && rumbleActive;
-    if (!loseFighter.grounded && !bojdoLaunching && !rubberSwinging && !golgarLaunching && !telatrineCarrying) {
+    const kavakHolding = rumbleType === 'KAVAK' && rumbleActive && rumbleKavakPhase >= 1 && rumbleKavakPhase <= 6;
+    if (!loseFighter.grounded && !bojdoLaunching && !rubberSwinging && !golgarLaunching && !telatrineCarrying && !kavakHolding) {
       loseFighter.vy += 0.6;
       loseFighter.y += loseFighter.vy;
       if (loseFighter.y >= loseFighter.groundY) {

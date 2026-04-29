@@ -1115,6 +1115,69 @@ Fighter.prototype.handleAI = function(opponent) {
     }
   }
 
+  // Aether AI: charge laser when opponent is at mid-far range; release when charged enough or to surprise
+  if (this.char.isAether && this.state !== 'attack') {
+    if (this.state === 'hitstun' || this.state === 'blockstun' || this.state === 'launched') {
+      this.aetherCharging = false; this.aetherChargeT = 0;
+    } else if (!this.aetherCharging && this.aetherCooldown <= 0 && dist > 140 && dist < 700 && Math.random() < 0.018) {
+      this.aetherCharging = true;
+      this.aetherChargeT = 0;
+      this._aetherTargetCharge = 30 + Math.floor(Math.random() * 60); // 0.5–1.5s charge
+    } else if (this.aetherCharging) {
+      this.aetherChargeT++;
+      if (this.aetherChargeT >= this.aetherMaxCharge || this.aetherChargeT >= (this._aetherTargetCharge || 60)) {
+        this.fireAetherLaser(opponent, this.aetherChargeT);
+        this.aetherCharging = false;
+        this.aetherChargeT = 0;
+        this.aetherCooldown = 30;
+      }
+    }
+  }
+
+  // Kavak AI: flurry when opponent is at short range; secret dash to close distance from afar
+  if (this.char.isKavak && this.state !== 'attack' && !this.kavakFlurry && !this.kavakDash) {
+    if (this.kavakFlurryCooldown <= 0 && dist < 90 && Math.random() < 0.05) {
+      this.kavakFlurry = { hitsLeft: 8, hitsTotal: 8, hitTimer: 0, hitInterval: 6 };
+      this.vx = 0;
+    } else if (this.kavakDashCooldown <= 0 && dist > 220 && dist < 500 && Math.random() < 0.025) {
+      const dir = opponent.x > this.x ? 1 : -1;
+      const endX = Math.max(40, Math.min(920, this.x + dir * 180));
+      this.kavakDash = { startX: this.x, endX, frames: 10, frame: 0, hit: false, dir };
+    }
+  }
+
+  // Dryad AI: plant a wall when opponent is approaching at moderate distance,
+  // and when not already shielded by an existing wall on that side
+  if (this.char.isDryad && this.state !== 'attack') {
+    const MAX_WALLS = 3;
+    if (this.dryadWalls.length < MAX_WALLS && dist > 120 && dist < 360) {
+      // Don't double up: skip if any existing wall is already between Dryad and opponent and not crumbling
+      let alreadyShielded = false;
+      for (const w of this.dryadWalls) {
+        const between = this.facing === 1 ? (w.x > this.x && w.x < opponent.x) : (w.x < this.x && w.x > opponent.x);
+        if (between && w.health > 8) { alreadyShielded = true; break; }
+      }
+      if (!alreadyShielded) {
+        // Plant more eagerly when low on health
+        const hpFrac = this.health / this.maxHealth;
+        const planChance = hpFrac < 0.4 ? 0.025 : 0.012;
+        if (Math.random() < planChance) {
+          this.dryadWalls.push({
+            x: this.x,
+            growT: 0,
+            maxGrowT: 90,
+            w: 56,
+            maxH: 150,
+            health: 30,
+            maxHealth: 30,
+            flashTimer: 0,
+            ownerIsPlayer: this.isPlayer
+          });
+        }
+      }
+    }
+  }
+
   // Backtrack AI: rewind when health is low and history has enough data
   if (this.char.isBacktrack && this.btRewindCooldown <= 0 && this.btHistoryLen > 240) {
     // Get the oldest entry in the ring buffer

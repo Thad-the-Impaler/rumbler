@@ -2272,3 +2272,379 @@ function drawXhaustRumble(loseFighter, winFighter) {
     ctx.restore();
   }
 }
+
+function drawKavakRumble(loseFighter, winFighter) {
+  const groundY = loseFighter.groundY;
+  // Use the slam direction stored from when the rumble started, since Kavak turns around afterward.
+  // While he's still grabbing/punching/slamming (phases 1-6), his facing matches the slam dir.
+  // After (phase 7) he flips, so use the opposite of his current facing for the "slam side" reference.
+  const phase = rumbleKavakPhase;
+  const slamDir = phase >= 7 && rumbleTimer >= 224 ? -winFighter.facing : winFighter.facing;
+  const winColor = winFighter.char ? winFighter.char.color : '#2a2a2e';
+  const winOutline = winFighter.char ? winFighter.char.outline : '#0f0f12';
+  const winAccent = winFighter.char ? winFighter.char.accent : '#5a4a3a';
+
+  ctx.save();
+
+  // Helper: stroke a quadratic-curve arm (outline + colored fill) for a natural bent look
+  function drawBentArm(sx, sy, ex, ey, cx, cy, mainColor) {
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = winOutline;
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.quadraticCurveTo(cx, cy, ex, ey);
+    ctx.stroke();
+    ctx.strokeStyle = mainColor;
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.quadraticCurveTo(cx, cy, ex, ey);
+    ctx.stroke();
+  }
+
+  // Grab arm — bent, from Kavak's front shoulder to the opponent's throat (phases 1-5)
+  if (rumbleActive && phase >= 1 && phase <= 5) {
+    const dir = slamDir;
+    const shoulderX = winFighter.x + dir * 6;
+    const shoulderY = winFighter.y - 36;             // proper shoulder height
+    const neckX = loseFighter.x - dir * 6;
+    const neckY = phase === 5 ? loseFighter.y - 28 : loseFighter.y - 50;
+    // Elbow ~60% along, slightly raised — gives a natural "grip held aloft" arc
+    const elbowX = shoulderX + (neckX - shoulderX) * 0.55 + dir * 4;
+    const elbowY = (shoulderY + neckY) * 0.5 - 14;
+    drawBentArm(shoulderX, shoulderY, neckX, neckY, elbowX, elbowY, winColor);
+    // Fist gripping the throat
+    ctx.fillStyle = winAccent;
+    ctx.strokeStyle = winOutline;
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.arc(neckX, neckY, 6, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
+    // Knuckle ridges
+    ctx.strokeStyle = winOutline;
+    ctx.lineWidth = 0.8;
+    for (let k = 0; k < 3; k++) {
+      ctx.beginPath();
+      ctx.moveTo(neckX - 3 + k * 2, neckY - 4);
+      ctx.lineTo(neckX - 3 + k * 2, neckY - 1);
+      ctx.stroke();
+    }
+  }
+
+  // Back arm punching — phases 3 and 4 (two punches to the face)
+  if (rumbleActive && (phase === 3 || phase === 4)) {
+    const dir = slamDir;
+    const t = rumbleKavakPunchT;
+    let reach = 0;
+    if (t < 0.5) reach = t / 0.5;
+    else reach = 1 - (t - 0.5) / 0.5;
+    // Back-shoulder origin at proper shoulder height
+    const shoulderX = winFighter.x - dir * 6;
+    const shoulderY = winFighter.y - 36;
+    // Target: front of opponent's face (head bottom-front area)
+    const faceX = loseFighter.x - dir * 14;
+    const faceY = loseFighter.y - 56;
+    // Arm bends forward over Kavak's body to swing toward opponent
+    const bendForwardX = winFighter.x + dir * 18;
+    const bendForwardY = winFighter.y - 48;
+    // Interpolate the fist along a bent path: shoulder → bend → face
+    const fistX = (1 - reach) * shoulderX + reach * faceX;
+    const fistY = (1 - reach) * shoulderY + reach * faceY;
+    // For visual: draw arm as quadratic from shoulder through bend to fist
+    // Use a control point that's between bend and fist depending on reach
+    const cpX = bendForwardX * (1 - reach * 0.5) + fistX * (reach * 0.5);
+    const cpY = bendForwardY * (1 - reach * 0.5) + fistY * (reach * 0.5);
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = winOutline;
+    ctx.lineWidth = 7;
+    ctx.beginPath();
+    ctx.moveTo(shoulderX, shoulderY);
+    ctx.quadraticCurveTo(cpX, cpY, fistX, fistY);
+    ctx.stroke();
+    ctx.strokeStyle = winColor;
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(shoulderX, shoulderY);
+    ctx.quadraticCurveTo(cpX, cpY, fistX, fistY);
+    ctx.stroke();
+    // Fist
+    ctx.fillStyle = winAccent;
+    ctx.strokeStyle = winOutline;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(fistX, fistY, 6, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
+    // Impact starburst at peak reach
+    if (reach > 0.85) {
+      ctx.strokeStyle = '#ffd54a';
+      ctx.lineWidth = 2;
+      for (let s = 0; s < 6; s++) {
+        const a = (s / 6) * Math.PI * 2;
+        ctx.beginPath();
+        ctx.moveTo(faceX, faceY);
+        ctx.lineTo(faceX + Math.cos(a) * 12, faceY + Math.sin(a) * 12);
+        ctx.stroke();
+      }
+    }
+  }
+
+  // Dust particles
+  if (rumbleKavakDust && rumbleKavakDust.length > 0) {
+    for (const d of rumbleKavakDust) {
+      ctx.globalAlpha = d.alpha;
+      ctx.fillStyle = d.color;
+      ctx.beginPath();
+      ctx.arc(d.x, d.y, d.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // Stuck pose — use the actual fighter's draw method, flipped + half-buried + clipped
+  if (rumbleKavakStuck) {
+    const sx = rumbleKavakSlamX;
+    const dir = slamDir;
+
+    // Crater / cracks
+    ctx.fillStyle = '#5a4830';
+    ctx.beginPath();
+    ctx.ellipse(sx, groundY, 40, 9, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#3a2810';
+    ctx.beginPath();
+    ctx.ellipse(sx, groundY, 24, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#3a2810';
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 9; i++) {
+      const a = (i / 9) * Math.PI * 2 + 0.3;
+      const len = 22 + Math.sin(i * 2.7) * 14;
+      ctx.beginPath();
+      ctx.moveTo(sx + Math.cos(a) * 14, groundY + Math.sin(a) * 4);
+      ctx.lineTo(sx + Math.cos(a) * len, groundY + Math.sin(a) * len * 0.25);
+      ctx.stroke();
+    }
+
+    // Draw the actual loser fighter upside-down, with everything below the ground line clipped away
+    const loserF = loseFighter;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, 960, groundY + 1);
+    ctx.clip();
+    const sX = loserF.x, sY = loserF.y, sRot = loserF._rumbleRotation, sFacing = loserF.facing;
+    loserF.x = sx;
+    loserF.y = groundY - 30;       // origin 30 px above ground; rotation flips body so feet stick up
+    loserF._rumbleRotation = Math.PI - dir * 0.15;
+    loserF.draw(ctx);
+    loserF.x = sX; loserF.y = sY; loserF._rumbleRotation = sRot; loserF.facing = sFacing;
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
+function drawAetherRumble(loseFighter, winFighter) {
+  const groundY = loseFighter.groundY;
+  const dir = winFighter.facing;
+  const phase = rumbleAetherPhase;
+
+  ctx.save();
+
+  // Smoke (drawn behind chains/laser so it forms an atmospheric backdrop)
+  if (rumbleAetherSmoke && rumbleAetherSmoke.length > 0) {
+    for (const sm of rumbleAetherSmoke) {
+      ctx.globalAlpha = sm.alpha;
+      ctx.fillStyle = '#3a3a3a';
+      ctx.beginPath();
+      ctx.arc(sm.x, sm.y, sm.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // Golden chains — two chains arcing from the ground up to opponent's wrists
+  if (rumbleAetherChainT > 0 && phase < 4) {
+    const opX = loseFighter.x;
+    const opY = loseFighter.y;
+    const wristY = opY - 36;                  // wrist height (mid-body)
+    const sides = [-1, 1];
+    for (const s of sides) {
+      const groundAnchorX = opX + s * 36;
+      const wristX = opX + s * 18;
+      const t = Math.min(1, rumbleAetherChainT * (s === -1 ? 1 : 0.95)); // slight stagger
+      // Animated emergence: chain length scales with t
+      const tipX = groundAnchorX + (wristX - groundAnchorX) * t;
+      const tipY = groundY + (wristY - groundY) * t;
+
+      // Draw chain as a series of links along the path
+      const dx = tipX - groundAnchorX;
+      const dy = tipY - groundY;
+      const len = Math.sqrt(dx * dx + dy * dy);
+      const linkSpacing = 6;
+      const linkCount = Math.max(2, Math.floor(len / linkSpacing));
+      const angle = Math.atan2(dy, dx);
+      // Outer chain glow
+      ctx.strokeStyle = '#ffaa22';
+      ctx.lineWidth = 5;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(groundAnchorX, groundY);
+      ctx.lineTo(tipX, tipY);
+      ctx.stroke();
+      // Chain links — alternating orientation
+      for (let i = 0; i <= linkCount; i++) {
+        const lt = i / linkCount;
+        const lx = groundAnchorX + dx * lt;
+        const ly = groundY + dy * lt;
+        ctx.save();
+        ctx.translate(lx, ly);
+        ctx.rotate(angle + (i % 2 === 0 ? 0 : Math.PI / 2));
+        ctx.fillStyle = '#ffd54a';
+        ctx.strokeStyle = '#8a5a10';
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 4, 2.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        // Highlight
+        ctx.fillStyle = '#fff8d8';
+        ctx.beginPath();
+        ctx.ellipse(-1, -0.6, 1.2, 0.6, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+      // Manacle / cuff at the wrist end
+      if (t >= 0.95) {
+        ctx.fillStyle = '#ffd54a';
+        ctx.strokeStyle = '#8a5a10';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.arc(tipX, tipY, 5, 0, Math.PI * 2);
+        ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#3a2810';
+        ctx.beginPath();
+        ctx.arc(tipX, tipY, 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      // Soil mound at base of chain
+      if (rumbleAetherChainT > 0.1) {
+        ctx.fillStyle = '#3a2810';
+        ctx.globalAlpha = 0.7;
+        ctx.beginPath();
+        ctx.ellipse(groundAnchorX, groundY, 9, 3, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+    }
+  }
+
+  // Charging orb in front of Aether (phases 1-2)
+  if (rumbleAetherLaserT > 0 && phase >= 1 && phase < 3) {
+    const f = winFighter.facing;
+    const orbX = winFighter.x + f * 28;
+    const orbY = winFighter.centerY + 4;
+    const orbR = 8 + rumbleAetherLaserT * 18;
+    const pulse = 1 + Math.sin(Date.now() * 0.018) * 0.1;
+    ctx.save();
+    ctx.globalAlpha = 0.4;
+    ctx.fillStyle = '#ffe066';
+    ctx.beginPath();
+    ctx.arc(orbX, orbY, orbR * pulse * 1.7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 0.9;
+    ctx.fillStyle = '#ffd84a';
+    ctx.beginPath();
+    ctx.arc(orbX, orbY, orbR * pulse, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#fffce8';
+    ctx.beginPath();
+    ctx.arc(orbX, orbY, orbR * 0.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Massive laser beam during phases 2-3
+  if (rumbleAetherLaserT > 0.05 && (phase === 2 || phase === 3)) {
+    const f = winFighter.facing;
+    const startX = winFighter.x + f * 26;
+    const beamY = winFighter.centerY + 4;
+    const endX = f === 1 ? 960 : 0;
+    const thickness = 16 + rumbleAetherLaserT * 28;
+    const flicker = 0.85 + Math.sin(rumbleTimer * 0.6) * 0.15;
+    ctx.save();
+    // Outer glow
+    ctx.globalAlpha = 0.35 * rumbleAetherLaserT * flicker;
+    ctx.fillStyle = '#ffaa22';
+    ctx.fillRect(Math.min(startX, endX), beamY - thickness, Math.abs(endX - startX), thickness * 2);
+    // Main beam
+    ctx.globalAlpha = 0.95 * rumbleAetherLaserT;
+    ctx.fillStyle = '#ffd84a';
+    ctx.fillRect(Math.min(startX, endX), beamY - thickness * 0.55, Math.abs(endX - startX), thickness * 1.1);
+    // Bright center
+    ctx.globalAlpha = rumbleAetherLaserT;
+    ctx.fillStyle = '#fffce8';
+    ctx.fillRect(Math.min(startX, endX), beamY - thickness * 0.2, Math.abs(endX - startX), thickness * 0.4);
+    ctx.restore();
+  }
+
+  // Sparks flying off the opponent from laser hits
+  if (rumbleAetherSparks && rumbleAetherSparks.length > 0) {
+    for (const sp of rumbleAetherSparks) {
+      ctx.globalAlpha = sp.alpha;
+      ctx.fillStyle = '#ffe066';
+      ctx.beginPath();
+      ctx.arc(sp.x, sp.y, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // Falling fireballs
+  if (rumbleAetherFireballs && rumbleAetherFireballs.length > 0) {
+    for (const fb of rumbleAetherFireballs) {
+      // Trail
+      ctx.globalAlpha = 0.5;
+      ctx.fillStyle = '#ff6622';
+      ctx.beginPath();
+      ctx.ellipse(fb.x, fb.y - fb.size * 1.2, fb.size * 0.5, fb.size * 1.4, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // Core fireball
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#ff8833';
+      ctx.beginPath();
+      ctx.arc(fb.x, fb.y, fb.size, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#ffd54a';
+      ctx.beginPath();
+      ctx.arc(fb.x, fb.y, fb.size * 0.55, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#fffce8';
+      ctx.beginPath();
+      ctx.arc(fb.x - fb.size * 0.2, fb.y - fb.size * 0.2, fb.size * 0.25, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Fireball impact bursts
+  if (rumbleAetherImpacts && rumbleAetherImpacts.length > 0) {
+    for (const im of rumbleAetherImpacts) {
+      const a = im.timer / 18;
+      ctx.globalAlpha = a;
+      // Outer ring
+      ctx.fillStyle = '#ff6622';
+      ctx.beginPath();
+      ctx.arc(im.x, im.y, im.size * (1.5 - a), 0, Math.PI * 2);
+      ctx.fill();
+      // Inner glow
+      ctx.fillStyle = '#ffd54a';
+      ctx.beginPath();
+      ctx.arc(im.x, im.y, im.size * (1 - a) * 0.8, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  ctx.restore();
+}

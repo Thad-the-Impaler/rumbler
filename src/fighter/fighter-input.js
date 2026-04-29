@@ -25,6 +25,13 @@ Fighter.prototype.handlePlayerInput = function(keys, opponent) {
     return;
   }
 
+  // Kavak: locked while in flurry or dash
+  if (this.kavakFlurry || this.kavakDash) {
+    this.vx = 0;
+    this.state = 'idle';
+    return;
+  }
+
   if (this.state !== 'attack') {
     // Movement
     const left = keys['ArrowLeft'] || keys['a'] || keys['A'];
@@ -374,6 +381,59 @@ Fighter.prototype.handlePlayerInput = function(keys, opponent) {
       this.xhaustOilPuddles = [];
       keys['k'] = false; keys['K'] = false;
     }
+  }
+
+  // Aether: hold L to charge an energy orb, release to fire a laser. Damage scales with charge time.
+  if (this.char.isAether) {
+    const lHeld = keys['l'] || keys['L'];
+    if (this.aetherCharging && !lHeld) {
+      // Released — fire laser
+      this.fireAetherLaser(opponent, this.aetherChargeT);
+      this.aetherCharging = false;
+      this.aetherChargeT = 0;
+      this.aetherCooldown = 24;
+    } else if (lHeld && this.aetherCooldown <= 0 && this.state !== 'attack') {
+      this.aetherCharging = true;
+      if (this.aetherChargeT < this.aetherMaxCharge) this.aetherChargeT++;
+    }
+  }
+
+  // Kavak: press K to launch a high-speed punch flurry alternating up/down
+  if (this.char.isKavak && (keys['k'] || keys['K']) && !this.kavakFlurry && this.kavakFlurryCooldown <= 0 && this.state !== 'attack' && !this.kavakDash) {
+    this.kavakFlurry = { hitsLeft: 8, hitsTotal: 8, hitTimer: 0, hitInterval: 6 };
+    this.vx = 0;
+    keys['k'] = false; keys['K'] = false;
+  }
+
+  // Kavak: secret dash on double-tap left/right (consumes pending flag set by input-handler)
+  if (this.char.isKavak && !this.kavakDash && this.kavakDashCooldown <= 0 && !this.kavakFlurry && this.state !== 'attack') {
+    if (this.kavakDashLeftPending || this.kavakDashRightPending) {
+      const dir = this.kavakDashLeftPending ? -1 : 1;
+      const dist = 180;
+      const endX = Math.max(40, Math.min(920, this.x + dir * dist));
+      this.kavakDash = { startX: this.x, endX, frames: 10, frame: 0, hit: false, dir };
+      this.kavakDashLeftPending = false;
+      this.kavakDashRightPending = false;
+    }
+  }
+
+  // Dryad: press P to plant a seed that grows into a destructible plant wall
+  if (this.char.isDryad && (keys['p'] || keys['P']) && this.state !== 'attack') {
+    const MAX_WALLS = 3;
+    if (this.dryadWalls.length < MAX_WALLS) {
+      this.dryadWalls.push({
+        x: this.x,
+        growT: 0,
+        maxGrowT: 90,        // 1.5s @ 60fps
+        w: 56,
+        maxH: 150,           // wall top y = 380 - 150 = 230 (blocks jumps)
+        health: 30,
+        maxHealth: 30,
+        flashTimer: 0,
+        ownerIsPlayer: this.isPlayer
+      });
+    }
+    keys['p'] = false; keys['P'] = false;
   }
 
   // Vortice: hold H to summon pull tornado, press J to activate push tornado

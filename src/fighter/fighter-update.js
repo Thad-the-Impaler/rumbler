@@ -114,6 +114,16 @@ Fighter.prototype.update = function(opponent, keys) {
     if (this.hitEffect.timer <= 0) this.hitEffect = null;
   }
 
+  // Dryad wall tick (owner-side only): grow + flash decay + prune dead
+  if (this.dryadWalls && this.dryadWalls.length > 0) {
+    for (let i = this.dryadWalls.length - 1; i >= 0; i--) {
+      const w = this.dryadWalls[i];
+      if (w.growT < w.maxGrowT) w.growT++;
+      if (w.flashTimer > 0) w.flashTimer--;
+      if (w.health <= 0) this.dryadWalls.splice(i, 1);
+    }
+  }
+
   // Assist projectile
   if (this.assistActive) {
     const a = this.assistActive;
@@ -272,6 +282,40 @@ Fighter.prototype.update = function(opponent, keys) {
   } else if (!this.ericthoHidden) {
     if (this.x < 40) this.x = 40;
     if (this.x > 920) this.x = 920;
+  }
+
+  // Dryad wall collision: push out of any plant walls (both fighters' walls)
+  if (!this.ericthoHidden) {
+    const ownWalls = this.dryadWalls || [];
+    const oppWalls = (opponent && opponent.dryadWalls) || [];
+    const totalWalls = ownWalls.length + oppWalls.length;
+    if (totalWalls > 0) {
+      const fLeft = this.x - this.width / 2;
+      const fRight = this.x + this.width / 2;
+      const fTop = this.y - this.height;
+      const fBottom = this.y;
+      for (let wi = 0; wi < totalWalls; wi++) {
+        const w = wi < ownWalls.length ? ownWalls[wi] : oppWalls[wi - ownWalls.length];
+        const currentH = w.maxH * (w.growT / w.maxGrowT);
+        if (currentH < 8) continue;
+        // Owner gets a 0.5s grace period to step off their own seed
+        if (w.ownerIsPlayer === this.isPlayer && w.growT < 30) continue;
+        const wallTopY = this.groundY - currentH;
+        const wallLeft = w.x - w.w / 2;
+        const wallRight = w.x + w.w / 2;
+        if (fRight > wallLeft && fLeft < wallRight && fBottom > wallTopY && fTop < this.groundY) {
+          const penLeft = fRight - wallLeft;
+          const penRight = wallRight - fLeft;
+          if (penLeft < penRight) {
+            this.x = wallLeft - this.width / 2;
+            if (this.vx > 0) this.vx = 0;
+          } else {
+            this.x = wallRight + this.width / 2;
+            if (this.vx < 0) this.vx = 0;
+          }
+        }
+      }
+    }
   }
 
   // Face opponent (skip while Erictho is in portal)
@@ -1390,6 +1434,62 @@ Fighter.prototype.update = function(opponent, keys) {
       opponent.facing = this.x > opponent.x ? 1 : -1;
     }
   }
+  // Aether: laser visual lifetime + cooldown + cancel charge on hitstun
+  if (this.aetherCooldown > 0) this.aetherCooldown--;
+  if (this.aetherLaser) {
+    this.aetherLaser.fireT++;
+    if (this.aetherLaser.fireT >= this.aetherLaser.maxFireT) this.aetherLaser = null;
+  }
+  if (this.char.isAether && (this.state === 'hitstun' || this.state === 'blockstun' || this.state === 'launched')) {
+    if (this.aetherCharging) {
+      this.aetherCharging = false;
+      this.aetherChargeT = 0;
+    }
+  }
+
+  // Kavak: flurry tick — alternating up/down high-speed punches at short range
+  if (this.kavakFlurryCooldown > 0) this.kavakFlurryCooldown--;
+  if (this.kavakFlurry) {
+    this.vx = 0;
+    this.state = 'idle';
+    this.kavakFlurry.hitTimer++;
+    if (this.kavakFlurry.hitTimer >= this.kavakFlurry.hitInterval) {
+      this.kavakFlurry.hitTimer = 0;
+      const idx = this.kavakFlurry.hitsTotal - this.kavakFlurry.hitsLeft;
+      const isUpHit = idx % 2 === 0;
+      const range = 80;
+      const hitX = this.x + this.facing * range;
+      const fistY = this.centerY + (isUpHit ? -22 : 22);
+      const dist = Math.abs(this.x - opponent.x);
+      if (dist < range + 30 && Math.abs(this.centerY - opponent.centerY) < 70) {
+        const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+        const dmg = 7 * this.char.stats.power * diffMult;
+        opponent.takeDamage(dmg, { hitstun: 6, blockstun: 4, launch: false }, this.facing, false, { x: hitX, y: fistY });
+      }
+      playSfx(sfx_jab);
+      this.kavakFlurry.hitsLeft--;
+      if (this.kavakFlurry.hitsLeft <= 0) {
+        this.kavakFlurry = null;
+        this.kavakFlurryCooldown = 90;
+      }
+    }
+  }
+
+  // Kavak: dash motion (secret double-tap left/right)
+  if (this.kavakDashCooldown > 0) this.kavakDashCooldown--;
+  if (this.kavakDash) {
+    this.kavakDash.frame++;
+    const t = Math.min(1, this.kavakDash.frame / this.kavakDash.frames);
+    this.x = this.kavakDash.startX + (this.kavakDash.endX - this.kavakDash.startX) * t;
+    this.vx = 0;
+    this.state = 'idle';
+    if (t >= 1) {
+      this.kavakDash = null;
+      this.kavakDashCooldown = 60;
+      this.facing = opponent.x > this.x ? 1 : -1;
+    }
+  }
+
   // Buck firework spray update
   if (this.char.isBuck) {
     if (this.buckFireCooldown > 0) this.buckFireCooldown--;
@@ -2115,7 +2215,41 @@ Fighter.prototype.update = function(opponent, keys) {
       const hitX = this.x + this.facing * atk.range * bojdoRange * rubbermanRange;
       // Check hit against main body or any Duplaire clone
       const hitRadius = 50 * (this.char.isBojdo ? this.bojdoScale : 1);
-      let hitBody = (Math.abs(hitX - opponent.x) < hitRadius && Math.abs(this.centerY - opponent.centerY) < 70);
+
+      // Dryad wall interception: walls in the attack's line of fire absorb the hit
+      const _ownWalls = this.dryadWalls || [];
+      const _oppWalls = (opponent && opponent.dryadWalls) || [];
+      let wallHit = null;
+      let wallHitDist = Infinity;
+      for (let wi = 0; wi < _ownWalls.length + _oppWalls.length; wi++) {
+        const w = wi < _ownWalls.length ? _ownWalls[wi] : _oppWalls[wi - _ownWalls.length];
+        const currentH = w.maxH * (w.growT / w.maxGrowT);
+        if (currentH < 1) continue;
+        const wallTopY = this.groundY - currentH;
+        const wallLeft = w.x - w.w / 2;
+        const wallRight = w.x + w.w / 2;
+        // Hitbox AABB at (hitX, centerY) with half-extents (hitRadius, 70)
+        const hbLeft = hitX - hitRadius;
+        const hbRight = hitX + hitRadius;
+        const hbTop = this.centerY - 70;
+        const hbBottom = this.centerY + 70;
+        if (hbRight > wallLeft && hbLeft < wallRight && hbBottom > wallTopY && hbTop < this.groundY) {
+          // Wall must be between attacker and hit point (in attack direction)
+          if ((this.facing === 1 && w.x >= this.x) || (this.facing === -1 && w.x <= this.x)) {
+            const d = Math.abs(w.x - this.x);
+            if (d < wallHitDist) { wallHitDist = d; wallHit = w; }
+          }
+        }
+      }
+      if (wallHit) {
+        const diffMult = (!this.isPlayer && cpuDifficulty) ? cpuDifficulty.damageMult : 1;
+        wallHit.health -= atk.damage * this.char.stats.power * diffMult;
+        wallHit.flashTimer = 8;
+        if (wallHit.health < 0) wallHit.health = 0;
+        // Prevent multi-hit and skip body damage this strike
+        this.attackFrame = atk.startup + atk.active;
+      }
+      let hitBody = !wallHit && (Math.abs(hitX - opponent.x) < hitRadius && Math.abs(this.centerY - opponent.centerY) < 70);
       let hitClonePos = null;
       if (!hitBody && opponent.char.isDuplaire) {
         for (const clone of opponent.duplaireClones) {

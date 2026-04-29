@@ -183,6 +183,26 @@ class Fighter {
     this.vorticeTornadoParticles = []; // visual wind particles
     this.vorticePushCooldown = 0; // J push cooldown
 
+    // Dryad walls — { x, growT, maxGrowT, w, h, health, maxHealth, flashTimer, seed: { y } }
+    this.dryadWalls = [];
+
+    // Kavak punch flurry + secret dash
+    this.kavakFlurry = null; // { hitsLeft, hitsTotal, hitTimer, hitInterval }
+    this.kavakFlurryCooldown = 0;
+    this.kavakDash = null;   // { startX, endX, frames, frame, hit }
+    this.kavakDashCooldown = 0;
+    this.kavakDashLeftPending = false;
+    this.kavakDashRightPending = false;
+    this.kavakLastLeftPress = -100;  // sentinel: no prior press
+    this.kavakLastRightPress = -100;
+
+    // Aether laser charge
+    this.aetherCharging = false;
+    this.aetherChargeT = 0;
+    this.aetherMaxCharge = 90;       // 1.5s for full charge
+    this.aetherCooldown = 0;
+    this.aetherLaser = null;         // { fireT, maxFireT, charge, beamY, dir }
+
     // CPU AI
     this.aiTimer = 0;
     this.aiAction = null;

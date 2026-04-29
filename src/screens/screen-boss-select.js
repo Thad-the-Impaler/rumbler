@@ -9,7 +9,7 @@ const practiceBossList = [
   { char: sixIronChar, name: 'SIX IRON-NINE IRON' },
   { char: hangmanChar, name: 'HANGMAN' },
   { char: twinsChar, name: 'TWINS' },
-  { char: tubeWardenChar, name: 'TUBE WARDEN' },
+  { char: tubeWardenChar, name: 'TUBEWARDEN' },
   { char: orcusChar, name: 'ORCUS' },
   { char: headChar, name: 'HEAD' },
   { char: darkBojdoChar, name: 'DARK BOJDO' },

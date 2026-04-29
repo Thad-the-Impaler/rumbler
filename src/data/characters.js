@@ -289,8 +289,38 @@ const xhaustChar = {
   isXhaust: true
 };
 
+const dryadChar = {
+  name: 'DRYAD',
+  color: '#3a6a2e',
+  accent: '#8fc965',
+  outline: '#1f3a18',
+  stats: { speed: 4.0, power: 0.95, defense: 1.0 },
+  desc: 'Forest wallmaker',
+  isDryad: true
+};
+
+const kavakChar = {
+  name: 'KAVAK',
+  color: '#2a2a2e',
+  accent: '#5a4a3a',
+  outline: '#0f0f12',
+  stats: { speed: 4.5, power: 1.0, defense: 0.95 },
+  desc: 'The Mercenary',
+  isKavak: true
+};
+
+const aetherChar = {
+  name: 'AETHER',
+  color: '#e89c2a',
+  accent: '#ffe88a',
+  outline: '#8a4a10',
+  stats: { speed: 4.0, power: 1.0, defense: 1.0 },
+  desc: 'Crowned of light',
+  isAether: true
+};
+
 // Fixed order for secret characters (after base roster)
-const secretCharOrder = [bojdoChar, rubbermanChar, torrenaChar, snazzChar, haystackChar, codemaxChar, corvidaChar, golgarChar, telatrineChar, duplaireChar, bozollokChar, gourmandChar, batschChar, paletapChar, matadorChar, killawattChar, backtrackChar, exorChar, buckChar, vorticeChar, xhaustChar];
+const secretCharOrder = [bojdoChar, rubbermanChar, torrenaChar, snazzChar, haystackChar, codemaxChar, corvidaChar, golgarChar, telatrineChar, duplaireChar, bozollokChar, gourmandChar, batschChar, paletapChar, matadorChar, killawattChar, backtrackChar, exorChar, buckChar, vorticeChar, xhaustChar, dryadChar, kavakChar, aetherChar];
 
 // Locked character hints (code hints, not the actual code)
 const secretCharHints = new Map([
@@ -315,6 +345,9 @@ const secretCharHints = new Map([
   [buckChar, 'Stars and stripes forever...'],
   [vorticeChar, 'Caught in a spiral...'],
   [xhaustChar, 'Fuel the fire...'],
+  [dryadChar, 'From seed to bloom...'],
+  [kavakChar, 'A whirlwind of fists...'],
+  [aetherChar, 'Light worn as a crown...'],
 ]);
 function insertCharOrdered(char) {
   const orderIdx = secretCharOrder.indexOf(char);

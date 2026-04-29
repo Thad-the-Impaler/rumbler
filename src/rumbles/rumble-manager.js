@@ -122,5 +122,11 @@ function drawRumbleAnimation() {
   if (rumbleType === 'X-HAUST') {
     drawXhaustRumble(loseFighter, winFighter);
   }
+  if (rumbleType === 'KAVAK') {
+    drawKavakRumble(loseFighter, winFighter);
+  }
+  if (rumbleType === 'AETHER') {
+    drawAetherRumble(loseFighter, winFighter);
+  }
 }
 

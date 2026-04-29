@@ -58,6 +58,9 @@ function activateMasterPasskey() {
   if (!buckUnlocked) { buckUnlocked = true; insertCharOrdered(buckChar); }
   if (!vorticeUnlocked) { vorticeUnlocked = true; insertCharOrdered(vorticeChar); }
   if (!xhaustUnlocked) { xhaustUnlocked = true; insertCharOrdered(xhaustChar); }
+  if (!dryadUnlocked) { dryadUnlocked = true; insertCharOrdered(dryadChar); }
+  if (!kavakUnlocked) { kavakUnlocked = true; insertCharOrdered(kavakChar); }
+  if (!aetherUnlocked) { aetherUnlocked = true; insertCharOrdered(aetherChar); }
   if (!weedthornUnlocked) { weedthornUnlocked = true; insertAssistOrdered(weedthornAssist); }
   if (!bojAssistUnlocked) { bojAssistUnlocked = true; insertAssistOrdered(bojAssist); }
   if (!jazzAssistUnlocked) { jazzAssistUnlocked = true; insertAssistOrdered(jazzAssist); }
@@ -85,5 +88,5 @@ function activateMasterPasskey() {
 }
 
 function isMasterPasskeyNeeded() {
-  return !bojdoUnlocked || !bojdobojdoUnlocked || !rubbermanUnlocked || !torrenaUnlocked || !snazzUnlocked || !haystackUnlocked || !codemaxUnlocked || !corvidaUnlocked || !golgarUnlocked || !telatrineUnlocked || !duplaireUnlocked || !bozollokUnlocked || !gourmandUnlocked || !batschUnlocked || !paletapUnlocked || !matadorUnlocked || !killawattUnlocked || !backtrackUnlocked || !exorUnlocked || !buckUnlocked || !vorticeUnlocked || !xhaustUnlocked || !weedthornUnlocked || !bojAssistUnlocked || !jazzAssistUnlocked || !cyanoAssistUnlocked || !warperAssistUnlocked || !aphidAssistUnlocked || !studAssistUnlocked || !floatAssistUnlocked || !stickerAssistUnlocked || !serpentAssistUnlocked || !snowyCityUnlocked || !foggyCityUnlocked || !rainyCityUnlocked || !glowingCityUnlocked || !sunnyCityUnlocked || !tentUnlocked || !dustUnlocked || !pulpUnlocked;
+  return !bojdoUnlocked || !bojdobojdoUnlocked || !rubbermanUnlocked || !torrenaUnlocked || !snazzUnlocked || !haystackUnlocked || !codemaxUnlocked || !corvidaUnlocked || !golgarUnlocked || !telatrineUnlocked || !duplaireUnlocked || !bozollokUnlocked || !gourmandUnlocked || !batschUnlocked || !paletapUnlocked || !matadorUnlocked || !killawattUnlocked || !backtrackUnlocked || !exorUnlocked || !buckUnlocked || !vorticeUnlocked || !xhaustUnlocked || !dryadUnlocked || !kavakUnlocked || !aetherUnlocked || !weedthornUnlocked || !bojAssistUnlocked || !jazzAssistUnlocked || !cyanoAssistUnlocked || !warperAssistUnlocked || !aphidAssistUnlocked || !studAssistUnlocked || !floatAssistUnlocked || !stickerAssistUnlocked || !serpentAssistUnlocked || !snowyCityUnlocked || !foggyCityUnlocked || !rainyCityUnlocked || !glowingCityUnlocked || !sunnyCityUnlocked || !tentUnlocked || !dustUnlocked || !pulpUnlocked;
 }
